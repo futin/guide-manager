@@ -71,3 +71,14 @@ test('decorate escapes markup characters in the source text', () => {
   assert.ok(html.includes('&lt;'));
   assert.ok(html.includes('&amp;'));
 });
+
+
+test('decorate treats contractions with typographic apostrophe as single words', () => {
+  const { decorate } = load();
+  // "don’t" with U+2019 curly right quote should be treated as one word
+  const result = decorate('don’t', 0.5, 1, 0);
+  // Should have exactly one opening <b> tag (one word)
+  assert.equal((result.html.match(/<b class="bx-b">/g) || []).length, 1, 'one word should have one <b> tag');
+  // Should advance word index by 1
+  assert.equal(result.next, 1, 'contraction should be counted as one word');
+});

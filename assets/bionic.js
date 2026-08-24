@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var WORD = /\p{L}[\p{L}\p{M}'']*/gu;
+  var WORD = /\p{L}[\p{L}\p{M}’']*/gu;
 
   // How many leading characters of a word to bold. Never the whole word: a
   // fully bold word carries no fixation point, which is the only thing the
