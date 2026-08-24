@@ -10,7 +10,7 @@
     "build:server": "nest build",
     "build:client": "vite build",
     "start": "node dist/server/src/main.js",
-    "dev": "nest start --watch",
+    "dev": "nest start --watch --no-shell",
     "dev:web": "vite",
     "test": "jest --runInBand",
     "typecheck": "tsc --noEmit",
