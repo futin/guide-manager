@@ -534,3 +534,111 @@ git commit -m "feat: propagate bionic settings into already-open guides"
 Not ported, deliberately: Sessions, Management, Analytics, the chat drawer, spawn
 panel, dictation, remote-answer and push-notification UI. None has a counterpart
 in guide-manager.
+
+## Outcome
+
+**2026-08-24 — done.** Executed on branch `task-1-nest-backend-split`, on top of
+task-1:
+
+```
+3b5659f fix: inject the reading aid panel into rendered guide pages
+78196ea feat: propagate bionic settings into already-open guides
+1425059 feat: guides card list and iframe viewer
+8e2e073 feat: settings page with theme picker and bionic reading controls
+e52ab00 feat: React/Vite client shell with the dashboard side rail
+```
+
+### Verification
+
+```
+$ npx jest
+Test Suites: 17 passed, 17 total
+Tests:       148 passed, 148 total
+
+$ npx tsc --noEmit
+tsc exit 0
+
+$ npm run build
+✓ built in 696ms        (client/dist/index.html present)
+
+$ node dist/server/src/main.js     # "no client bundle" warnings: 0
+/                  200      /api/health        200
+/deep/spa/route    200      /api/guides        200
+/style.css         200      /theme.css         200
+/bionic.css        200      /bionic.js         200
+/asset?p=/etc/passwd 404
+
+rendered guide page contains: dataset.theme · /theme.css · /bionic.css ·
+/bionic.js · class="bx-panel" · id="bx-on" · /api/progress
+```
+
+In a real browser against the running server and the real registry (8 guides,
+2 projects):
+
+- Rail shows exactly **Guides** and **Settings**; guides are grouped by project,
+  each card showing type · date, and the Dictation card showed **42%** from a
+  progress write made earlier.
+- Settings has exactly two groups: Display (five swatches) and Reading (three
+  rows). Fixation and Every are greyed out while bionic is off.
+- Picking **Daylight Strip** repainted the shell *and* the framed markdown guide
+  — one palette across both, which is what sharing `shared/theme.css` buys.
+- **Bionic live propagation, verified natively.** Settings in one tab, a guide
+  open in another: prefixes grew from `Th/gui/teac` to `Thi/guid/teach` and the
+  in-guide slider synced to 70, with no reload and no synthetic events. Turning
+  it off left `boldCount: 0`, `span.bx: 0` and the prose intact — the restore is
+  lossless.
+- **Two frames deep, also native.** A stand-in generated build (the vendored
+  panel, CSS and JS inlined the way `skills/study/references/visuals.md`
+  prescribes) framed in the viewer: it kept **its own panel**, applied bionic
+  from the shared key, left `pre code` and `h1` untouched, and when the real
+  Settings UI in a second tab wrote `on/0.3/2nd`, the browser delivered the event
+  and the guide repainted to 30% / every 2nd word with its own panel synced.
+- At 375px: `.rail` computed `flex-direction: row` with `overflow-x: auto` and the
+  wordmark hidden; opening a guide gave a `position: fixed` overlay at 375×812
+  with `guide-locked` on `<html>` and `overflow: hidden`.
+
+`bin/register.js` still byte-identical to main. `assets/` differs only by the
+three version headers and the 23-line listener.
+
+### One real defect found, and it was not found by a test
+
+`wrapPage` linked `bionic.css` and `bionic.js` but never injected the panel
+markup. `init()` in the vendored aid resolves the panel's controls before doing
+anything and returns early if any are missing — so **bionic reading was inert on
+every server-rendered guide**, and the storage listener never bound there either.
+Caught by opening a real guide in a browser and seeing unbolded prose while the
+key said `on: true`. Fixed with a `panelHtml` option (markdown pages only; a
+framed deck's own build embeds one inside the frame), covered by two new
+`render.e2e` cases.
+
+### Deviations from the plan
+
+- **jsdom via a `@jest-environment` docblock**, not `projects`. One preset and one
+  transform config for the whole repo instead of duplicating them per project.
+- **`--font-scale` divisions dropped** from the ported viewport-unit rules. They
+  exist for the dashboard's `.shell{zoom}` text-scale setting, which is not
+  ported, so they would be no-ops. A comment in `styles.css` says they must come
+  back if a text scale is ever added.
+- **`build` split into `build:server` + `build:client`**, since the plan's
+  `npm run build` had to produce both.
+- **The static-bundle test was rewritten.** Its bundle-present branch asserted an
+  HTTP fallback a Nest testing module cannot produce: `ServeStaticModule`
+  installs Express middleware that `Test.createTestingModule` does not wire up,
+  so it 404s whether or not a bundle exists (probed and confirmed).
+  `clientDistModules` now takes the dist path, so the registration decision is
+  tested directly and the fallback is verified against the running server.
+- **A settings change does not repaint a guide within one tab**, because the
+  viewer unmounts when you navigate to Settings. The listener earns its place
+  across tabs and windows, which is how it was verified. The task's wording
+  implied same-tab; the mechanism is per-document.
+- **`skills/` was restored.** The directory left the working tree during task-1
+  for reasons unrelated to this work, and a blanket `git add -A` committed the
+  deletion unnoticed. Restored byte-identical to main in 78196ea; only
+  `visuals.md` differs now, by the v2 documentation this task added.
+
+### Not verified, because no artifact exists
+
+No guide on this machine was generated with the reading aid in it — every build
+predates today's bionic work — so "an already-generated study build still shows
+its own panel" was verified against a faithful stand-in, not a real published
+guide. The first real regeneration will be the true test.
