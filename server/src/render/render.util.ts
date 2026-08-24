@@ -63,11 +63,12 @@ export function breadcrumbBar({ project, title, type }: Partial<GuideMeta> = {})
 </header>`;
 }
 
-// A tutor deck is one self-contained HTML file with its own inline CSS/JS and
-// its own Next/Back controls, so it is framed rather than spliced into: the
-// deck bytes stay untouched and reach the browser through /asset. The frame is
-// same-origin, so focusing it lets the deck's own ArrowLeft/ArrowRight
-// listeners fire without the reader having to click into it first.
+// A generated HTML guide — a tutor deck, or a study guide's single-page build —
+// is one self-contained file with its own inline CSS/JS, so it is framed rather
+// than spliced into: the bytes stay untouched and reach the browser through
+// /asset. The frame is same-origin, so focusing it lets a deck's own
+// ArrowLeft/ArrowRight listeners fire without the reader having to click into
+// it first.
 export function deckFrame(src: string, title?: string): string {
   return `<iframe class="deck-frame" src="${escapeHtml(src)}" title="${escapeHtml(title || 'Deck')}"></iframe>
 <script>

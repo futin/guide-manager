@@ -15,8 +15,14 @@ export class RenderController {
 
   /**
    * The read-it-here route: always carries the breadcrumb. A markdown guide is
-   * rendered inline; a generated deck is framed so its own inline CSS/JS and
-   * its Next/Back controls reach the browser untouched.
+   * rendered inline; a generated HTML page is framed so its own inline CSS/JS
+   * reach the browser untouched.
+   *
+   * Both guide kinds land in that second branch. A tutor deck is framed for its
+   * Next/Back controls; a study guide's `index.html` build is framed because it
+   * is the only artifact that holds the *whole* guide — every chapter, the
+   * contents rail, and hand-authored SVG where the markdown has mermaid fences,
+   * none of which the inline markdown path reproduces.
    */
   @Get('guide')
   guide(@Query('p') requested: string, @Res() res: Response): void {
@@ -37,10 +43,10 @@ export class RenderController {
     }
     if (ext === '.html' || ext === '.htm') {
       const src = `/asset?p=${encodeURIComponent(real)}`;
-      // No guidePath here on purpose: a deck scrolls inside its own iframe, so a
-      // reporter on this document would only ever measure a page that does not
-      // move. The deck still gets counted as opened by the client when the card
-      // is tapped.
+      // No guidePath here on purpose: a framed page scrolls inside its own
+      // iframe, so a reporter on this document would only ever measure a page
+      // that does not move. It still gets counted as opened by the client when
+      // the card is tapped.
       res.type(MIME['.html']).send(
         wrapPage(meta.title, deckFrame(src, meta.title), breadcrumbBar(meta), { bodyClass: 'deck-host' })
       );

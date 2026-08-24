@@ -36,6 +36,30 @@ export function upsertGuide(registry, { projectPath, guidePath, type, title, now
   return registry;
 }
 
+/**
+ * The only way to un-register a guide, so that re-pointing one at a different
+ * file stays a single-writer operation. `upsertGuide` keys on the guide path,
+ * so swapping a directory guide's `README.md` hub for its generated
+ * `index.html` would otherwise leave the old entry behind as a second card for
+ * the same guide — hand-editing registry.json to clean that up is exactly the
+ * thing the single-writer rule exists to prevent.
+ *
+ * A project with no guides left is dropped with it: a project entry is only a
+ * container, and an empty one is noise on the board.
+ *
+ * Returns false when the path was not registered, so the caller can warn
+ * instead of silently rewriting the file to itself.
+ */
+export function removeGuide(registry, guidePath) {
+  const project = registry.projects.find((p) => p.guides.some((g) => g.path === guidePath));
+  if (!project) return false;
+  project.guides = project.guides.filter((g) => g.path !== guidePath);
+  if (project.guides.length === 0) {
+    registry.projects = registry.projects.filter((p) => p !== project);
+  }
+  return true;
+}
+
 export function saveRegistry(file, registry) {
   mkdirSync(dirname(file), { recursive: true });
   const tmpFile = `${file}.tmp`;
@@ -50,9 +74,25 @@ function main() {
       guide: { type: 'string' },
       type: { type: 'string' },
       title: { type: 'string' },
+      remove: { type: 'boolean' },
     },
   });
-  const { project, guide, type, title } = values;
+  const { project, guide, type, title, remove } = values;
+
+  // Removal is keyed on the guide path alone: paths are absolute and a guide
+  // lives in exactly one project, so requiring --project would only add a way
+  // to get the call wrong.
+  if (remove) {
+    if (!guide) throw new Error('usage: register.js --remove --guide <abs>');
+    const registry = loadRegistry(REGISTRY_FILE);
+    // Thrown, not saved-and-warned: a miss means the caller named the wrong
+    // path, and rewriting the file to itself would move nothing but the mtime.
+    if (!removeGuide(registry, guide)) throw new Error(`not registered: ${guide}`);
+    saveRegistry(REGISTRY_FILE, registry);
+    console.log(`removed: ${guide}`);
+    return;
+  }
+
   if (!project || !guide || !type || !title) {
     throw new Error('usage: register.js --project <abs> --guide <abs> --type study|tutor --title <text>');
   }

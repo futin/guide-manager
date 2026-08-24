@@ -69,9 +69,19 @@ Pick sensible defaults based on scope, but let the user override:
     topic or a whole package/module with several distinct concerns. Default for wide
     scopes. See *File layout* in step 6 — a guide's files are always grouped by type,
     never flat.
-- **Location** — where the file or directory lives. Offer a sensible default (e.g.
-  `learning-docs/<topic>.md`, or `learning-docs/<topic>/` for the multi-file option), but
-  honor whatever path the user names (they may prefer something like `docs/learning/…`).
+- **Location** — where the file or directory lives. The default is always under
+  `docs/guides/study/`: `docs/guides/study/<topic>.md` for a single file,
+  `docs/guides/study/<topic>/` for the multi-file option. Pre-select that; honor whatever
+  path the user names if they override it.
+
+  **Why one fixed home:** guides used to land wherever the session felt like putting them
+  — `learning-docs/`, `docs/learning-notes/`, `docs/published-guides/` — so a project
+  accumulated several half-populated guide directories and had nothing you could point at
+  as *the* guides. `docs/guides/<skill>/` gives every project one predictable tree:
+  `study/` for what this skill writes, `tutor/` for the decks `/tutor` writes. That makes
+  a project's guides legible as a set — and cheap to collect by walking one directory —
+  instead of only discoverable through whatever ad-hoc paths past sessions happened to
+  register.
 - **Visuals** — one of:
   - *Mermaid diagrams* — diagrams live in ` ```mermaid ` fences inside the markdown.
     **This is the default**; pre-select it.
@@ -178,9 +188,12 @@ chapters and the generator scripts flat into one directory:
   of it, and a directory wrapping a single file is noise, not organization. Type
   directories are for the **sets**: the chapters, and the tooling.
 - A *single-file* guide with **no** HTML build stays a single file — one file needs no
-  directories. A single-file guide **with** the HTML build gets `<topic>.md` +
-  `<topic>.html` at the root plus `tools/` (no `guide/`, since there are no other
-  chapters).
+  directories: it is just `docs/guides/study/<topic>.md`. A single-file guide **with** the
+  HTML build gets `<topic>.md` + `<topic>.html` at the root plus `tools/` (no `guide/`,
+  since there are no other chapters) — so opting into the build promotes even a
+  single-file guide from `docs/guides/study/<topic>.md` to a `docs/guides/study/<topic>/`
+  directory. Say so when the user picks the build, because otherwise the path they
+  approved at step 3 changes shape under them.
 - **Why:** flat, the four generator scripts interleave with the chapters, so a reader
   scanning for the next thing to read has to already know which files are prose and which
   are build machinery — nothing in the listing tells them. Pulling the tooling into
@@ -302,9 +315,27 @@ guide-manager viewer lists it:
 
     node "${CLAUDE_PLUGIN_ROOT}/bin/register.js" \
       --project "<absolute path to the project root>" \
-      --guide "<absolute path to the guide file; for a directory guide, its README.md>" \
+      --guide "<absolute path to the guide entry point; see below>" \
       --type study \
       --title "<the guide's human-readable title>"
+
+**Which file to register** — whichever one is the *whole* guide:
+
+- **HTML build present** (the *Mermaid + a browsable HTML build* option at step 3):
+  register the generated `index.html`, not `README.md`. The viewer renders a `.md`
+  guide by running that one file through `marked` and its own stylesheet: no mermaid
+  renderer, no generated table of contents, and no sibling chapters. A directory
+  guide registered at its hub therefore shows up as the hub alone — fences as raw
+  text, chapters missing — while the build already carries every chapter, the
+  contents rail, and the fences as drawn SVG. A registered `.html` guide is framed
+  verbatim, so all of that survives.
+- **No HTML build** — register the single markdown file, or a directory guide's
+  `README.md`.
+
+Re-pointing an already-registered guide at a different file is two calls, because
+the registry keys on the path and would otherwise keep both:
+
+    node "${CLAUDE_PLUGIN_ROOT}/bin/register.js" --remove --guide "<the old path>"
 
 If the command prints a warning, mention it to the user and move on —
 registration must never block or fail the wrap-up.

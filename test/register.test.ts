@@ -103,3 +103,51 @@ describe('register CLI', () => {
     expect(existsSync(file)).toBe(false);
   });
 });
+
+/**
+ * Removal exists because the registry has exactly one writer. Re-pointing a
+ * guide at a different file — a directory guide's generated `index.html`
+ * instead of its `README.md` hub — is an add plus a drop, and `upsertGuide`
+ * keys on the path, so without this the old entry lingers as a second, worse
+ * card for the same guide. Hand-editing registry.json to fix that would break
+ * the single-writer invariant.
+ */
+describe('register CLI --remove', () => {
+  it('drops the named guide and leaves its siblings alone', () => {
+    const file = tmpFile();
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'study', '--title', 'A']);
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/b.md', '--type', 'study', '--title', 'B']);
+    const res = run(file, ['--remove', '--guide', '/tmp/proj/guides/a.md']);
+    expect(res.status).toBe(0);
+    const reg = read(file);
+    expect(reg.projects).toHaveLength(1);
+    expect(reg.projects[0].guides.map((g) => g.title)).toEqual(['B']);
+  });
+
+  // A project is only ever a container for guides, so an empty one is noise on
+  // the board rather than a state worth keeping.
+  it('drops the project once its last guide is removed', () => {
+    const file = tmpFile();
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'study', '--title', 'A']);
+    run(file, ['--remove', '--guide', '/tmp/proj/guides/a.md']);
+    expect(read(file).projects).toEqual([]);
+  });
+
+  it('exits 0 with a warning on an unknown guide, and writes nothing', () => {
+    const file = tmpFile();
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'study', '--title', 'A']);
+    const before = readFileSync(file, 'utf8');
+    const res = run(file, ['--remove', '--guide', '/tmp/proj/guides/nope.md']);
+    expect(res.status).toBe(0);
+    expect(res.stderr).toContain('not registered');
+    expect(readFileSync(file, 'utf8')).toBe(before);
+  });
+
+  it('exits 0 with a usage warning when --remove has no --guide', () => {
+    const file = tmpFile();
+    const res = run(file, ['--remove']);
+    expect(res.status).toBe(0);
+    expect(res.stderr).toContain('usage');
+    expect(existsSync(file)).toBe(false);
+  });
+});
