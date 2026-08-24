@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Guide Manager</title>
+<script>
+// Stamp the saved theme before first paint. Without this every load renders in
+// the default palette until React mounts, which reads as a flash — worst on the
+// light theme. Kept inline and tiny on purpose: it must run before the
+// stylesheet paints, so it cannot be a module. The server injects the identical
+// script into every rendered guide page (see wrapPage), reading the same key, so
+// the shell and the guide it frames come up in the same palette. Fails silently
+// (private mode, no storage) straight back to the default.
+try {
+  var s = JSON.parse(localStorage.getItem('guide-manager.settings') || '{}');
+  if (s.theme) document.documentElement.dataset.theme = s.theme;
+} catch (e) {}
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

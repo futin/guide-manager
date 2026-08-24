@@ -1,0 +1,245 @@
+/* Ported from ../claude-agents-dashboard/client/src/styles.css, cut to the two
+   sections this app has. Everything for Sessions, Management, Analytics, the
+   chat drawer, the spawn panel, dictation and the permission/remote UI is gone.
+
+   The five theme palettes are NOT here: they live in shared/theme.css, which the
+   server also links into every rendered guide page. One definition, two
+   surfaces — a palette tweak cannot leave the shell and the guide body
+   disagreeing.
+
+   One deliberate simplification: the dashboard divides its viewport units by
+   `--font-scale` because its `.shell{zoom}` text-scale setting makes 100vh
+   resolve against the unzoomed viewport. There is no text-scale setting here and
+   no `zoom`, so those divisions would be no-ops and are dropped. If a text scale
+   is ever added, they have to come back. */
+@import '../../shared/theme.css';
+
+:root { --body-pad: 24px; }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+
+body {
+  font-family: var(--font);
+  background: var(--board);
+  color: var(--ink);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.4;
+}
+
+.wrap { max-width: 820px; margin: 0 }
+.wrap.wide { max-width: 1280px }
+
+/* rack selector — the section rail down the left edge. Sticky and full-height so
+   its right rule runs the length of the board. */
+.shell { display: flex }
+.rail {
+  flex: 0 0 150px; display: flex; flex-direction: column; gap: 2px;
+  align-self: flex-start; position: sticky; top: 0; z-index: 5;
+  height: 100vh; overflow-y: auto; padding: var(--body-pad) 10px;
+  background: var(--strip); border-right: 1px solid var(--hairline);
+}
+/* the app's wordmark, in the rail rather than the page — a kicker over the name */
+.rail-brand {
+  font-family: var(--display); font-size: 15px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em; line-height: 1.15;
+  color: var(--ink); padding: 0 10px; margin-bottom: 18px;
+}
+.rail-kicker {
+  font-family: var(--mono); font-size: 9.5px; font-weight: 400;
+  letter-spacing: .14em; color: var(--ink3);
+}
+.rail-link {
+  font-family: var(--display); font-size: 11.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .08em; text-align: left;
+  color: var(--ink3); background: none; border: 0; border-radius: 2px;
+  padding: 8px 10px; cursor: pointer; transition: color .15s, background .15s;
+}
+.rail-link:hover { color: var(--ink2); background: var(--strip-hi) }
+/* the accent bar sits on the LEFT edge here — a bottom bar marks position in a
+   row, but reads as a divider in a column */
+.rail-link.on {
+  color: var(--ink); background: var(--strip-hi);
+  box-shadow: inset 2px 0 0 var(--cyan), inset 0 1px 0 var(--edge);
+}
+.main { flex: 1; min-width: 0; padding: var(--body-pad) }
+
+/* phone: the rail lies down into a scrollable strip above the content, and the
+   accent bar goes back to the bottom edge where a row wants it. */
+@media (max-width: 700px) {
+  .shell { flex-direction: column }
+  .rail {
+    flex: none; width: auto; height: auto; align-self: stretch;
+    flex-direction: row; gap: 4px; padding: 8px 10px;
+    overflow-x: auto; overflow-y: hidden;
+    border-right: none; border-bottom: 1px solid var(--hairline);
+  }
+  .rail-brand { display: none }
+  .rail-link { flex: none; white-space: nowrap; min-height: 38px; display: flex; align-items: center }
+  .rail-link.on { box-shadow: inset 0 -2px 0 var(--cyan), inset 0 1px 0 var(--edge) }
+}
+
+/* Desktop: the tab becomes the scroller rather than the page, so the guide
+   viewer can fill the screen without the board scrolling behind it. */
+@media (min-width: 1201px) {
+  .wrap.wide { display: flex; flex-direction: column; height: calc(100vh - 2 * var(--body-pad)) }
+  .wrap.wide .guides { flex: 1; min-height: 0; overflow-y: auto }
+  .wrap.wide .guide-viewer { flex: 1; min-height: 0 }
+}
+
+/* ---------------------------------------------- Guides section
+   Registered guides read via GET /api/guides, grouped by project. Two states: a
+   card list, or — once a card is tapped — the viewer pane, a same-origin iframe
+   in .guide-viewer-body pointed at the entry's own /guide href. */
+.guides { display: flex; flex-direction: column; gap: 14px }
+.guides-bar { display: flex; align-items: baseline; gap: 10px }
+.guides-title {
+  font-family: var(--display); font-size: 14px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--ink);
+}
+.guides-empty { font-size: 11px; color: var(--ink3); padding: 20px 2px; text-align: center }
+.guides-group { display: flex; flex-direction: column; gap: 8px }
+.guides-group-h {
+  font-family: var(--display); font-size: 10.5px; font-weight: 600;
+  color: var(--ink3); text-transform: uppercase; letter-spacing: .09em;
+}
+.guides-list { display: flex; flex-direction: column; gap: 10px }
+.guides-card {
+  background: var(--strip); border: 1px solid var(--hairline); border-radius: 2px;
+  padding: 10px 14px; cursor: pointer; transition: border-color .15s;
+  box-shadow: inset 0 1px 0 var(--edge);
+}
+.guides-card:hover { border-color: var(--hairline2) }
+.guides-card-title { font-size: 13px; font-weight: 600; color: var(--ink) }
+.guides-card-meta { font-size: 10.5px; color: var(--ink3); font-family: var(--mono); margin-top: 3px }
+/* Reading progress, in the card's meta line. Green for finished, plain for
+   part-read: a percentage is information, a finished guide is a state. */
+.guides-card-read { color: var(--green) }
+.guides-card-part { color: var(--ink2) }
+
+/* Viewer pane — .guide-viewer-head is kept as its own element deliberately: it
+   is the exact class name a later companion panel would mount into, so its
+   shape stays stable. */
+.guide-viewer { display: flex; flex-direction: column; min-height: 0; gap: 12px }
+.guide-viewer-head {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--hairline);
+}
+.guide-viewer-back {
+  font-family: var(--font); font-size: 11.5px; color: var(--ink2);
+  background: var(--steel); border: 1px solid var(--hairline); border-radius: 2px;
+  padding: 5px 10px; cursor: pointer; transition: color .15s, border-color .15s;
+}
+.guide-viewer-back:hover { color: var(--ink); border-color: var(--hairline2) }
+.guide-viewer-title { font-size: 13px; font-weight: 600; color: var(--ink) }
+.guide-viewer-body { flex: 1; min-height: 200px; display: flex; flex-direction: column; overflow: hidden }
+.guide-viewer-frame { flex: 1 1 auto; border: 0; width: 100% }
+
+/* Phones: below 1201px the shell is a plain scrolling page, so .guide-viewer has
+   no height to inherit and .guide-viewer-body falls back to its 200px floor — a
+   guide whose content runs past 1000px then reads through a quarter-screen
+   porthole. Lift the viewer out of flow instead: the guide gets the whole screen
+   and its own head is the only chrome. `100dvh` rather than `vh` so iOS Safari's
+   collapsing URL bar cannot leave it permanently short. */
+@media (max-width: 700px) {
+  .guide-viewer {
+    position: fixed; inset: 0; z-index: 40; gap: 0;
+    background: var(--board); height: 100dvh; width: 100vw;
+  }
+  .guide-viewer-head { flex-shrink: 0; padding: 11px 12px; background: var(--strip); box-shadow: inset 0 1px 0 var(--edge) }
+  /* the overlay supplies the height; the 200px floor would now be a floor on nothing */
+  .guide-viewer-body { min-height: 0 }
+}
+/* Tablets: same missing height, but the rail is a left column here and the page
+   reads fine as a scroller — so keep the viewer in flow and give the body a
+   viewport-derived floor instead. Subtrahend is .main's padding (twice) plus the
+   head and the gap above it. */
+@media (min-width: 701px) and (max-width: 1200px) {
+  .guide-viewer-body { min-height: calc(100dvh - 2 * var(--body-pad) - 62px) }
+}
+/* The framed guide scrolls inside another document, which cannot be given
+   `overscroll-behavior` from here — so the scroll chain is refused at the root
+   for exactly as long as a guide is open. GuidesView adds the class; the rule is
+   inside the phone breakpoint because the overlay is. */
+@media (max-width: 700px) {
+  html.guide-locked, html.guide-locked body { overflow: hidden; overscroll-behavior: none }
+}
+
+/* ---------------------------------------------- Settings section */
+.mdetail-label {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--display); font-size: 10.5px; font-weight: 600;
+  color: var(--ink3); text-transform: uppercase; letter-spacing: .09em; margin-top: 4px;
+}
+.set { display: flex; flex-direction: column; gap: 18px; max-width: 640px }
+.set-group { display: flex; flex-direction: column; gap: 2px }
+.set-group > .mdetail-label { margin-bottom: 6px }
+.set-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 9px 12px; border: 1px solid var(--hairline); border-radius: 2px;
+  background: var(--strip); box-shadow: inset 0 1px 0 var(--edge);
+}
+.set-row + .set-row { margin-top: 5px }
+.set-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 }
+.set-name { font-size: 12px; font-weight: 600; color: var(--ink) }
+.set-hint { font-size: 10.5px; color: var(--ink3); line-height: 1.45 }
+.set-hint code { font-family: var(--mono); font-size: 10px; color: var(--cyan) }
+.set-control { display: flex; align-items: center; gap: 6px; flex-shrink: 0 }
+.set-control select,
+.set-control input[type=number],
+.set-control input[type=text] {
+  font-family: var(--mono); font-size: 11px; color: var(--ink);
+  background: var(--steel); border: 1px solid var(--hairline); border-radius: 2px;
+  padding: 5px 8px;
+}
+.set-control select:focus, .set-control input:focus { outline: none; border-color: var(--cyan) }
+.set-control input[type=number] { width: 84px; font-variant-numeric: tabular-nums }
+.set-unit { font-size: 10px; color: var(--ink3); font-family: var(--mono) }
+
+.set-seg { display: flex; gap: 4px }
+.set-seg button {
+  font-family: var(--display); font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--ink3);
+  background: var(--steel); border: 1px solid var(--hairline); border-radius: 2px;
+  padding: 5px 11px; cursor: pointer; transition: color .15s, border-color .15s;
+}
+.set-seg button:hover:not(:disabled) { color: var(--ink2); border-color: var(--hairline2) }
+.set-seg button:disabled { cursor: default; opacity: .4 }
+.set-seg button.on { color: var(--ink); border-color: var(--cyan); box-shadow: inset 0 -2px 0 var(--cyan) }
+
+.set-themes { display: flex; gap: 8px; flex-wrap: wrap }
+.set-theme {
+  display: flex; flex-direction: column; gap: 6px; width: 104px; padding: 7px;
+  border: 1px solid var(--hairline); border-radius: 2px; background: var(--steel);
+  cursor: pointer; transition: border-color .15s;
+}
+.set-theme:hover { border-color: var(--hairline2) }
+.set-theme.on { border-color: var(--cyan); box-shadow: inset 0 0 0 1px var(--cyan) }
+.set-swatch { display: flex; height: 34px; border-radius: 2px; overflow: hidden; border: 1px solid var(--hairline) }
+.set-swatch i { flex: 1 }
+.set-swatch i:last-child { flex: 0 0 8px }
+.set-theme-name { font-size: 10.5px; font-weight: 600; color: var(--ink2); text-align: left; line-height: 1.25 }
+.set-theme.on .set-theme-name { color: var(--ink) }
+
+@media (max-width: 700px) {
+  .set-row { align-items: flex-start; flex-direction: column; gap: 8px }
+  .set-control { width: 100% }
+  .set-seg { width: 100% }
+  .set-seg button { flex: 1; min-height: 38px }
+  .set-theme { width: calc(50% - 4px) }
+}
+
+/* ---------------------------------------------- quality floor */
+:where(button, select, input, textarea, summary, [role=button]):focus-visible {
+  outline: 2px solid var(--cyan); outline-offset: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important }
+}
+/* touch: iOS Safari zooms the viewport when a focused field's font size is under
+   16px, and never zooms back out on blur. Text-entry fields only — a <select>
+   opens a native picker rather than putting a caret in the page, so it does not
+   trip it and does not need the floor. */
+@media (pointer: coarse) {
+  .set-control input[type=number], .set-control input[type=text] { font-size: 16px }
+}

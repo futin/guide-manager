@@ -10,3 +10,6 @@ dist/
 
 # local env
 .env
+
+# client build output
+client/dist/
