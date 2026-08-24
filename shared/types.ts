@@ -28,3 +28,31 @@ export interface GuideMeta {
   type?: GuideType;
   project?: string;
 }
+
+/** Per-guide reading progress as the API publishes it. Null when never opened. */
+export interface GuideProgress {
+  scrollPercent: number;
+  completed: boolean;
+  lastOpenedAt: string;
+  openCount: number;
+}
+
+export interface GuideEntry {
+  path: string;
+  title: string;
+  type: GuideType;
+  updated: string;
+  /** Ready-made viewer URL, so the client never has to build the encoding itself. */
+  href: string;
+  progress: GuideProgress | null;
+}
+
+export interface ProjectEntry {
+  name: string;
+  path: string;
+  guides: GuideEntry[];
+}
+
+export interface GuidesIndex {
+  projects: ProjectEntry[];
+}
