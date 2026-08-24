@@ -90,3 +90,17 @@ dist/assets/SettingsView-B5iJVGjX.js  2.84 kB │ gzip:  1.12 kB
 dist/assets/index-CWFR8PoD.js   146.80 kB │ gzip: 47.62 kB
 ✓ built in 1.33s
 ```
+
+Merged into `main` as `b61b135` (branch and worktree removed afterwards). One
+conflict on the way in: e0aae24 had landed a `createdAt` fixture field in
+`test/project-drawer.test.tsx` meanwhile, and that file is deleted here —
+resolved in favour of the deletion, since the drawer those fixtures described is
+gone. The merged result:
+
+```
+$ pnpm test
+Test Suites: 23 passed, 23 total
+Tests:       174 passed, 174 total
+```
+
+174 rather than the branch's 170: the four extra are e0aae24's own.
