@@ -3,7 +3,6 @@ node_modules/
 *.log
 .DS_Store
 .idea/
-server/lib/.reload-probe*.js
 
 # build output
 dist/
