@@ -12,6 +12,13 @@ export default defineConfig({
   server: {
     port: Number(process.env.WEB_PORT) || 5175,
     host: true,
+    // Vite 5.4.12+ rejects any request whose Host header it does not recognise,
+    // and a tailnet name is not one it recognises: reading this port from the
+    // phone answered 403 "Blocked request" while the same server answered 200 on
+    // the tailnet IP. The suffix form covers every node on the tailnet — and
+    // survives a machine rename, which a literal hostname would not. Narrower
+    // than `true`, which would accept any Host at all.
+    allowedHosts: ['.ts.net'],
     // The guide viewer is a same-origin iframe pointed at the Nest render route,
     // so /guide and /asset have to be proxied too — not just /api, or the Guides
     // tab shows an empty frame in dev. The stylesheet and reading-aid routes come

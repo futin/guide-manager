@@ -97,13 +97,24 @@ restart after a config edit comes back bound to localhost only, and the publishe
 port then refuses connections. `docker compose restart client` after touching
 `vite.config.ts`.
 
-For HTTPS and no port number, `tailscale serve` will front it — but check
-`tailscale serve status` first, since a tailnet node has one root and another
-project may already own it:
+### HTTPS
+
+Plain `http://` over the tailnet is already encrypted — WireGuard does that —
+but the browser still marks it Not secure, and secure-context APIs (service
+workers, clipboard, `getUserMedia`) stay unavailable. To get a real cert,
+`tailscale serve` fronts the app with TLS on the node's own MagicDNS name:
 
 ```bash
 tailscale serve --bg --https=8443 http://127.0.0.1:4321
 ```
+
+That yields `https://<mac-tailscale-name>:8443` with a Let's Encrypt cert, and
+persists across reboots (`tailscale serve --https=8443 off` to undo).
+
+Check `tailscale serve status` before choosing a port: a node has one root per
+port, and another project may already own `443`. Avoid mounting this app under a
+path (`--set-path`) — the SPA references `/assets`, `/api` and `/guide`
+absolutely, so it breaks anywhere but a root.
 
 The Mac has to be awake. `caffeinate -s` for a session, or a launchd agent if you
 want it always on.
