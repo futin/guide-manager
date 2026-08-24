@@ -121,3 +121,26 @@ test('unknown route is 404', async () => {
     assert.equal(res.status, 404);
   });
 });
+
+test('escapes malicious type in index', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'gm-xss-'));
+  mkdirSync(join(root, 'proj', 'guides'), { recursive: true });
+  writeFileSync(join(root, 'proj', 'guides', 'b.md'), '# XSS Test');
+  const registryFile = join(root, 'registry.json');
+  writeFileSync(registryFile, JSON.stringify({
+    projects: [{
+      name: 'proj',
+      path: join(root, 'proj'),
+      guides: [
+        { type: 'study"><script>x</script>', title: 'XSS Test', path: join(root, 'proj', 'guides', 'b.md'), updated: '2026-08-24T00:00:00Z' },
+      ],
+    }],
+  }));
+  await withServer(registryFile, async (base) => {
+    const res = await fetch(base + '/');
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.ok(!html.includes('<script>x</script>'), 'script tag should be escaped');
+    assert.ok(html.includes('&lt;script&gt;'), 'should contain escaped form');
+  });
+});

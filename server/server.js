@@ -43,7 +43,7 @@ function indexPage(registry) {
         .filter((g) => existsSync(g.path))
         .map((g) =>
           `<li><a href="/guide?p=${encodeURIComponent(g.path)}">${escapeHtml(g.title)}</a>` +
-          ` <span class="badge ${g.type}">${g.type}</span>` +
+          ` <span class="badge ${escapeHtml(g.type)}">${escapeHtml(g.type)}</span>` +
           ` <time>${escapeHtml(String(g.updated).slice(0, 10))}</time></li>`)
         .join('\n');
       if (!items) return '';
