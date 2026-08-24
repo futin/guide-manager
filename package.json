@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "nest build",
-    "start": "node dist/main.js",
+    "start": "node dist/server/src/main.js",
     "dev": "nest start --watch",
     "test": "jest --runInBand",
     "typecheck": "tsc --noEmit"
