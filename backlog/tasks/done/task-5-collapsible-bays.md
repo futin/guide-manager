@@ -123,6 +123,32 @@ dist/assets/index-1goKyxNN.js       146.81 kB │ gzip: 47.62 kB
 ✓ built in 787ms
 ```
 
-Not committed and not merged — three files are modified in the worktree
-(`client/src/components/guides/GuidesView.tsx`, `client/src/styles.css`,
-`test/guides-view.test.tsx`). Staging is the user's call.
+Committed as `35c47f6` and merged into `main` as `3d28df6`, no conflicts. The
+worktree at `.claude/worktrees/task-5-collapsible-bays` was left on disk.
+Re-verified on the merged main:
+
+```
+$ pnpm test
+Test Suites: 23 passed, 23 total
+Tests:       183 passed, 183 total
+
+$ pnpm run typecheck
+TYPECHECK_EXIT=0
+
+$ pnpm run build
+dist/assets/index-SlJ61e-t.css        20.07 kB │ gzip:  4.18 kB
+dist/assets/GuidesView-Bv-KBO8a.js     2.70 kB │ gzip:  1.02 kB
+dist/assets/SettingsView-aPuOIFe0.js   2.84 kB │ gzip:  1.12 kB
+dist/assets/index-1goKyxNN.js        146.81 kB │ gzip: 47.62 kB
+✓ built in 800ms
+```
+
+Nothing new entered the bundle: the CSS grew 19.62 kB → 20.07 kB and
+`GuidesView` 2.42 kB → 2.70 kB, both from this change alone. Unlike task-4,
+which pulled Barlow Condensed Bold in, this asks for no face the board was not
+already paying for — the caret is a plain `▾` in the inherited font.
+
+One thing noticed in passing, filed rather than fixed here: `.claude/` is
+untracked but absent from `.gitignore`, so a catch-all `git add -A` at the repo
+root would stage the whole of `.claude/worktrees/` — two complete checkouts with
+their own `node_modules` and `dist`.
