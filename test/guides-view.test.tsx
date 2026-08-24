@@ -58,7 +58,7 @@ describe('GuidesView', () => {
     document.documentElement.classList.remove('guide-locked');
   });
 
-  it('renders one group per project, titled by project name', async () => {
+  it('renders one bay per project, titled by project name', async () => {
     await renderGuides();
     expect(screen.getByText('guide-manager')).toBeTruthy();
     expect(screen.getByText('german-study-partner')).toBeTruthy();
@@ -114,19 +114,69 @@ describe('GuidesView', () => {
   });
 
   /*
-    The board is unscoped: every registered project is listed, each under its own
-    heading. The list was briefly narrowed to one project by a drawer, which also
-    dropped the heading once a single group was showing — both are gone, so a
-    heading per group is unconditional again. A project filter returns to the
-    Guides toolbar in task-7.
+    The board is unscoped: every registered project is listed, each in its own bay
+    under its own header. The list was briefly narrowed to one project by a
+    drawer, which also dropped the heading once a single group was showing — both
+    are gone, so a header per bay is unconditional again. It stays unconditional
+    even after task-7's filter lands: the header is now where the project's name
+    appears on screen at all, so a one-bay board without it is a board that does
+    not say what you are looking at.
   */
-  it('lists every registered project, one heading per group', async () => {
+  it('lists every registered project, one bay per project', async () => {
     await renderGuides();
-    expect(document.querySelectorAll('.guides-group')).toHaveLength(2);
-    expect([...document.querySelectorAll('.guides-group-h')].map((h) => h.textContent))
+    expect(document.querySelectorAll('.bay')).toHaveLength(2);
+    expect([...document.querySelectorAll('.bay-name')].map((h) => h.textContent))
       .toEqual(['guide-manager', 'german-study-partner']);
     expect(screen.getByText('Alpha Guide')).toBeTruthy();
     expect(screen.getByText('Gamma')).toBeTruthy();
+  });
+
+  /*
+    The count is the header's only piece of live data, so it has to agree with the
+    grid under it — and read as English while doing so. "1 guides" is the kind of
+    wrong that makes the whole header look generated rather than written.
+  */
+  it('counts the guides in each bay header, singular for a bay of one', async () => {
+    await renderGuides();
+    expect([...document.querySelectorAll('.bay-count')].map((c) => c.textContent))
+      .toEqual(['2 guides', '1 guide']);
+  });
+
+  /*
+    The tick is what promotes the project name from a faint caption into a header:
+    without it the name is just bolder text. Asserted per bay because a single
+    shared marker at the top of the board would not mark anything.
+  */
+  it('gives every bay header its own cyan tick', async () => {
+    await renderGuides();
+    expect(document.querySelectorAll('.bay-h .bay-tick')).toHaveLength(2);
+  });
+
+  /*
+    A grid rather than a stack — one wrapper per bay, holding that bay's cards and
+    no others. The column count is CSS's business (auto-fill), but the nesting is
+    the markup's, and a card in the wrong bay is a card filed under the wrong
+    project name.
+  */
+  it('lays each bay out as its own card grid', async () => {
+    await renderGuides();
+    const grids = document.querySelectorAll('.guides-grid');
+    expect(grids).toHaveLength(2);
+    expect(grids[0].querySelectorAll('.guides-card')).toHaveLength(2);
+    expect(grids[1].querySelectorAll('.guides-card')).toHaveLength(1);
+  });
+
+  /*
+    Card layout is a column with the pill and meta in one footer element, which is
+    what `margin-top:auto` can then pin to the bottom of a stretched grid cell.
+    The old named-areas grid put both directly on the card, so the two would drift
+    apart vertically once cards of unequal title length shared a row.
+  */
+  it('holds the pill and the meta line together in the card footer', async () => {
+    await renderGuides();
+    const foot = screen.getByText('Alpha Guide').closest('.guides-card')?.querySelector('.guides-card-foot');
+    expect(foot?.querySelector('.pill')?.textContent).toBe('study');
+    expect(foot?.querySelector('.guides-card-meta')?.textContent).toContain('2026-08-24');
   });
 
   it('leaves nothing in the bar but the section title', async () => {
