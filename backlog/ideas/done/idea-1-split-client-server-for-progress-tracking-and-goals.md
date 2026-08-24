@@ -3,6 +3,7 @@ id: idea-1
 title: Split client/server for progress tracking and goals
 created: 2026-08-24
 tags: architecture, server, ui
+promoted-to: task-1
 ---
 
 ## Problem
