@@ -167,6 +167,9 @@ chapters and the generator scripts flat into one directory:
     figures.mjs
     check.mjs
     citations.mjs
+    bionic.js              vendored reading aid — do not edit, re-copy instead
+    bionic.css
+    bionic.html
 ```
 
 - **The two entry points stay at the root**, and only those two. `README.md` is what

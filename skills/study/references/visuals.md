@@ -111,6 +111,49 @@ the next person to edit the guide needs to know the page is derived:
 > the markdown and re-run `node <dir>/tools/build.mjs`; never edit `index.html` by hand.
 ```
 
+## Reading controls: the bionic aid
+
+A whole-guide page is a lot of prose, so it ships an optional bionic-reading
+aid — bolded leading characters that give the eye an artificial fixation point,
+with the reader in charge of how strong it is. Three files carry it, vendored
+from this plugin rather than written fresh per guide:
+
+```
+cp "${CLAUDE_PLUGIN_ROOT}/assets/bionic.js"   <dir>/tools/
+cp "${CLAUDE_PLUGIN_ROOT}/assets/bionic.css"  <dir>/tools/
+cp "${CLAUDE_PLUGIN_ROOT}/assets/bionic.html" <dir>/tools/
+```
+
+Copy them; never retype them. They carry a `bionic v1` header — that is how a
+later session tells a stale vendored copy from a current one, so re-copy on
+every regeneration.
+
+`tools/build.mjs` then inlines all three, resolving them against
+`import.meta.url` like everything else it reads:
+
+- `bionic.css` appended to the page's single `<style>` block.
+- `bionic.html` injected as the **first child of `.side`**, above `nav.toc`, so
+  the control is reachable without scrolling a long table of contents. At narrow
+  widths it folds into the existing `#navtoggle` disclosure for free — it is
+  inside `.side`, so no second media query is needed.
+- `bionic.js` emitted as an inline `<script>` beside the scroll-spy script.
+
+**It must stay a runtime pass — never bake the bolding into the markup.** The
+fidelity check in `tools/check.mjs` compares word sequences after stripping
+tags, and a baked `<b>` inside a word strips to `Bio nic` — two words — failing
+on essentially every prose line in the guide. `check.mjs` needs no new
+exclusions precisely because the decoration does not exist until the page is
+open in a browser.
+
+Two behaviors worth knowing before you debug them:
+
+- **Default off, persisted per-origin** under `guide-manager:bionic`. Bionic
+  reading's speed claims are not backed by peer-reviewed evidence, and heavy
+  mid-word bolding helps some dyslexic readers and hinders others. It is
+  offered, not imposed.
+- **Bold only, never dimmed.** Most bionic renders dim the rest of the word for
+  extra contrast; on this page's dark theme that drops body prose below AA.
+
 ## What the generator has to get right
 
 A minimal markdown renderer is easy to get 90% right and the last 10% is where it
@@ -445,6 +488,9 @@ Then by hand:
   measure filling its column with no dead slack beside it, the whole block centred.
 - Click through the side menu; scroll the page and confirm the active entry tracks.
 - Check both color schemes. Nothing disappears; no hard-coded hex slipped into an SVG.
+- Toggle the reading aid on in **both** color schemes: the fixation prefix is
+  visible, code blocks and headings are untouched, find-in-page still locates a
+  decorated word, and toggling back off leaves the prose byte-identical.
 - **Geometry, not eyeballing:** for every figure, compare each child's `getBBox()`
   against the `viewBox` — clipped labels are invisible in a screenshot but obvious to a
   bounding-box check.
