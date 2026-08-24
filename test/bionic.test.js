@@ -108,3 +108,42 @@ test('assets carry the vendored version header', () => {
     assert.match(asset(name), /bionic v1 — vendored from guide-manager assets\/; do not edit here/);
   }
 });
+
+test('readState falls back to defaults when storage is empty', () => {
+  const { readState } = load({ localStorage: { getItem: () => null, setItem: () => {} } });
+  // Spread the vm-realm return value into a host-realm plain object first:
+  // readState() executes inside the sandboxed vm context, so its object
+  // literal carries that context's own Object.prototype. assert.deepEqual is
+  // strict here (imported from 'node:assert/strict') and strict deep-equal
+  // treats cross-realm plain objects as unequal even with identical own
+  // properties, so comparing it directly would fail regardless of whether
+  // readState() is implemented correctly.
+  assert.deepEqual({ ...readState() }, { on: false, strength: 0.5, freq: 1 });
+});
+
+test('readState round-trips a stored setting', () => {
+  const stored = JSON.stringify({ on: true, strength: 0.7, freq: 3 });
+  const { readState } = load({ localStorage: { getItem: () => stored, setItem: () => {} } });
+  assert.deepEqual({ ...readState() }, { on: true, strength: 0.7, freq: 3 });
+});
+
+test('readState rejects out-of-range and malformed values', () => {
+  const junk = JSON.stringify({ on: 'yes', strength: 9, freq: 0 });
+  const { readState } = load({ localStorage: { getItem: () => junk, setItem: () => {} } });
+  assert.deepEqual({ ...readState() }, { on: false, strength: 0.5, freq: 1 });
+});
+
+test('readState survives unparseable storage and a missing localStorage', () => {
+  const broken = load({ localStorage: { getItem: () => '{{{', setItem: () => {} } });
+  assert.deepEqual({ ...broken.readState() }, { on: false, strength: 0.5, freq: 1 });
+  assert.deepEqual({ ...load().readState() }, { on: false, strength: 0.5, freq: 1 });
+});
+
+test('init is inert without a document', () => {
+  assert.doesNotThrow(() => load().init());
+});
+
+test('init is inert when the panel is absent from the page', () => {
+  const doc = { readyState: 'complete', querySelector: () => null, getElementById: () => null, addEventListener: () => {}, body: {} };
+  assert.doesNotThrow(() => load({ document: doc }).init());
+});
