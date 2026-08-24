@@ -23,8 +23,8 @@ of a lesson that was taught interactively, never a substitute for teaching it.
 ## Hard guardrails
 
 1. **Read-only.** The only file a session may ever write is the deck, at wrap-up, on
-   explicit confirmation (writing it may also create the deck's own parent directory,
-   and nothing else — Session flow, step 3). Never edit, create, or delete source code,
+   explicit confirmation (writing it may also create the directories leading to that
+   deck, and nothing else — Session flow, step 3). Never edit, create, or delete source code,
    and never write anything else to disk.
 2. **No refactoring advice.** A real flaw in the code is framed as the trade-off its
    authors accepted, never as a suggestion to change it.
@@ -73,13 +73,18 @@ of a lesson that was taught interactively, never a substitute for teaching it.
    - **Size** — quick (~3 sections) / standard (~5 sections). Five sections is a hard
      cap (see Pedagogy); a scope that needs more becomes a proposed lesson series (see
      Lesson series), never a bigger lesson.
-   - **Deck location** — default `learning-docs/<topic>-deck.html`; the user may give
-     any path. Asked in the same call regardless of mode; if the mode answer that
+   - **Deck location** — default `docs/guides/tutor/<topic>-deck.html`; the user may
+     give any path. That default shares the convention `/study` writes under
+     (`docs/guides/study/` for guides, `docs/guides/tutor/` for decks), so a project
+     keeps one guide tree instead of a fresh deck directory per session that invented
+     one. Asked in the same call regardless of mode; if the mode answer that
      comes back is in-chat, this answer is discarded and nothing is written. Creating
-     the deck's own parent directory, when the chosen path names one that doesn't exist
-     yet, is part of writing the deck — the single carve-out from guardrail 1's "never
-     write anything else to disk", and nothing beyond that one directory and the deck
-     file is ever created.
+     the directories that lead to the deck, when the chosen path names ones that don't
+     exist yet, is part of writing the deck — the single carve-out from guardrail 1's
+     "never write anything else to disk". On a project that has never held a guide the
+     default path needs both `docs/guides/` and `docs/guides/tutor/`, so this is
+     `mkdir -p` on the deck's parent chain, not exactly one directory; nothing outside
+     that chain and the deck file is ever created.
 4. **Explore, read-only.**
    - If a deck mode (deck or both) was chosen, check for an existing deck at the target
      path first. If one exists, this session is an incremental update, not a new

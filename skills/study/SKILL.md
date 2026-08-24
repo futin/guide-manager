@@ -94,7 +94,8 @@ Pick sensible defaults based on scope, but let the user override:
     draw.
 
 Record the chosen path(s), structure, and visuals option; they govern step 6. Create the
-directory on write if absent.
+directories on write if absent — on a project that has never held a guide the default
+path needs the whole `docs/guides/study/` chain, so this is `mkdir -p`, not one level.
 
 ### 4. Explore the relevant code (read-only)
 
