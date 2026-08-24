@@ -8,13 +8,13 @@ over Tailscale while this Mac is awake.
 
 | Task | Command |
 |---|---|
-| Whole stack (mongo + api + vite) | `npm run docker:up` |
-| Rebuild the stack from scratch | `npm run docker:sync` |
-| API only, on the host | `npm run dev` |
-| Client only, on the host | `npm run dev:web` |
-| Tests | `npm test` (jest, `--runInBand`) |
-| Types | `npm run typecheck` |
-| Production build | `npm run build` |
+| Whole stack (mongo + api + vite) | `pnpm run docker:up` |
+| Rebuild the stack from scratch | `pnpm run docker:sync` |
+| API only, on the host | `pnpm run dev` |
+| Client only, on the host | `pnpm run dev:web` |
+| Tests | `pnpm test` (jest, `--runInBand`) |
+| Types | `pnpm run typecheck` |
+| Production build | `pnpm run build` |
 
 Mongo is a hard boot requirement: no database, no server. `app.module.ts` bounds
 the connection retries and lets the process exit non-zero rather than idle with a
@@ -66,6 +66,16 @@ stack they are fixed. This machine currently maps the client to `5176`.
 - **Reading-aid assets carry a `bionic v2` header.** Copy them into a guide;
   never retype. v2 listens for `storage` so a framed guide repaints when the
   Settings page changes a value.
+- **pnpm is the only package manager here**, pinned by `packageManager` in
+  `package.json` and enforced in the image through corepack. `npm install` would
+  write a `package-lock.json` nobody reads and a flat `node_modules` that
+  disagrees with the lockfile.
+- **A dependency's install script does not run unless `pnpm-workspace.yaml`
+  says so.** `allowBuilds` lists `esbuild` and `mongodb-memory-server`; both
+  fetch a binary in `postinstall`, and a skipped one surfaces far from the
+  install — Vite refusing to start, or the e2e suites failing to boot mongod.
+  The file has to be copied into the image alongside the lockfile for the same
+  reason.
 
 ## Conventions
 

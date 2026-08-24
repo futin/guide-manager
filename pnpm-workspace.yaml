@@ -1,0 +1,19 @@
+# pnpm's settings file. This repo is a single package — hence no `packages:`
+# list — but pnpm 11 reads workspace-level settings from here rather than from
+# package.json, and the one below is not optional.
+#
+# pnpm runs no dependency install script unless that dependency is named here,
+# and both of these genuinely need theirs:
+#
+#   esbuild                downloads and links the platform binary Vite
+#                          compiles with; without it `vite` dies at startup.
+#   mongodb-memory-server  fetches the mongod binary the e2e suites boot
+#                          against; without it those suites fail on first run.
+#
+# Everything else stays blocked by default. `pnpm approve-builds` is the
+# interactive way to add an entry — it edits this same block, and it writes a
+# `set this to true or false` placeholder for anything it finds undecided, so a
+# failed install that mentions ignored builds means a line here is missing.
+allowBuilds:
+  esbuild: true
+  mongodb-memory-server: true

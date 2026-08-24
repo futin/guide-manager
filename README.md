@@ -15,14 +15,15 @@ far through each one you are.
 
 ## Requirements
 
-- Node 20+
+- Node 22.13+ (pnpm 11 requires it)
+- pnpm 11+ (`corepack enable`, then `corepack prepare --activate` in this repo)
 - Docker (or a local MongoDB if you prefer running the Node processes bare)
 
 ## Quick start
 
 ```bash
 cp .env.example .env
-npm run docker:up
+pnpm run docker:up
 ```
 
 That brings up three containers — Mongo, the Nest API on `:4321`, and the Vite
@@ -33,10 +34,10 @@ dev server on `:5175`. Open whichever suits you:
 | `http://localhost:5175` | Vite dev server: hot reload, proxies `/api`, `/guide`, `/asset` to the API |
 | `http://localhost:4321` | The API, the guide render routes, and the built client bundle |
 
-`npm run docker:down` stops it; `npm run docker:sync` tears down and rebuilds.
+`pnpm run docker:down` stops it; `pnpm run docker:sync` tears down and rebuilds.
 
 To run the Node processes on the host instead, start only the database
-(`docker compose up -d mongo`) and then `npm run dev` (API) and `npm run dev:web`
+(`docker compose up -d mongo`) and then `pnpm run dev` (API) and `pnpm run dev:web`
 (client) in separate shells.
 
 ### Configuration
@@ -148,9 +149,9 @@ skills (study, tutor)  ->  bin/register.js  ->  ~/.guide-manager/registry.json
 ## Development
 
 ```bash
-npm test          # jest, --runInBand (mongodb-memory-server for the e2e suites)
-npm run typecheck # tsc --noEmit
-npm run build     # nest build + vite build
+pnpm test         # jest, --runInBand (mongodb-memory-server for the e2e suites)
+pnpm run typecheck # tsc --noEmit
+pnpm run build    # nest build + vite build
 ```
 
 Tests are flat in `test/`. Component suites opt into jsdom with a
