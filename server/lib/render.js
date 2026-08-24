@@ -8,10 +8,15 @@ export function escapeHtml(s) {
 }
 
 function rewriteUrl(url, baseDir) {
-  if (/^(https?:|mailto:|#|\/)/i.test(url)) return url;
-  const abs = resolve(baseDir, url);
+  if (/^(https?:|mailto:|data:|#|\/)/i.test(url)) return url;
+  // Strip query string and fragment before resolving
+  const [cleanUrl, fragment] = url.split('#');
+  const [pathOnly] = cleanUrl.split('?');
+  const abs = resolve(baseDir, pathOnly);
   const route = /\.md$/i.test(abs) ? '/guide' : '/asset';
-  return `${route}?p=${encodeURIComponent(abs)}`;
+  const rewritten = `${route}?p=${encodeURIComponent(abs)}`;
+  // Re-append fragment for /guide targets (in-page anchors)
+  return route === '/guide' && fragment ? `${rewritten}#${fragment}` : rewritten;
 }
 
 export function renderMarkdown(md, guidePath) {

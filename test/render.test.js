@@ -34,3 +34,21 @@ test('wrapPage escapes title and links stylesheet', () => {
   assert.ok(page.includes('<p>hi</p>'));
   assert.ok(page.includes('name="viewport"'));
 });
+
+test('relative md link with fragment rewrites to /guide and re-appends fragment', () => {
+  const html = renderMarkdown('[install](setup.md#install)', '/proj/guides/a.md');
+  const encoded = encodeURIComponent('/proj/guides/setup.md');
+  assert.ok(html.includes(`/guide?p=${encoded}#install`));
+});
+
+test('relative md link with query rewrites to /guide, query discarded', () => {
+  const html = renderMarkdown('[setup](setup.md?x=1)', '/proj/guides/a.md');
+  const encoded = encodeURIComponent('/proj/guides/setup.md');
+  assert.ok(html.includes(`/guide?p=${encoded}`));
+  assert.ok(!html.includes('?x=1'));
+});
+
+test('data: URI image passes through untouched', () => {
+  const html = renderMarkdown('![pic](data:image/png;base64,AAAA)', '/proj/guides/a.md');
+  assert.ok(html.includes('src="data:image/png;base64,AAAA"'));
+});
