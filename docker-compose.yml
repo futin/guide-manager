@@ -1,15 +1,96 @@
-# Mongo is a hard requirement at boot: no database, no server. This is the
-# supported way to run it locally — nothing to install on the host.
+# The whole stack in one command:
 #
-#   docker compose up -d mongo
+#   docker compose up
+#
+# Mongo, the Nest API on :4321, and the Vite dev server on :5175. Open
+# http://localhost:5175 — that is the one with hot reload, and its proxy sends
+# /api, /guide and /asset through to the API container.
+#
+# Mongo is a hard requirement at boot: no database, no server. To run it alone
+# and keep both Node processes on the host, `docker compose up -d mongo` still
+# works exactly as before.
+#
+# Only the host side of each published port is configurable, and only because
+# these are popular numbers — another project of yours may already hold one.
+# Set GM_WEB_PORT / GM_API_PORT / GM_MONGO_PORT in .env to move them. Inside the
+# stack the ports never change, so nothing else has to be kept in sync.
 services:
   mongo:
     image: mongo:7
     restart: unless-stopped
     ports:
-      - '27017:27017'
+      - '${GM_MONGO_PORT:-27017}:27017'
     volumes:
       - guide-manager-mongo:/data/db
+    # The server bounds its connection attempts and exits when they run out, so
+    # compose has to hold it back until Mongo actually answers rather than just
+    # until the container exists.
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  server:
+    build: .
+    command: npm run dev
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      PORT: '4321'
+      MONGO_URL: mongodb://mongo:27017/guide-manager
+      # The registry stores absolute host paths, and defaultRegistryFile() reads
+      # ~/.guide-manager/registry.json off homedir() — which on Linux is $HOME.
+      # Pointing it at the same path the mount below uses keeps both honest.
+      HOME: ${HOME}
+    ports:
+      - '${GM_API_PORT:-4321}:4321'
+    volumes:
+      - .:/app
+      - guide-manager-node-modules:/app/node_modules
+      # The registry names guides by absolute host path, so those paths have to
+      # mean the same thing inside the container — hence each mount landing on
+      # its own path rather than somewhere tidy like /guides. Without them every
+      # guide fails existsSync and the board comes up empty.
+      #
+      # Scoped to the registry plus one guide root rather than all of $HOME:
+      # mount size costs nothing under VirtioFS (no scan, no index, and nothing
+      # here is watched), but a whole-home mount also hands the container
+      # ~/.ssh, ~/.aws and Keychains, which it has no use for. Point
+      # GM_GUIDE_ROOT at a different tree, or add another line, if you start
+      # writing guides outside it — a guide the container cannot see is silently
+      # dropped from the list, not an error.
+      #
+      # Read-only throughout: the server never writes here. bin/register.js
+      # does, and that runs on the host.
+      - ${HOME}/.guide-manager:${HOME}/.guide-manager:ro
+      - ${GM_GUIDE_ROOT:-${HOME}/Documents/custom-projects}:${GM_GUIDE_ROOT:-${HOME}/Documents/custom-projects}:ro
+
+  client:
+    build: .
+    command: npm run dev:web
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      # vite.config.ts builds its proxy target from these. localhost inside this
+      # container is this container, so the API has to be named by service.
+      API_HOST: server
+      PORT: '4321'
+      WEB_PORT: '5175'
+      # Bind-mount file events are unreliable enough on Docker Desktop that
+      # chokidar can miss edits outright; polling costs a little CPU and always
+      # notices.
+      CHOKIDAR_USEPOLLING: 'true'
+    ports:
+      - '${GM_WEB_PORT:-5175}:5175'
+    volumes:
+      - .:/app
+      - guide-manager-node-modules:/app/node_modules
 
 volumes:
   guide-manager-mongo:
+  guide-manager-node-modules:
