@@ -291,3 +291,17 @@ Rules for the write:
 - Keep code excerpts short and always annotated with their source `file_path:line`.
 - Keep the teaching register throughout: intuition first, then mechanism, then the
   contrast that makes the design choice legible.
+
+### Register with guide-manager
+
+After the guide is written or updated (and only then), register it so the
+guide-manager viewer lists it:
+
+    node "${CLAUDE_PLUGIN_ROOT}/bin/register.js" \
+      --project "<absolute path to the project root>" \
+      --guide "<absolute path to the guide file; for a directory guide, its README.md>" \
+      --type study \
+      --title "<the guide's human-readable title>"
+
+If the command prints a warning, mention it to the user and move on —
+registration must never block or fail the wrap-up.

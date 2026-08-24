@@ -1,0 +1,5 @@
+{
+  "name": "guide-manager",
+  "description": "Home of the study and tutor skills, plus a local Tailscale-reachable viewer for every project's guides",
+  "version": "0.1.0"
+}

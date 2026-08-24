@@ -165,3 +165,20 @@ confirmation, and every in-chat quiz question — to numbered options typed in p
 and read the learner's reply as their selection. The loop's discipline (answer-leak ban,
 cadence, the wrong/right-answer protocol) applies exactly the same way no matter which
 mechanism poses the question.
+
+### Register with guide-manager
+
+After a deck is written or refreshed (deck or both mode only — an in-chat
+session writes nothing and registers nothing), register it so the
+guide-manager viewer lists it:
+
+    node "${CLAUDE_PLUGIN_ROOT}/bin/register.js" \
+      --project "<absolute path to the project root>" \
+      --guide "<absolute path to the deck html>" \
+      --type tutor \
+      --title "<the deck's topic title>"
+
+If the command prints a warning, mention it to the user and move on —
+registration must never block or fail the wrap-up. This registration is the
+single exception to guardrail 1's "the only file a session may ever write is
+the deck": it appends to guide-manager's own registry, never to the project.

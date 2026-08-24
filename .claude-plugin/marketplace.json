@@ -1,0 +1,11 @@
+{
+  "name": "guide-manager-marketplace",
+  "owner": { "name": "andrejajevtic" },
+  "plugins": [
+    {
+      "name": "guide-manager",
+      "source": "./",
+      "description": "study + tutor skills and local guide viewer"
+    }
+  ]
+}
