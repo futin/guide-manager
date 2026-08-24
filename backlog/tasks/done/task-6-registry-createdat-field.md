@@ -37,3 +37,45 @@ As listed in the plan — three register behaviors plus the API fallback.
 
 `GET /api/guides` returns a `createdAt` for every guide, including ones already
 in the registry file from before this change; tests and typecheck pass.
+
+## Outcome
+
+Done 2026-08-24. All four plan steps landed as written: `upsertGuide` stamps
+`createdAt` behind an `if (!guide.createdAt)` guard — one line that covers both
+a freshly inserted guide and a legacy entry healed on its next re-register —
+`shared/types.ts` gained `RegistryGuide.createdAt?` and `GuideEntry.createdAt`,
+and `guides.controller.ts` maps `g.createdAt ?? g.updated` without writing the
+registry, so `bin/register.js` stays its only writer.
+
+One thing the plan did not anticipate: making `GuideEntry.createdAt` required
+broke eight `GuideEntry` literals in the client test fixtures
+(`app-projects`, `guides-view`, `project-drawer`), which `tsc` caught. Each was
+given a `createdAt` earlier than its `updated` so the fixtures show the two
+fields as distinct. No client source changed — the task stayed backend-only.
+
+Tests were written first and failed for the right reasons before the change:
+the two register assertions returned `undefined`, and the guides suite would
+not compile (`TS2339: Property 'createdAt' does not exist on type
+'GuideEntry'`).
+
+`pnpm run typecheck` — clean, no diagnostics:
+
+```
+$ tsc --noEmit
+```
+
+`pnpm test`:
+
+```
+Test Suites: 24 passed, 24 total
+Tests:       204 passed, 204 total
+Snapshots:   0 total
+Time:        23.601 s, estimated 43 s
+Ran all test suites.
+```
+
+Baseline before the change was 200 tests; the four added are the three register
+behaviors and the API fallback.
+
+Worked on branch `worktree-task-6-registry-createdat` in an isolated worktree.
+Uncommitted — staging is the user's call.

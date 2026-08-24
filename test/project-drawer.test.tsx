@@ -12,15 +12,15 @@ const PROJECTS: ProjectEntry[] = [
     name: 'guide-manager',
     path: '/p',
     guides: [
-      { path: '/p/a.md', title: 'A', type: 'study', updated: '2026-08-24T00:00:00Z', href: '/guide?p=a', progress: null },
-      { path: '/p/b.html', title: 'B', type: 'tutor', updated: '2026-08-24T00:00:00Z', href: '/guide?p=b', progress: null }
+      { path: '/p/a.md', title: 'A', type: 'study', updated: '2026-08-24T00:00:00Z', createdAt: '2026-08-01T00:00:00Z', href: '/guide?p=a', progress: null },
+      { path: '/p/b.html', title: 'B', type: 'tutor', updated: '2026-08-24T00:00:00Z', createdAt: '2026-08-01T00:00:00Z', href: '/guide?p=b', progress: null }
     ]
   },
   {
     name: 'german-study-partner',
     path: '/q',
     guides: [
-      { path: '/q/c.md', title: 'C', type: 'study', updated: '2026-08-22T00:00:00Z', href: '/guide?p=c', progress: null }
+      { path: '/q/c.md', title: 'C', type: 'study', updated: '2026-08-22T00:00:00Z', createdAt: '2026-08-01T00:00:00Z', href: '/guide?p=c', progress: null }
     ]
   }
 ];

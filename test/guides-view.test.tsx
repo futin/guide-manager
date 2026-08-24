@@ -14,11 +14,11 @@ const INDEX: GuidesIndex = {
       path: '/p',
       guides: [
         {
-          path: '/p/g/a.md', title: 'Alpha Guide', type: 'study', updated: '2026-08-24T10:19:08.417Z',
+          path: '/p/g/a.md', title: 'Alpha Guide', type: 'study', updated: '2026-08-24T10:19:08.417Z', createdAt: '2026-08-01T00:00:00Z',
           href: '/guide?p=%2Fp%2Fg%2Fa.md', progress: null
         },
         {
-          path: '/p/g/deck.html', title: 'Beta Deck', type: 'tutor', updated: '2026-08-20T00:00:00Z',
+          path: '/p/g/deck.html', title: 'Beta Deck', type: 'tutor', updated: '2026-08-20T00:00:00Z', createdAt: '2026-08-01T00:00:00Z',
           href: '/guide?p=%2Fp%2Fg%2Fdeck.html',
           progress: { scrollPercent: 100, completed: true, lastOpenedAt: '2026-08-23T00:00:00Z', openCount: 4 }
         }
@@ -29,7 +29,7 @@ const INDEX: GuidesIndex = {
       path: '/q',
       guides: [
         {
-          path: '/q/g/c.md', title: 'Gamma', type: 'study', updated: '2026-08-22T00:00:00Z',
+          path: '/q/g/c.md', title: 'Gamma', type: 'study', updated: '2026-08-22T00:00:00Z', createdAt: '2026-08-01T00:00:00Z',
           href: '/guide?p=%2Fq%2Fg%2Fc.md',
           progress: { scrollPercent: 37, completed: false, lastOpenedAt: '2026-08-23T00:00:00Z', openCount: 2 }
         }

@@ -32,6 +32,14 @@ export function upsertGuide(registry, { projectPath, guidePath, type, title, now
   }
   guide.type = type;
   guide.title = title;
+  // Written once and then never again — `updated` is rewritten on every
+  // re-register, so it cannot answer "when did this guide first appear", which
+  // is what the board sorts by. The `!guide.createdAt` guard covers both cases
+  // in one line: a guide inserted just above has none, and so does an entry
+  // from a registry file written before this field existed, which is healed
+  // here on its next re-register. The server never backfills it, because this
+  // function is the registry's only writer.
+  if (!guide.createdAt) guide.createdAt = now;
   guide.updated = now;
   return registry;
 }

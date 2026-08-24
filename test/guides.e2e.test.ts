@@ -29,7 +29,7 @@ describe('GET /api/guides', () => {
         name: 'proj',
         path: join(root, 'proj'),
         guides: [
-          { type: 'study', title: 'Alpha Guide', path: join(root, 'proj', 'guides', 'a.md'), updated: '2026-08-24T00:00:00Z' },
+          { type: 'study', title: 'Alpha Guide', path: join(root, 'proj', 'guides', 'a.md'), updated: '2026-08-24T00:00:00Z', createdAt: '2026-08-01T00:00:00Z' },
           { type: 'tutor', title: 'Beta Deck', path: join(root, 'proj', 'guides', 'b.md'), updated: '2026-08-20T00:00:00Z' },
           { type: 'study', title: 'Ghost', path: join(root, 'proj', 'gone', 'x.md'), updated: '2026-08-24T00:00:00Z' }
         ]
@@ -68,6 +68,19 @@ describe('GET /api/guides', () => {
       updated: '2026-08-24T00:00:00Z',
       progress: null
     });
+  });
+
+  /**
+   * Every guide the API publishes has a createdAt, including ones registered
+   * before the field existed — those fall back to `updated` at read time. The
+   * server must not repair them in the file: bin/register.js is the registry's
+   * only writer, and it heals a legacy entry on its own next re-register.
+   */
+  it('publishes createdAt, falling back to updated for a legacy entry', async () => {
+    const guides = (await index()).projects[0].guides;
+    expect(guides[0].createdAt).toBe('2026-08-01T00:00:00Z');
+    expect(guides[1].createdAt).toBe('2026-08-20T00:00:00Z');
+    expect(guides[1].updated).toBe('2026-08-20T00:00:00Z');
   });
 
   it('gives each guide a ready-made viewer href', async () => {

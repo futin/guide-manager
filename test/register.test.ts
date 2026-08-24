@@ -23,7 +23,7 @@ interface Registry {
   projects: {
     name: string;
     path: string;
-    guides: { path: string; type: string; title: string; updated: string }[];
+    guides: { path: string; type: string; title: string; updated: string; createdAt?: string }[];
   }[];
 }
 
@@ -67,6 +67,56 @@ describe('register CLI', () => {
     expect(reg.projects[0].guides).toHaveLength(1);
     expect(reg.projects[0].guides[0].type).toBe('tutor');
     expect(reg.projects[0].guides[0].title).toBe('A2');
+  });
+
+  /**
+   * `updated` is rewritten on every re-register, so it cannot answer "when did
+   * this guide first appear" — the toolbar's sort-by-created needs a stamp that
+   * is written once and then left alone. register.js is the registry's only
+   * writer, so this is the only place that stamp can come from.
+   */
+  it('stamps a newly registered guide with createdAt', () => {
+    const file = tmpFile();
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A']);
+    const guide = read(file).projects[0].guides[0];
+    expect(typeof guide.createdAt).toBe('string');
+    expect(guide.createdAt).toBe(guide.updated);
+  });
+
+  it('preserves createdAt across a re-register while bumping updated', () => {
+    const file = tmpFile();
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A']);
+    const first = read(file).projects[0].guides[0].createdAt;
+    // Guards the two assertions below from passing on a pair of undefineds.
+    expect(typeof first).toBe('string');
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A2']);
+    const guide = read(file).projects[0].guides[0];
+    expect(guide.createdAt).toBe(first);
+    // A second CLI invocation is tens of milliseconds later, and the stamp is
+    // millisecond-precision ISO — so a moved `updated` is what separates the two
+    // fields, and proves createdAt was not simply overwritten with the same now.
+    expect(guide.updated).not.toBe(guide.createdAt);
+  });
+
+  /**
+   * Registry files written before createdAt existed are healed by the writer on
+   * the guide's next re-register, not by the server: backfilling on read would
+   * make the server a second writer of a file that is meant to have exactly one.
+   * Until then the API falls back to `updated` (guides.e2e.test.ts).
+   */
+  it('heals a legacy entry that has no createdAt on its next re-register', () => {
+    const file = tmpFile();
+    writeFileSync(file, JSON.stringify({
+      projects: [{
+        name: 'proj',
+        path: '/tmp/proj',
+        guides: [{ path: '/tmp/proj/guides/a.html', type: 'study', title: 'A', updated: '2026-01-01T00:00:00.000Z' }]
+      }]
+    }));
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A']);
+    const guide = read(file).projects[0].guides[0];
+    expect(typeof guide.createdAt).toBe('string');
+    expect(guide.createdAt).not.toBe('2026-01-01T00:00:00.000Z');
   });
 
   it('adds a second guide to the same project', () => {

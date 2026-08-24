@@ -6,6 +6,12 @@ export interface RegistryGuide {
   type: GuideType;
   title: string;
   updated: string;
+  /**
+   * Optional, unlike the API's: registry files written before this field
+   * existed have entries without one, and bin/register.js only heals those on a
+   * guide's next re-register. Readers must cope with its absence until then.
+   */
+  createdAt?: string;
 }
 
 export interface RegistryProject {
@@ -42,6 +48,13 @@ export interface GuideEntry {
   title: string;
   type: GuideType;
   updated: string;
+  /**
+   * First registration, as opposed to `updated`, which is rewritten every time
+   * a guide is re-registered. Required here even though the registry's own
+   * field is optional — the API fills a legacy entry's gap from `updated`, so a
+   * client sorting by it never has to handle a missing one.
+   */
+  createdAt: string;
   /** Ready-made viewer URL, so the client never has to build the encoding itself. */
   href: string;
   progress: GuideProgress | null;

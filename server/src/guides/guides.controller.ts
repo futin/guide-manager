@@ -32,6 +32,12 @@ export class GuidesController {
           title: g.title,
           type: g.type,
           updated: g.updated,
+          // Read-time fallback for an entry registered before createdAt
+          // existed. Deliberately not a write: bin/register.js is the
+          // registry's only writer and heals such entries itself on their next
+          // re-register, so backfilling from here would make the server a
+          // second writer of a single-writer file.
+          createdAt: g.createdAt ?? g.updated,
           href: `/guide?p=${encodeURIComponent(g.path)}`,
           progress: progress.get(g.path) ?? null
         }))
