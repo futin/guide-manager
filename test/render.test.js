@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderMarkdown, wrapPage, escapeHtml } from '../server/lib/render.js';
+import { renderMarkdown, wrapPage, escapeHtml, breadcrumbBar } from '../server/lib/render.js';
 
 test('renders basic markdown', () => {
   const html = renderMarkdown('# Hello', '/proj/guides/a.md');
@@ -51,4 +51,36 @@ test('relative md link with query rewrites to /guide, query discarded', () => {
 test('data: URI image passes through untouched', () => {
   const html = renderMarkdown('![pic](data:image/png;base64,AAAA)', '/proj/guides/a.md');
   assert.ok(html.includes('src="data:image/png;base64,AAAA"'));
+});
+
+test('breadcrumbBar links back to the index and shows project, title and type', () => {
+  const bar = breadcrumbBar({ project: 'guide-manager', title: 'Alpha Guide', type: 'study' });
+  assert.ok(bar.includes('href="/"'));
+  assert.ok(bar.includes('guide-manager'));
+  assert.ok(bar.includes('Alpha Guide'));
+  assert.ok(bar.includes('class="badge study"'));
+});
+
+test('breadcrumbBar omits project and badge when unknown', () => {
+  const bar = breadcrumbBar({ title: 'orphan.md' });
+  assert.ok(bar.includes('href="/"'));
+  assert.ok(bar.includes('orphan.md'));
+  assert.ok(!bar.includes('crumb-project'));
+  assert.ok(!bar.includes('badge'));
+});
+
+test('breadcrumbBar escapes project, title and type', () => {
+  const bar = breadcrumbBar({
+    project: '<proj>',
+    title: '<t>',
+    type: 'study"><script>x</script>',
+  });
+  assert.ok(!bar.includes('<script>x</script>'));
+  assert.ok(bar.includes('&lt;proj&gt;'));
+  assert.ok(bar.includes('&lt;t&gt;'));
+});
+
+test('wrapPage puts the header before main', () => {
+  const page = wrapPage('T', '<p>hi</p>', '<header class="topbar">bar</header>');
+  assert.ok(page.indexOf('class="topbar"') < page.indexOf('<main>'));
 });

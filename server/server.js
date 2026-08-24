@@ -1,10 +1,10 @@
 import { createServer as createHttpServer } from 'node:http';
-import { readFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, realpathSync } from 'node:fs';
 import { extname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadRegistry, REGISTRY_FILE } from '../bin/register.js';
 import { buildAllowlist, resolveAllowed } from './lib/paths.js';
-import { renderMarkdown, wrapPage, escapeHtml } from './lib/render.js';
+import { renderMarkdown, wrapPage, escapeHtml, breadcrumbBar } from './lib/render.js';
 
 const PUBLIC_DIR = fileURLToPath(new URL('./public', import.meta.url));
 
@@ -28,12 +28,27 @@ function send(res, status, type, body) {
   res.end(body);
 }
 
-function titleFor(registry, path) {
-  for (const project of registry.projects) {
-    const guide = project.guides.find((g) => g.path === path);
-    if (guide) return guide.title;
+function realOrNull(p) {
+  try {
+    return realpathSync(p);
+  } catch {
+    return null;
   }
-  return basename(path);
+}
+
+// Breadcrumb context for a guide. Requests carry the resolved realpath (see
+// resolveAllowed) while the registry stores whatever path the skill handed in,
+// so an exact hit is tried first and symlinked entries are resolved only on
+// miss. A file served merely because it sits next to a registered guide has no
+// entry at all — name it by filename and leave the crumbs off rather than guess.
+function guideMeta(registry, path) {
+  const entries = registry.projects.flatMap((p) => p.guides.map((g) => [p, g]));
+  const hit =
+    entries.find(([, g]) => g.path === path) ||
+    entries.find(([, g]) => realOrNull(g.path) === path);
+  if (!hit) return { title: basename(path) };
+  const [project, guide] = hit;
+  return { title: guide.title, type: guide.type, project: project.name };
 }
 
 function indexPage(registry) {
@@ -77,7 +92,9 @@ export function createServer({ registryFile = REGISTRY_FILE } = {}) {
         const ext = extname(real).toLowerCase();
         if (url.pathname === '/guide' && ext === '.md') {
           const md = readFileSync(real, 'utf8');
-          return send(res, 200, MIME['.html'], wrapPage(titleFor(registry, real), renderMarkdown(md, real)));
+          const meta = guideMeta(registry, real);
+          return send(res, 200, MIME['.html'],
+            wrapPage(meta.title, renderMarkdown(md, real), breadcrumbBar(meta)));
         }
         if (ext === '.md') {
           return send(res, 200, MIME['.txt'], readFileSync(real));
@@ -94,7 +111,7 @@ export function createServer({ registryFile = REGISTRY_FILE } = {}) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT) || 4321;
-  createServer().listen(port, '0.0.0.0', () => {
-    console.log(`guide-manager listening on http://0.0.0.0:${port}`);
+  createServer().listen(port, () => {
+    console.log(`guide-manager listening on http://localhost:${port}`);
   });
 }

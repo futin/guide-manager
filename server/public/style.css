@@ -4,6 +4,7 @@
   --muted: #6b7280;
   --accent: #2563eb;
   --card: #f3f4f6;
+  --line: #e5e7eb;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -12,9 +13,12 @@
     --muted: #9ca3af;
     --accent: #60a5fa;
     --card: #1c2128;
+    --line: #2a3038;
   }
 }
 * { box-sizing: border-box; }
+/* Sticky topbar would otherwise cover in-page anchor targets. */
+html { scroll-padding-top: 4.5rem; }
 body {
   margin: 0;
   background: var(--bg);
@@ -22,6 +26,52 @@ body {
   font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 main { max-width: 44rem; margin: 0 auto; padding: 1rem 1.25rem 4rem; }
+
+/* Sticky breadcrumb: where you are, and the way back. */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+@supports (backdrop-filter: blur(10px)) {
+  .topbar {
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: saturate(180%) blur(10px);
+  }
+}
+.topbar-inner {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 0.5rem 1.25rem 0.55rem;
+}
+.crumbs { font-size: 0.8rem; color: var(--muted); }
+.crumbs .back {
+  font-weight: 600;
+  /* Comfortable phone tap target without inflating the bar. */
+  display: inline-block;
+  padding: 0.2rem 0;
+}
+.crumbs .arrow { margin-right: 0.15rem; }
+.crumb-sep { margin: 0 0.4rem; }
+.topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.1rem;
+}
+.crumb-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  /* Long guide titles truncate rather than wrapping the bar to two lines. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar-title .badge { flex: none; }
+/* The topbar already names the guide; drop the leading gap above its <h1>. */
+main > h1:first-child { margin-top: 0.75rem; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 h1, h2, h3 { line-height: 1.25; }

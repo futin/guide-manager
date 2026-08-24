@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from '../server/server.js';
@@ -142,5 +142,55 @@ test('escapes malicious type in index', async () => {
     const html = await res.text();
     assert.ok(!html.includes('<script>x</script>'), 'script tag should be escaped');
     assert.ok(html.includes('&lt;script&gt;'), 'should contain escaped form');
+  });
+});
+
+test('guide page carries a breadcrumb back to the index', async () => {
+  const { root, registryFile } = fixture();
+  await withServer(registryFile, async (base) => {
+    const p = encodeURIComponent(join(root, 'proj', 'guides', 'a.md'));
+    const html = await (await fetch(`${base}/guide?p=${p}`)).text();
+    const bar = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
+    assert.ok(bar.includes('href="/"'), 'back link to index');
+    assert.ok(bar.includes('proj'), 'project name');
+    assert.ok(bar.includes('Alpha Guide'), 'guide title');
+    assert.ok(bar.includes('badge study'), 'type badge');
+    assert.ok(html.indexOf('<header') < html.indexOf('<main>'), 'header before main');
+  });
+});
+
+test('unregistered sibling guide still gets a back link, titled by filename', async () => {
+  const { root, registryFile } = fixture();
+  writeFileSync(join(root, 'proj', 'guides', 'sibling.md'), '# Sibling');
+  await withServer(registryFile, async (base) => {
+    const p = encodeURIComponent(join(root, 'proj', 'guides', 'sibling.md'));
+    const res = await fetch(`${base}/guide?p=${p}`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.ok(html.includes('href="/"'));
+    assert.ok(html.includes('sibling.md'));
+  });
+});
+
+test('titles a guide registered through a symlinked directory', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'gm-link-'));
+  mkdirSync(join(root, 'real', 'guides'), { recursive: true });
+  writeFileSync(join(root, 'real', 'guides', 'a.md'), '# Alpha');
+  symlinkSync(join(root, 'real'), join(root, 'link'), 'dir');
+  const registryFile = join(root, 'registry.json');
+  writeFileSync(registryFile, JSON.stringify({
+    projects: [{
+      name: 'linked-proj',
+      path: join(root, 'link'),
+      guides: [
+        { type: 'study', title: 'Alpha Guide', path: join(root, 'link', 'guides', 'a.md'), updated: '2026-08-24T00:00:00Z' },
+      ],
+    }],
+  }));
+  await withServer(registryFile, async (base) => {
+    const p = encodeURIComponent(join(root, 'link', 'guides', 'a.md'));
+    const html = await (await fetch(`${base}/guide?p=${p}`)).text();
+    assert.ok(html.includes('<title>Alpha Guide</title>'), 'registry title, not basename');
+    assert.ok(html.includes('linked-proj'), 'project crumb resolved through the symlink');
   });
 });

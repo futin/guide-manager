@@ -35,7 +35,24 @@ export function renderMarkdown(md, guidePath) {
   }
 }
 
-export function wrapPage(title, bodyHtml) {
+// Sticky context bar for a guide page: where you are, and the way back.
+export function breadcrumbBar({ project, title, type } = {}) {
+  const projectCrumb = project
+    ? `<span class="crumb-sep" aria-hidden="true">/</span>` +
+      `<span class="crumb-project">${escapeHtml(project)}</span>`
+    : '';
+  const badge = type
+    ? `<span class="badge ${escapeHtml(type)}">${escapeHtml(type)}</span>`
+    : '';
+  return `<header class="topbar">
+<div class="topbar-inner">
+<nav class="crumbs" aria-label="Breadcrumb"><a class="back" href="/"><span class="arrow" aria-hidden="true">\u2190</span> Guides</a>${projectCrumb}</nav>
+<div class="topbar-title"><span class="crumb-title">${escapeHtml(title || '')}</span>${badge}</div>
+</div>
+</header>`;
+}
+
+export function wrapPage(title, bodyHtml, headerHtml = '') {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -45,7 +62,7 @@ export function wrapPage(title, bodyHtml) {
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<main>${bodyHtml}</main>
+${headerHtml}<main>${bodyHtml}</main>
 </body>
 </html>`;
 }
