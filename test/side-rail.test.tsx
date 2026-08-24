@@ -1,7 +1,6 @@
 /**
  * @jest-environment jsdom
  */
-import { createRef } from 'react';
 import { render, screen } from '@testing-library/react';
 
 import { SideRail, type Section } from '../client/src/components/SideRail';
@@ -9,25 +8,20 @@ import { SideRail, type Section } from '../client/src/components/SideRail';
 /** The rail with everything but the bit under test defaulted away. */
 function renderRail(overrides: Partial<Parameters<typeof SideRail>[0]> = {}) {
   const sections: Section[] = [];
-  const toggles: number[] = [];
-  const railRef = createRef<HTMLElement>();
   render(
     <SideRail
       section="guides"
       onChange={(s) => sections.push(s)}
-      projectsOpen={false}
-      onToggleProjects={() => toggles.push(1)}
-      railRef={railRef}
       {...overrides}
     />
   );
-  return { sections, toggles, railRef };
+  return { sections };
 }
 
 describe('SideRail', () => {
   it('offers exactly the two sections this app has', () => {
     renderRail();
-    expect(screen.getByRole('button', { name: /Guides/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Guides' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
     expect(screen.getAllByRole('button')).toHaveLength(2);
   });
@@ -35,7 +29,7 @@ describe('SideRail', () => {
   it('marks the active section for assistive tech, not just visually', () => {
     renderRail({ section: 'settings' });
     expect(screen.getByRole('button', { name: 'Settings' }).getAttribute('aria-current')).toBe('page');
-    expect(screen.getByRole('button', { name: /Guides/ }).getAttribute('aria-current')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Guides' }).getAttribute('aria-current')).toBeNull();
   });
 
   it('reports the section that was clicked', () => {
@@ -49,39 +43,29 @@ describe('SideRail', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Manager');
   });
 
-  it('hands out its own element, so the drawer can exclude presses landing in the rail', () => {
-    const { railRef } = renderRail();
-    expect(railRef.current?.tagName).toBe('NAV');
-    expect(railRef.current?.className).toBe('rail');
-  });
-
-  it('opens the project drawer when Guides is pressed and Guides is already showing', () => {
-    const { sections, toggles } = renderRail({ section: 'guides' });
-    screen.getByRole('button', { name: /Guides/ }).click();
-    expect(toggles).toHaveLength(1);
-    expect(sections).toEqual([]);
-  });
-
-  it('switches to Guides without opening the drawer when another section is showing', () => {
-    const { sections, toggles } = renderRail({ section: 'settings' });
-    screen.getByRole('button', { name: /Guides/ }).click();
+  it('switches section on the tab that is already showing, rather than disclosing anything', () => {
+    const { sections } = renderRail({ section: 'guides' });
+    screen.getByRole('button', { name: 'Guides' }).click();
     expect(sections).toEqual(['guides']);
-    expect(toggles).toEqual([]);
   });
 
-  it('reports the drawer state on the button that controls it', () => {
-    renderRail({ section: 'guides', projectsOpen: true });
-    expect(screen.getByRole('button', { name: /Guides/ }).getAttribute('aria-expanded')).toBe('true');
+  /*
+    The Guides tab briefly doubled as a disclosure for the project drawer, and
+    carried aria-expanded to say so. The drawer is gone, so the attribute has to
+    go with it: a button that only navigates must not announce a panel it does
+    not hold. Asserted across the whole rail rather than on one tab — the point
+    is that no tab discloses anything, not that this one stopped.
+  */
+  it('claims no disclosure on any tab, in either section', () => {
+    const { unmount } = render(<SideRail section="guides" onChange={() => {}} />);
+    expect(document.querySelectorAll('.rail [aria-expanded]')).toHaveLength(0);
+    unmount();
+    render(<SideRail section="settings" onChange={() => {}} />);
+    expect(document.querySelectorAll('.rail [aria-expanded]')).toHaveLength(0);
   });
 
-  it('reports a shut drawer as shut rather than saying nothing', () => {
-    renderRail({ section: 'guides', projectsOpen: false });
-    expect(screen.getByRole('button', { name: /Guides/ }).getAttribute('aria-expanded')).toBe('false');
-  });
-
-  it('claims no disclosure while its section is not the one showing', () => {
-    renderRail({ section: 'settings' });
-    expect(screen.getByRole('button', { name: /Guides/ }).getAttribute('aria-expanded')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Settings' }).getAttribute('aria-expanded')).toBeNull();
+  it('leaves no caret behind on the tabs', () => {
+    renderRail({ section: 'guides' });
+    expect(document.querySelector('.rail-caret')).toBeNull();
   });
 });
