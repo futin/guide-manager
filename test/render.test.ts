@@ -104,6 +104,33 @@ describe('render', () => {
     expect(frame).not.toContain('onload="x');
   });
 
+  it('wrapPage stamps the saved theme before first paint', () => {
+    const page = wrapPage('T', '<p>hi</p>');
+    expect(page).toContain("localStorage.getItem('guide-manager.settings')");
+    expect(page).toContain('dataset.theme');
+    // The stamp must precede the stylesheets, or the first paint is unthemed.
+    expect(page.indexOf('dataset.theme')).toBeLessThan(page.indexOf('href="/theme.css"'));
+  });
+
+  it('wrapPage links the theme tokens, the page styles and the reading aid', () => {
+    const page = wrapPage('T', '<p>hi</p>');
+    expect(page).toContain('href="/theme.css"');
+    expect(page).toContain('href="/style.css"');
+    expect(page).toContain('href="/bionic.css"');
+    expect(page).toContain('src="/bionic.js"');
+  });
+
+  it('wrapPage loads the reading aid after the body it decorates', () => {
+    const page = wrapPage('T', '<p>hi</p>');
+    expect(page.indexOf('<main')).toBeLessThan(page.indexOf('src="/bionic.js"'));
+  });
+
+  it('wrapPage gives main the class the reading aid decorates', () => {
+    // bionic.js looks for .wrap, then .shell, then body. Matching .wrap keeps
+    // the aid off the breadcrumb bar.
+    expect(wrapPage('T', '<p>hi</p>')).toContain('<main class="wrap">');
+  });
+
   it('wrapPage can set a body class', () => {
     expect(wrapPage('T', '<p>hi</p>', '', { bodyClass: 'deck-host' })).toContain('<body class="deck-host">');
     expect(wrapPage('T', '<p>hi</p>')).toContain('<body>');

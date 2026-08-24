@@ -1,20 +1,18 @@
+/* Colors come from the shared palette in shared/theme.css, which wrapPage links
+   ahead of this file — one definition for both the React shell and the guide
+   pages, so a theme tweak can never leave them disagreeing. These aliases map
+   the names this stylesheet has always used onto the palette's tokens; a
+   hardcoded color below this line is a bug.
+
+   No prefers-color-scheme block any more: the theme is an explicit choice made
+   in Settings and stamped on <html> pre-paint, and a media query would fight it. */
 :root {
-  --bg: #ffffff;
-  --fg: #1a1a1a;
-  --muted: #6b7280;
-  --accent: #2563eb;
-  --card: #f3f4f6;
-  --line: #e5e7eb;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111418;
-    --fg: #e5e7eb;
-    --muted: #9ca3af;
-    --accent: #60a5fa;
-    --card: #1c2128;
-    --line: #2a3038;
-  }
+  --bg: var(--board);
+  --fg: var(--ink);
+  --muted: var(--ink2);
+  --accent: var(--cyan);
+  --card: var(--strip);
+  --line: var(--hairline);
 }
 * { box-sizing: border-box; }
 /* Sticky topbar would otherwise cover in-page anchor targets. */
@@ -105,7 +103,9 @@ li:last-child { border-bottom: none; }
   border-radius: 999px;
   padding: 0.1rem 0.5rem;
   background: var(--accent);
-  color: var(--bg);
+  /* --on-accent, not --bg: the palette defines ink-on-a-filled-accent per theme,
+     and on the light theme the page background is too close to the accent. */
+  color: var(--on-accent);
 }
 .badge.tutor { filter: hue-rotate(120deg); }
 time { color: var(--muted); font-size: 0.8rem; float: right; }

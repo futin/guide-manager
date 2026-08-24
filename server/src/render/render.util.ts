@@ -71,6 +71,29 @@ export function deckFrame(src: string, title?: string): string {
 </script>`;
 }
 
+/**
+ * Stamped before the stylesheets so a load never flashes the default palette —
+ * worst on the light theme. Inline and tiny on purpose: it has to run before
+ * paint, so it cannot be a module. Mirrors the client's own pre-paint script in
+ * client/index.html and reads the same key; fails silently (private mode, no
+ * storage) straight back to the default theme.
+ */
+const THEME_STAMP = `<script>
+try {
+  var s = JSON.parse(localStorage.getItem('guide-manager.settings') || '{}');
+  if (s.theme) document.documentElement.dataset.theme = s.theme;
+} catch (e) {}
+</script>`;
+
+/**
+ * The page shell every server-rendered guide gets.
+ *
+ * `main` carries `class="wrap"` because assets/bionic.js decorates the first of
+ * `.wrap`, `.shell`, `body` that it finds — matching `.wrap` keeps the reading
+ * aid off the breadcrumb bar. The aid's script is loaded at the end of `<body>`
+ * so its ready branch finds the content already parsed, and its own SKIP list
+ * already excludes pre, code and every heading level.
+ */
 export function wrapPage(
   title: string,
   bodyHtml: string,
@@ -83,10 +106,14 @@ export function wrapPage(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
+${THEME_STAMP}
+<link rel="stylesheet" href="/theme.css">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/bionic.css">
 </head>
 <body${bodyClass ? ` class="${escapeHtml(bodyClass)}"` : ''}>
-${headerHtml}<main>${bodyHtml}</main>
+${headerHtml}<main class="wrap">${bodyHtml}</main>
+<script src="/bionic.js"></script>
 </body>
 </html>`;
 }
