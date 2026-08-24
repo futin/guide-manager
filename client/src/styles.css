@@ -7,17 +7,57 @@
    surfaces — a palette tweak cannot leave the shell and the guide body
    disagreeing.
 
-   One deliberate simplification: the dashboard divides its viewport units by
-   `--font-scale` because its `.shell{zoom}` text-scale setting makes 100vh
-   resolve against the unzoomed viewport. There is no text-scale setting here and
-   no `zoom`, so those divisions would be no-ops and are dropped. If a text scale
-   is ever added, they have to come back. */
+   The text scale IS here now (task-8), so the viewport divisions the dashboard
+   carries are here too — see `.shell{zoom}` below and every `/ var(--font-scale)`
+   in this file. They are not decoration: `zoom` scales the element's own box but
+   NOT what `vh`/`vw`/`dvh` resolve against, so an undivided `100vh` child of the
+   zoomed shell overhangs the screen by exactly the scale factor. Anything added
+   here that measures in viewport units needs the same division. */
 @import '../../shared/theme.css';
 
-:root { --body-pad: 24px; }
+/* Density + text scale.
+
+   Compact only retunes spacing — never a colour, never a font size — so it
+   composes with all five palettes rather than multiplying into five more. Every
+   value it moves is a custom property declared here first, which is what keeps
+   the override to one block: a rule that wants to be denser asks for a token
+   instead of growing a `[data-density]` twin.
+
+   `zoom` scales the whole board including its px-based type, which a root
+   font-size cannot do here — this stylesheet is px throughout, so `rem` would
+   reach almost nothing. It rides `.shell` and NOT `body`: `zoom` is a legacy
+   property whose interaction with `position: sticky` descendants is
+   engine-dependent, and the sticky rail is a direct child of the zoomed element
+   rather than a grandchild of the scroll root. Everything the app renders lives
+   inside `.shell`, so the scaling reach is unchanged either way. */
+.shell { zoom: var(--font-scale, 1) }
+
+:root {
+  --body-pad: 24px;
+  --card-pad: 10px 14px;
+  --card-gap: 10px;
+  --card-inner-gap: 10px;
+  --bay-gap: 8px;
+  --group-gap: 14px;
+  --set-pad: 9px 12px;
+}
+/* Must FOLLOW the :root defaults — both selectors match <html> at the same
+   specificity, so source order is the only thing deciding the winner. */
+[data-density="compact"] {
+  --body-pad: 14px;
+  --card-pad: 7px 11px;
+  --card-gap: 6px;
+  --card-inner-gap: 6px;
+  --bay-gap: 5px;
+  --group-gap: 9px;
+  --set-pad: 6px 10px;
+}
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
 
+/* The one viewport unit in this file that is deliberately NOT divided by
+   --font-scale: body is the zoomed element's parent, not its descendant, so
+   `zoom` on .shell never scales it and 100vh here already means the screen. */
 body {
   font-family: var(--font);
   background: var(--board);
@@ -31,12 +71,14 @@ body {
 .wrap.wide { max-width: 1280px }
 
 /* rack selector — the section rail down the left edge. Sticky and full-height so
-   its right rule runs the length of the board. */
+   its right rule runs the length of the board. The height is divided by
+   --font-scale because .shell{zoom} leaves 100vh resolving against the UNZOOMED
+   viewport: at 120% a plain 100vh rail is drawn 20% taller than the screen. */
 .shell { display: flex }
 .rail {
   flex: 0 0 150px; display: flex; flex-direction: column; gap: 2px;
   align-self: flex-start; position: sticky; top: 0; z-index: 5;
-  height: 100vh; overflow-y: auto; padding: var(--body-pad) 10px;
+  height: calc(100vh / var(--font-scale, 1)); overflow-y: auto; padding: var(--body-pad) 10px;
   background: var(--strip); border-right: 1px solid var(--hairline);
 }
 /* the app's wordmark, in the rail rather than the page — a kicker over the name */
@@ -82,7 +124,10 @@ body {
 /* Desktop: the tab becomes the scroller rather than the page, so the guide
    viewer can fill the screen without the board scrolling behind it. */
 @media (min-width: 1201px) {
-  .wrap.wide { display: flex; flex-direction: column; height: calc(100vh - 2 * var(--body-pad)) }
+  /* Same 100vh-under-zoom correction the rail makes. Only the viewport term is
+     divided: --body-pad is a px length inside the zoomed subtree, so it is
+     already scaled by the same factor and dividing it would undo that. */
+  .wrap.wide { display: flex; flex-direction: column; height: calc(100vh / var(--font-scale, 1) - 2 * var(--body-pad)) }
   .wrap.wide .guides { flex: 1; min-height: 0; overflow-y: auto }
   .wrap.wide .guide-viewer { flex: 1; min-height: 0 }
 }
@@ -91,7 +136,7 @@ body {
    Registered guides read via GET /api/guides, one bay per project. Two states: a
    board of bays, or — once a card is tapped — the viewer pane, a same-origin
    iframe in .guide-viewer-body pointed at the entry's own /guide href. */
-.guides { display: flex; flex-direction: column; gap: 14px }
+.guides { display: flex; flex-direction: column; gap: var(--group-gap) }
 /* `row-gap` separately from the flex `gap`, because once the toolbar wraps below
    the title the two lines need less air between them than the 10px that reads
    right between controls sitting side by side. */
@@ -165,7 +210,7 @@ body {
 /* A bay is one project: its header, then its own card grid. The gap is smaller
    than the .guides gap between bays, so a header binds visually to the cards
    below it rather than floating between two grids. */
-.bay { display: flex; flex-direction: column; gap: 8px }
+.bay { display: flex; flex-direction: column; gap: var(--bay-gap) }
 /* The promoted header. This is the whole fix for "project names are almost not
    visible": the name was a 10.5px --ink3 caption, the same weight as a field
    label, and on a board of bright cards it disappeared. Now display font at the
@@ -233,7 +278,7 @@ body {
    than a breakpoint guessing at it: the same rule gives a phone one column, the
    820px board three, and the 1280px wide board more. 220px is the floor at which
    a card's mono meta line still fits beside its pill without wrapping. */
-.guides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px }
+.guides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--card-gap) }
 /* A flex column, where the row layout used a named-areas grid. The grid put the
    pill and the meta line in a grid row, and a grid row cannot be pushed to the
    bottom of a cell that a taller neighbour stretched — which is what every cell
@@ -242,9 +287,9 @@ body {
    [data-density="compact"] override is a single block rather than a hunt through
    four selectors. */
 .guides-card {
-  display: flex; flex-direction: column; gap: 10px;
+  display: flex; flex-direction: column; gap: var(--card-inner-gap);
   background: var(--strip); border: 1px solid var(--hairline); border-radius: 2px;
-  padding: 10px 14px; cursor: pointer; transition: border-color .15s;
+  padding: var(--card-pad); cursor: pointer; transition: border-color .15s;
   box-shadow: inset 0 1px 0 var(--edge);
 }
 .guides-card:hover { border-color: var(--hairline2) }
@@ -299,7 +344,10 @@ body {
 @media (max-width: 700px) {
   .guide-viewer {
     position: fixed; inset: 0; z-index: 40; gap: 0;
-    background: var(--board); height: 100dvh; width: 100vw;
+    background: var(--board);
+    /* `zoom` scales a fixed child's box as well, so both terms need the same
+       division the rail gets — otherwise the overlay hangs off two edges. */
+    height: calc(100dvh / var(--font-scale, 1)); width: calc(100vw / var(--font-scale, 1));
   }
   .guide-viewer-head { flex-shrink: 0; padding: 11px 12px; background: var(--strip); box-shadow: inset 0 1px 0 var(--edge) }
   /* the overlay supplies the height; the 200px floor would now be a floor on nothing */
@@ -310,7 +358,7 @@ body {
    viewport-derived floor instead. Subtrahend is .main's padding (twice) plus the
    head and the gap above it. */
 @media (min-width: 701px) and (max-width: 1200px) {
-  .guide-viewer-body { min-height: calc(100dvh - 2 * var(--body-pad) - 62px) }
+  .guide-viewer-body { min-height: calc(100dvh / var(--font-scale, 1) - 2 * var(--body-pad) - 62px) }
 }
 /* The framed guide scrolls inside another document, which cannot be given
    `overscroll-behavior` from here — so the scroll chain is refused at the root
@@ -331,10 +379,13 @@ body {
 .set-group > .mdetail-label { margin-bottom: 6px }
 .set-row {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 9px 12px; border: 1px solid var(--hairline); border-radius: 2px;
+  padding: var(--set-pad); border: 1px solid var(--hairline); border-radius: 2px;
   background: var(--strip); box-shadow: inset 0 1px 0 var(--edge);
 }
-.set-row + .set-row { margin-top: 5px }
+/* The theme grid is a .set-row's sibling but not one itself, so the adjacency
+   rule above skips the first row after it — Density would sit flush against the
+   swatches without this. */
+.set-row + .set-row, .set-themes + .set-row { margin-top: 5px }
 .set-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 }
 .set-name { font-size: 12px; font-weight: 600; color: var(--ink) }
 .set-hint { font-size: 10.5px; color: var(--ink3); line-height: 1.45 }
@@ -396,5 +447,11 @@ body {
    opens a native picker rather than putting a caret in the page, so it does not
    trip it and does not need the floor. */
 @media (pointer: coarse) {
-  .set-control input[type=number], .set-control input[type=text] { font-size: 16px }
+  /* The 16px is a RENDERED size, and .shell{zoom} multiplies the declared one —
+     so at 90% a declared 16px paints at 14.4px and trips the zoom anyway.
+     Dividing states the floor in declared px; max() keeps scales above 100%
+     from dropping the declared value below 16 and shrinking the field. */
+  .set-control input[type=number], .set-control input[type=text] {
+    font-size: max(16px, calc(16px / var(--font-scale, 1)));
+  }
 }

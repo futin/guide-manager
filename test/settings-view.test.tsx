@@ -23,23 +23,73 @@ describe('SettingsView', () => {
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
+    document.documentElement.removeAttribute('data-density');
+    document.documentElement.style.removeProperty('--font-scale');
   });
 
-  it('offers all five themes and exactly three reading rows', () => {
+  it('offers all five themes, three display rows and three reading rows', () => {
     renderSettings();
     for (const label of ['Midnight Radar', 'Graphite', 'Amber CRT', 'Nightshift', 'Daylight Strip']) {
       expect(screen.getByRole('button', { name: new RegExp(label) })).toBeTruthy();
     }
-    expect(screen.getByText('Bionic reading')).toBeTruthy();
-    expect(screen.getByText('Fixation')).toBeTruthy();
-    expect(screen.getByText('Every')).toBeTruthy();
+    for (const row of ['Density', 'Text size', 'Opens on', 'Bionic reading', 'Fixation', 'Every']) {
+      expect(screen.getByText(row)).toBeTruthy();
+    }
   });
 
   it('carries no rows the dashboard had but this app has no use for', () => {
+    // Density, text size and the landing picker came over in task-8. What is
+    // still absent is everything backed by a server this app does not have.
     renderSettings();
-    for (const gone of ['Density', 'Text scale', 'Refresh', 'Landing', 'Remote', 'Push']) {
+    for (const gone of ['Refresh', 'Sessions shown', 'Chat messages', 'Remote', 'Push']) {
       expect(screen.queryByText(gone)).toBeNull();
     }
+  });
+
+  it('stamps density on <html> and persists the pick', () => {
+    renderSettings();
+    expect(document.documentElement.dataset.density).toBe('comfortable');
+
+    act(() => { screen.getByRole('button', { name: 'Compact' }).click(); });
+    expect(document.documentElement.dataset.density).toBe('compact');
+    expect(stored(SETTINGS_STORAGE_KEY).density).toBe('compact');
+  });
+
+  it('sets --font-scale as a fraction, not a percentage', () => {
+    // The stored value is percent because that is what the row prints; the CSS
+    // custom property has to be the `zoom` factor itself, or .shell scales 120x.
+    renderSettings();
+    const scale = () => document.documentElement.style.getPropertyValue('--font-scale');
+    expect(scale()).toBe('1');
+
+    act(() => { screen.getByRole('button', { name: '120%' }).click(); });
+    expect(scale()).toBe('1.2');
+    expect(stored(SETTINGS_STORAGE_KEY).fontScale).toBe(120);
+  });
+
+  it('persists the landing pick without touching the remembered section', () => {
+    localStorage.setItem('guide-manager.section', JSON.stringify('settings'));
+    renderSettings();
+    const select = screen.getByLabelText('Opens on') as HTMLSelectElement;
+    expect(select.value).toBe('last');
+
+    act(() => {
+      select.value = 'guides';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(stored(SETTINGS_STORAGE_KEY).landing).toBe('guides');
+    // The override pins the opening section; it must not rewrite the memory of
+    // where you actually were, or switching back to 'last' would lie.
+    expect(localStorage.getItem('guide-manager.section')).toBe(JSON.stringify('settings'));
+  });
+
+  it('offers a landing option per rail section, plus the default', () => {
+    renderSettings();
+    const select = screen.getByLabelText('Opens on') as HTMLSelectElement;
+    expect([...select.options].map((o) => o.value)).toEqual(['last', 'guides', 'settings']);
+    expect([...select.options].map((o) => o.textContent)).toEqual([
+      'Where I left off', 'Guides', 'Settings'
+    ]);
   });
 
   it('stamps the picked theme on <html> and persists it', () => {

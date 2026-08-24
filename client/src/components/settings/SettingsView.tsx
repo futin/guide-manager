@@ -1,6 +1,6 @@
 import { Segmented, SettingsGroup, SettingsRow } from './SettingsRow';
 import { useSettings } from '../../hooks/useSettings';
-import { THEMES, type ThemeId } from '../../lib/settings';
+import { FONT_SCALES, THEMES, type Landing, type ThemeId } from '../../lib/settings';
 
 /**
  * Preview colors per theme — board / strip / accent, in that order. A mirror of
@@ -15,6 +15,22 @@ const SWATCHES: Record<ThemeId, [string, string, string]> = {
   nightshift: ['#07120d', '#12251b', '#4fe09a'],
   daylight: ['#e8e3d7', '#fbf8f1', '#136d78']
 };
+
+const DENSITIES = [
+  { value: 'comfortable' as const, label: 'Comfortable' },
+  { value: 'compact' as const, label: 'Compact' }
+];
+
+/**
+ * The landing choices, with copy rather than section ids. "Where I left off" is
+ * first because it is the default and reads as the absence of a choice; the two
+ * named sections below it are the override.
+ */
+const LANDINGS: { value: Landing; label: string }[] = [
+  { value: 'last', label: 'Where I left off' },
+  { value: 'guides', label: 'Guides' },
+  { value: 'settings', label: 'Settings' }
+];
 
 const ON_OFF = [
   { value: 'off' as const, label: 'Off' },
@@ -73,6 +89,43 @@ export default function SettingsView() {
             </button>
           ))}
         </div>
+
+        <SettingsRow
+          name="Density"
+          hint="Compact tightens padding and the gaps between cards — more guides per screen."
+        >
+          <Segmented
+            value={settings.density}
+            options={DENSITIES}
+            onChange={(density) => update({ density })}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          name="Text size"
+          hint="Scales the whole board, not just type — the rail, the cards and the spacing move with it. The guide inside the viewer keeps its own size; pinch it instead."
+        >
+          <Segmented
+            value={settings.fontScale}
+            options={FONT_SCALES.map((v) => ({ value: v, label: `${v}%` }))}
+            onChange={(fontScale) => update({ fontScale })}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          name="Opens on"
+          hint="Which section this device lands on when you load the page."
+        >
+          <select
+            value={settings.landing}
+            aria-label="Opens on"
+            onChange={(e) => update({ landing: e.target.value as Landing })}
+          >
+            {LANDINGS.map((l) => (
+              <option key={l.value} value={l.value}>{l.label}</option>
+            ))}
+          </select>
+        </SettingsRow>
       </SettingsGroup>
 
       <SettingsGroup title="Reading">

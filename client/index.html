@@ -5,16 +5,22 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Guide Manager</title>
 <script>
-// Stamp the saved theme before first paint. Without this every load renders in
-// the default palette until React mounts, which reads as a flash — worst on the
-// light theme. Kept inline and tiny on purpose: it must run before the
-// stylesheet paints, so it cannot be a module. The server injects the identical
-// script into every rendered guide page (see wrapPage), reading the same key, so
-// the shell and the guide it frames come up in the same palette. Fails silently
-// (private mode, no storage) straight back to the default.
+// Stamp the saved theme, density and text scale before first paint. Without
+// this every load renders in the default palette at 100% until React mounts,
+// which reads as a flash — worst on the light theme, and a scaled device
+// flashing 100% is the same flash by a different name. Kept inline and tiny on
+// purpose: it must run before the stylesheet paints, so it cannot be a module.
+//
+// The server injects a script into every rendered guide page (see wrapPage)
+// that reads this same key for the theme alone — density and scale are shell
+// concerns and deliberately stop at the iframe. Mirrors hooks/useSettings.tsx.
+// Fails silently (private mode, no storage) straight back to the defaults.
 try {
   var s = JSON.parse(localStorage.getItem('guide-manager.settings') || '{}');
-  if (s.theme) document.documentElement.dataset.theme = s.theme;
+  var r = document.documentElement;
+  if (s.theme) r.dataset.theme = s.theme;
+  if (s.density) r.dataset.density = s.density;
+  if (s.fontScale) r.style.setProperty('--font-scale', String(s.fontScale / 100));
 } catch (e) {}
 </script>
 </head>

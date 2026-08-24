@@ -1,4 +1,6 @@
-import { clampSettings, DEFAULT_SETTINGS, LIMITS, THEMES } from '../client/src/lib/settings';
+import {
+  clampSettings, DEFAULT_SETTINGS, FONT_SCALES, LIMITS, THEMES
+} from '../client/src/lib/settings';
 
 describe('clampSettings', () => {
   it('falls back to the default theme for an unknown id', () => {
@@ -47,11 +49,52 @@ describe('clampSettings', () => {
 
   it('falls back per field, so one bad key cannot discard the rest', () => {
     expect(clampSettings({ theme: 'daylight', bionicStrength: 'nope', bionicFreq: 3 })).toEqual({
+      ...DEFAULT_SETTINGS,
       theme: 'daylight',
-      bionicOn: false,
       bionicStrength: DEFAULT_SETTINGS.bionicStrength,
       bionicFreq: 3
     });
+  });
+
+  it('falls back per field across the display knobs too', () => {
+    // One bad display value must not take the other two — or the reading knobs —
+    // down with it. Three separate pickers, three independent fallbacks.
+    expect(clampSettings({
+      density: 'roomy', fontScale: 'huge', landing: 'analytics', theme: 'amber'
+    })).toEqual({
+      ...DEFAULT_SETTINGS,
+      theme: 'amber'
+    });
+  });
+
+  it('keeps each display knob when it is valid', () => {
+    const s = clampSettings({ density: 'compact', fontScale: 120, landing: 'settings' });
+    expect(s.density).toBe('compact');
+    expect(s.fontScale).toBe(120);
+    expect(s.landing).toBe('settings');
+  });
+
+  it('clamps the text scale to 80-130 and rounds it to an integer', () => {
+    expect(clampSettings({ fontScale: 10 }).fontScale).toBe(LIMITS.fontScale.min);
+    expect(clampSettings({ fontScale: 400 }).fontScale).toBe(LIMITS.fontScale.max);
+    expect(clampSettings({ fontScale: 104.6 }).fontScale).toBe(105);
+    expect(LIMITS.fontScale).toEqual({ min: 80, max: 130 });
+  });
+
+  it('offers stops that all sit inside the stored range', () => {
+    // A stop the clamp would move is a button that flips and shows a different
+    // number than the one printed on it.
+    for (const stop of FONT_SCALES) {
+      expect(clampSettings({ fontScale: stop }).fontScale).toBe(stop);
+    }
+  });
+
+  it("offers a landing for every section the rail has, plus 'last'", () => {
+    // A section the rail can reach but `landing` cannot name is a section you
+    // can never choose to open on.
+    for (const landing of ['last', 'guides', 'settings']) {
+      expect(clampSettings({ landing }).landing).toBe(landing);
+    }
   });
 
   it('stays flat — a nested object could never gain a new field default', () => {

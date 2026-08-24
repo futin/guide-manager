@@ -32,14 +32,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [settings, setStored]
   );
 
-  // The theme is pure CSS: everything downstream keys off this attribute, so no
-  // component re-renders when it changes. The same attribute is stamped
-  // pre-paint by the inline script in index.html — and by the identical script
-  // the server injects into every rendered guide page — so this effect only
-  // keeps it in step afterwards.
+  // Theme, density and text scale are all pure CSS: everything downstream keys
+  // off these three root values, so no component re-renders when they change.
+  // Theme and scale are stamped pre-paint by the inline script in index.html —
+  // and the theme again by the identical script the server injects into every
+  // rendered guide page — so this effect only keeps them in step afterwards.
+  //
+  // Density and scale stop at the shell on purpose. A framed guide is another
+  // document with its own stylesheet and its own spacing; reaching in to zoom it
+  // would fight whatever the study build already decided, and the reader can
+  // pinch it. The theme crosses that boundary only because shared/theme.css is
+  // linked into both surfaces and would otherwise leave them disagreeing.
   useEffect(() => {
-    document.documentElement.dataset.theme = settings.theme;
-  }, [settings.theme]);
+    const root = document.documentElement;
+    root.dataset.theme = settings.theme;
+    root.dataset.density = settings.density;
+    root.style.setProperty('--font-scale', String(settings.fontScale / 100));
+  }, [settings.theme, settings.density, settings.fontScale]);
 
   // Two keys, one truth. `guide-manager.settings` is this app's state;
   // `guide-manager:bionic` is the contract assets/bionic.js already reads — in
