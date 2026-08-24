@@ -133,10 +133,17 @@ every regeneration.
 
 - `bionic.css` appended to the page's single `<style>` block.
 - `bionic.html` injected as the **first child of `.side`**, above `nav.toc`, so
-  the control is reachable without scrolling a long table of contents. At narrow
-  widths it folds into the existing `#navtoggle` disclosure for free — it is
-  inside `.side`, so no second media query is needed.
+  the control is reachable without scrolling a long table of contents. It does
+  **not** fold into the narrow-width disclosure for free: the fallback in
+  *Navigation: a sticky side menu* above hides `nav.toc`, not `.side`, and
+  `.bx-panel` is `nav.toc`'s sibling, so nothing collapses it on its own.
+  `bionic.css` therefore carries its own `@media (max-width: 63.99rem)` rule,
+  keyed off the same `#navtoggle` checkbox, so the panel folds with the nav
+  instead of sitting exposed above it.
 - `bionic.js` emitted as an inline `<script>` beside the scroll-spy script.
+- On a no-sidebar page (the single-file skeleton has no `.side` — see *Page
+  skeleton* below), skip the panel injection entirely: there is nowhere to put
+  it, and `init()` already no-ops when `.bx-panel` is absent from the page.
 
 **It must stay a runtime pass — never bake the bolding into the markup.** The
 fidelity check in `tools/check.mjs` compares word sequences after stripping
@@ -490,7 +497,9 @@ Then by hand:
 - Check both color schemes. Nothing disappears; no hard-coded hex slipped into an SVG.
 - Toggle the reading aid on in **both** color schemes: the fixation prefix is
   visible, code blocks and headings are untouched, find-in-page still locates a
-  decorated word, and toggling back off leaves the prose byte-identical.
+  decorated word, and toggling back off leaves the prose byte-identical. Also
+  confirm the Options block is **closed by default**, and that at phone width
+  the panel **folds with the nav** rather than sitting exposed above it.
 - **Geometry, not eyeballing:** for every figure, compare each child's `getBBox()`
   against the `viewBox` — clipped labels are invisible in a screenshot but obvious to a
   bounding-box check.

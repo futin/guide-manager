@@ -167,7 +167,7 @@ chapters and the generator scripts flat into one directory:
     figures.mjs
     check.mjs
     citations.mjs
-    bionic.js              vendored reading aid — do not edit, re-copy instead
+    bionic.js            vendored reading aid — do not edit, re-copy instead
     bionic.css
     bionic.html
 ```

@@ -83,6 +83,39 @@ test('decorate treats contractions with typographic apostrophe as single words',
   assert.equal(result.next, 1, 'contraction should be counted as one word');
 });
 
+test('decorate keeps a non-BMP character intact when choosing the bold prefix', () => {
+  const { decorate } = load();
+  // MATHEMATICAL BOLD SCRIPT SMALL A, B, C — each one character but a
+  // surrogate pair in UTF-16. Slicing by code unit instead of code point
+  // cuts a pair in half and leaves a lone surrogate on each side of </b>.
+  const word = '\u{1D4AA}\u{1D4AB}\u{1D4AC}';
+  const result = decorate(word, 0.5, 1, 0);
+  assert.equal(strip(result.html), word);
+  const match = result.html.match(/^<b class="bx-b">([^<]*)<\/b>([^<]*)$/);
+  assert.ok(match, 'expected exactly one <b> wrapping a prefix');
+  const [, head, tail] = match;
+  assert.equal(Array.from(head).length, 1, 'the bold prefix must be exactly one character, not one code unit');
+  assert.equal(head, '\u{1D4AA}');
+  assert.equal(tail, '\u{1D4AB}\u{1D4AC}');
+});
+
+test('decorate keeps a combining mark attached to its base character (NFD text)', () => {
+  const { decorate } = load();
+  // NFD text: the letter "i" followed by a standalone combining diaeresis
+  // (U+0308) -- what a precomposed "i-with-diaeresis" decomposes into, not
+  // that precomposed character. Built from \u escapes, not typed glyphs, so
+  // the source file's own text encoding can't quietly recompose it.
+  const word = 'na' + 'i' + '\u0308' + 've';
+  const result = decorate(word, 0.5, 1, 0);
+  assert.equal(strip(result.html), word);
+  const match = result.html.match(/^<b class="bx-b">([^<]*)<\/b>([^<]*)$/);
+  assert.ok(match, 'expected exactly one <b> wrapping a prefix');
+  const [, head, tail] = match;
+  assert.ok(!tail.startsWith('\u0308'), 'the combining mark must not be orphaned at the start of the plain remainder');
+  assert.equal(head, 'na' + 'i' + '\u0308');
+  assert.equal(tail, 've');
+});
+
 const asset = (name) =>
   readFileSync(fileURLToPath(new URL(`../assets/${name}`, import.meta.url)), 'utf8');
 

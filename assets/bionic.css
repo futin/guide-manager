@@ -19,7 +19,7 @@
 }
 .bx-panel .bx-more::before { content: '\25B8\00A0'; }
 .bx-panel .bx-more[aria-expanded='true']::before { content: '\25BE\00A0'; }
-#bx-opts { display: grid; gap: 0.35rem; margin-top: 0.4rem; }
+#bx-opts:not([hidden]) { display: grid; gap: 0.35rem; margin-top: 0.4rem; }
 #bx-opts label { flex-wrap: wrap; color: var(--muted); }
 #bx-opts input[type='range'] { flex: 1 1 6rem; min-width: 5rem; }
 #bx-opts output { color: var(--fg); font-variant-numeric: tabular-nums; }
@@ -27,6 +27,11 @@
 /* The fixation prefix. Bold only — dimming the remainder to --muted, as most
    bionic renders do, drops body prose below AA contrast on the dark theme. */
 b.bx-b { font-weight: 700; }
+
+@media (max-width: 63.99rem) {
+  .bx-panel { display: none; }
+  #navtoggle:checked ~ .shell .bx-panel { display: block; }
+}
 
 @media print {
   .bx-panel { display: none; }

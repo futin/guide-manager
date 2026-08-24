@@ -22,6 +22,12 @@
 - **Ranges:** strength `0.2`–`0.8` (UI 20–80, step 5); freq integer `1`–`5`.
 - **Skip selector**, exactly: `pre, code, kbd, svg, h1, h2, h3, h4, nav.toc, .bx-panel`
   (the spec also lists `.compare h3`; it is subsumed by `h3` and is dropped as redundant).
+  **Superseded by the final review (2026-08-24):** this selector let `apply()` rewrite
+  the text of `<script>`/`<style>`/`<noscript>` elements and destroy a `<textarea>`'s
+  value, and omitted `h5`/`h6` even though `visuals.md` has the generator demote every
+  heading level by one. The shipped selector is `pre, code, kbd, svg, script, style,
+  noscript, textarea, h1, h2, h3, h4, h5, h6, nav.toc, .bx-panel` — see
+  `assets/bionic.js`.
 - Tests run with `npm test` (`node --test`) from the repo root.
 
 ---
@@ -323,6 +329,13 @@ b.bx-b { font-weight: 700; }
   b.bx-b { font-weight: inherit; }
 }
 ```
+
+**Superseded by the final review (2026-08-24):** the unqualified `#bx-opts { display:
+grid; … }` rule above outranks the UA `[hidden]` rule by specificity, so `#bx-opts`
+rendered expanded regardless of the `hidden` attribute. The shipped selector is
+`#bx-opts:not([hidden])`. The same review found the panel needs its own
+`@media (max-width: 63.99rem)` fold rule, which this plan never specified — see
+`assets/bionic.css`.
 
 - [ ] **Step 4: Run test to verify it passes**
 

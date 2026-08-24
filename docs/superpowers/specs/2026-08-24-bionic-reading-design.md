@@ -105,6 +105,11 @@ Headings are already bold — there is no contrast left to add. Code is where
 mid-word bolding actively harms comprehension. Whitespace-only text nodes are
 skipped too.
 
+**Superseded by the final review (2026-08-24):** this set let `apply()` rewrite the
+text of `<script>`/`<style>`/`<noscript>` elements and destroy a `<textarea>`'s value,
+and omitted `h5`/`h6` even though the generator demotes every heading level by one.
+The shipped set adds `script, style, noscript, textarea, h5, h6` — see `assets/bionic.js`.
+
 ### DOM handling
 
 On enable, a `TreeWalker` over text nodes replaces each eligible node with:
@@ -143,6 +148,14 @@ scrolling a long table of contents:
 - At narrow widths the panel sits inside `.side` and therefore folds into the
   existing `#navtoggle` disclosure with the nav — no new mobile chrome, no
   second media query.
+
+  **Superseded by the final review (2026-08-24):** false. The narrow-width fallback
+  hides `nav.toc`, not `.side` (`nav.toc{display:none}` plus
+  `#navtoggle:checked ~ .shell nav.toc{display:block}`), and `.bx-panel` is
+  `nav.toc`'s sibling inside `.side`, so nothing hides it for free. `bionic.css`
+  ships its own `@media (max-width: 63.99rem)` rule, keyed off the same
+  `#navtoggle` checkbox, so the panel folds with the nav instead of sitting
+  exposed above it.
 - The panel is **not** an `<a>` in `nav.toc`, so scroll-spy ignores it.
 
 ### Performance

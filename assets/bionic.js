@@ -3,12 +3,22 @@
   'use strict';
 
   var WORD = /\p{L}[\p{L}\p{M}’']*/gu;
+  // Matches a combining mark, so a bold/plain split never lands between a
+  // base character and the mark stacked on it (NFD text, e.g. combining
+  // diaeresis).
+  var MARK = /\p{M}/u;
 
   // How many leading characters of a word to bold. Never the whole word: a
   // fully bold word carries no fixation point, which is the only thing the
-  // bolding is for.
+  // bolding is for. `len` counts characters (code points), not UTF-16 code
+  // units, so an astral character (surrogate pair) counts as one — decorate()
+  // is what turns this count into the right string index.
+  //
+  // Single-letter words (the "e" in "e.g.") return 0 here and still consume a
+  // word index in decorate(): an abbreviation-heavy sentence gets a visibly
+  // irregular bold rhythm at freq >= 2. That is the spec as written, not a bug.
   function bionicWord(word, strength) {
-    var len = word.length;
+    var len = Array.from(word).length;
     if (len < 2) return 0;
     if (len <= 3) return 1;
     var n = Math.round(len * strength);
@@ -39,9 +49,19 @@
       var word = m[0];
       out += escapeHtml(text.slice(last, m.index));
       var n = shouldBold(i, freq) ? bionicWord(word, strength) : 0;
-      out += n > 0
-        ? '<b class="bx-b">' + escapeHtml(word.slice(0, n)) + '</b>' + escapeHtml(word.slice(n))
-        : escapeHtml(word);
+      if (n > 0) {
+        // Slice by code point, not UTF-16 code unit: word.slice(0, n) would
+        // cut a surrogate pair in half for an astral character. Then nudge
+        // the boundary past any combining mark sitting right at the cut, so
+        // a base character never separates from the mark stacked on it.
+        var chars = Array.from(word);
+        while (n < chars.length && MARK.test(chars[n])) n += 1;
+        var head = chars.slice(0, n).join('');
+        var tail = chars.slice(n).join('');
+        out += '<b class="bx-b">' + escapeHtml(head) + '</b>' + escapeHtml(tail);
+      } else {
+        out += escapeHtml(word);
+      }
       last = m.index + word.length;
       i += 1;
     }
@@ -51,9 +71,12 @@
 
   var STORAGE_KEY = 'guide-manager:bionic';
   var DEFAULTS = { on: false, strength: 0.5, freq: 1 };
-  // Headings are already bold, so there is no fixation contrast left to add;
-  // code is where mid-word bolding actively hurts.
-  var SKIP = 'pre, code, kbd, svg, h1, h2, h3, h4, nav.toc, .bx-panel';
+  // Headings are already bold, so there is no fixation contrast left to add
+  // (h5/h6 included: visuals.md has the generator demote every heading level
+  // by one, so a chapter's #### lands as h5); code is where mid-word bolding
+  // actively hurts. script/style/noscript never render as reader-facing
+  // text, and rewriting a textarea's value would destroy it, not decorate it.
+  var SKIP = 'pre, code, kbd, svg, script, style, noscript, textarea, h1, h2, h3, h4, h5, h6, nav.toc, .bx-panel';
 
   function readState() {
     try {
@@ -124,6 +147,10 @@
     return n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : n + 'th';
   }
 
+  // init() is both auto-invoked below and exported on __bionic, so a caller
+  // can trigger it a second time; this keeps that idempotent.
+  var bound = false;
+
   function init() {
     var doc = globalThis.document;
     if (!doc) return;
@@ -137,6 +164,8 @@
     var freqOut = doc.getElementById('bx-freq-out');
     var moreBtn = panel && panel.querySelector('.bx-more');
     if (!panel || !root || !onBox || !strengthEl || !freqEl || !opts || !strengthOut || !freqOut || !moreBtn) return;
+    if (bound) return; // already wired up; a second call must not double-bind every listener
+    bound = true;
 
     var state = readState();
     onBox.checked = state.on;
@@ -145,7 +174,9 @@
 
     function render() {
       strengthOut.textContent = strengthEl.value + '%';
-      freqOut.textContent = ordinal(Number(freqEl.value));
+      var freqWord = ordinal(Number(freqEl.value));
+      freqOut.textContent = freqWord;
+      freqEl.setAttribute('aria-valuetext', freqWord + ' word');
       strengthEl.disabled = !onBox.checked;
       freqEl.disabled = !onBox.checked;
     }
