@@ -202,7 +202,7 @@ describe('bionic', () => {
 
   it('assets carry the vendored version header', () => {
     for (const name of ['bionic.js', 'bionic.css', 'bionic.html']) {
-      expect(asset(name)).toMatch(/bionic v1 — vendored from guide-manager assets\/; do not edit here/);
+      expect(asset(name)).toMatch(/bionic v2 — vendored from guide-manager assets\/; do not edit here/);
     }
   });
 

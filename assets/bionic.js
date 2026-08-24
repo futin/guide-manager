@@ -1,4 +1,4 @@
-/* bionic v1 — vendored from guide-manager assets/; do not edit here */
+/* bionic v2 — vendored from guide-manager assets/; do not edit here */
 (function () {
   'use strict';
 
@@ -224,6 +224,27 @@
       var open = moreBtn.getAttribute('aria-expanded') === 'true';
       moreBtn.setAttribute('aria-expanded', String(!open));
       opts.hidden = open;
+    });
+
+    // The central Settings page lives in another document — the app shell, which
+    // may be framing this very guide. localStorage is per-origin, so a write
+    // there raises a `storage` event here, and that is what lets an
+    // already-open guide repaint instead of waiting for a reload. Reads the key
+    // rather than the event's newValue: readState() is the one place the stored
+    // shape is validated, and a hand-edited value must fall back the same way on
+    // this path as on every other. The panel keeps working as a local override —
+    // it writes the same key, so both routes converge on one state, and syncing
+    // the controls here stops the panel from showing a stale value and silently
+    // undoing the change on its next commit().
+    globalThis.addEventListener('storage', function (e) {
+      if (e.key !== STORAGE_KEY) return;
+      state = readState();
+      onBox.checked = state.on;
+      strengthEl.value = String(Math.round(state.strength * 100));
+      freqEl.value = String(state.freq);
+      render();
+      if (state.on) apply(root, state.strength, state.freq);
+      else restore(root);
     });
 
     render();
