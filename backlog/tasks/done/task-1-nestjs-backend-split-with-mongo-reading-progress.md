@@ -1711,3 +1711,110 @@ git commit -m "feat: serve the client bundle when one is built"
 - With `docker compose up -d mongo` and `npm start`: `/api/health`, `/api/guides`, `/guide?p=…` and `/asset?p=…` all behave as in Task 7 Step 4, and `/asset?p=/etc/passwd` is a 404.
 - With Mongo stopped, `npm start` exits non-zero with a readable message instead of listening.
 - The client-port task can start against a running server: `GET /api/guides` returns real data and `client/dist` is served the moment it exists.
+
+## Outcome
+
+**2026-08-24 — done.** All seven sub-tasks executed in order on branch
+`task-1-nest-backend-split`, one commit each:
+
+```
+4f3e684 feat: serve the client bundle when one is built
+2b18ef0 feat: Mongo-backed per-guide reading progress
+f143143 feat: theme tokens and the reading aid on server-rendered guide pages
+5f1e59e feat: serve /guide and /asset from Nest, delete the old server
+119ead5 feat: registry service and GET /api/guides
+04f977d refactor: port render and paths to TypeScript with their tests
+b2324ca build: convert to TypeScript, add Nest skeleton and Jest, drop launchd
+```
+
+### Verification
+
+```
+$ npx jest
+Test Suites: 11 passed, 11 total
+Tests:       106 passed, 106 total
+Snapshots:   0 total
+Time:        9.037 s
+Ran all test suites.
+
+$ npx tsc --noEmit
+tsc exit 0
+
+$ ls test/*.test.js
+no matches found: test/*.test.js
+
+$ find server -name '*.js'
+none
+
+$ ls launchd
+launchd/: absent
+$ git grep -n 'GM_RESTART_ON_CHANGE\|exitOnSourceChange' -- server test bin
+no reload machinery in code
+
+$ shasum bin/register.js          -> 0b690928db456a99b2e227551a6e516d792d7e98
+$ git show main:bin/register.js   -> 0b690928db456a99b2e227551a6e516d792d7e98
+$ GM_REGISTRY_FILE=$TMP node bin/register.js --project /tmp/verify-proj \
+    --guide /tmp/verify-proj/guides/x.md --type study --title "Verify Guide"
+registered: Verify Guide (study) -> /tmp/verify-proj/guides/x.md
+exit: 0
+
+$ git diff main --stat -- assets/
+no diff vs main
+```
+
+Live, against the real `~/.guide-manager/registry.json` and Mongo from
+`docker compose up -d mongo`, running the built `dist/server/src/main.js`:
+
+```
+health:        {"ok":true}
+guides count:  8 guides in 2 projects
+guide page:    200   (theme.css + bionic.js both present)
+style.css:     200
+theme.css:     200
+bionic.js:     200
+traversal:     404   (GET /asset?p=/etc/passwd)
+unknown route: 404   (no client bundle built yet)
+
+POST /api/progress {scrollPercent:42}
+  -> {"scrollPercent":42,"completed":false,"lastOpenedAt":"...","openCount":1}
+GET /api/guides   -> that guide's progress populated, its sibling's still null
+POST with no guidePath -> 400
+```
+
+With Mongo stopped:
+
+```
+$ node dist/server/src/main.js
+exit code: 1 after 13s
+listening? no (connection refused)
+Unable to connect to the database. Retrying (1)...
+MongooseServerSelectionError: connect ECONNREFUSED ::1:27017
+Unable to connect to the database. Retrying (2)...
+```
+
+### Deviations from the plan, all deliberate
+
+- **`register.test.js` became a black-box CLI test.** A CommonJS Jest cannot
+  `require` the ESM `bin/register.js`, and that file had to keep its bytes. The
+  CLI is now driven through `spawnSync`; the server's own read path is covered
+  directly by `registry.test.ts`.
+- **Root `package.json` dropped `"type": "module"`**, with `bin/package.json`
+  (three lines) keeping `register.js` ESM. This is the only new file under `bin/`.
+- **`dist/server/src/main.js`, not `dist/main.js`.** `nest build` keeps the
+  source tree because compilation spans `server/` and `shared/` — `shared/` has
+  to stay outside `server/` because the client task imports it too. `npm start`
+  points at the real entry, and `nest-cli.json` records the source root.
+- **`main.ts`'s catch does not handle the Mongo case.** Nest's own
+  `ExceptionHandler` logs the Mongoose error and exits 1 before the catch is
+  reached. The required behaviour (non-zero exit, readable message, nothing
+  listening) holds; the comment in `app.module.ts` was corrected to say what
+  actually happens rather than claiming the catch does it.
+- **Added `serverSelectionTimeoutMS: 5000`.** Not in the plan. Without it the
+  driver burns its full 30s window per attempt and an unreachable database took
+  over a minute to fail; now 13s.
+- **`style.css`'s badge uses `--on-accent`, not `--bg`.** The palette defines
+  ink-on-a-filled-accent per theme, and on the light theme the page background
+  sits too close to the accent.
+
+Ready for **task-2** (the React/Vite client port): `GET /api/guides` returns real
+data, `shared/theme.css` exists, and `client/dist` is served the moment it exists.
