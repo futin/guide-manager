@@ -1,21 +1,30 @@
 import { Controller, Get } from '@nestjs/common';
 
+import { ProgressService } from '../progress/progress.service';
 import { RegistryService } from '../registry/registry.service';
 import type { GuidesIndex } from '../../../shared/types';
 
 /**
- * The guides index the client renders its card list from. Progress is attached
- * here (null until ProgressModule lands) so the client makes one request, not
- * one per card.
+ * The guides index the client renders its card list from.
+ *
+ * Progress is joined in here rather than fetched per card: one registry read and
+ * one Mongo query answer the whole page, however many guides it holds.
  */
 @Controller('api/guides')
 export class GuidesController {
-  constructor(private readonly registry: RegistryService) {}
+  constructor(
+    private readonly registry: RegistryService,
+    private readonly progress: ProgressService
+  ) {}
 
   @Get()
-  index(): GuidesIndex {
+  async index(): Promise<GuidesIndex> {
+    const projects = this.registry.listProjects();
+    const paths = projects.flatMap((p) => p.guides.map((g) => g.path));
+    const progress = await this.progress.find(paths);
+
     return {
-      projects: this.registry.listProjects().map((project) => ({
+      projects: projects.map((project) => ({
         name: project.name,
         path: project.path,
         guides: project.guides.map((g) => ({
@@ -24,7 +33,7 @@ export class GuidesController {
           type: g.type,
           updated: g.updated,
           href: `/guide?p=${encodeURIComponent(g.path)}`,
-          progress: null
+          progress: progress.get(g.path) ?? null
         }))
       }))
     };

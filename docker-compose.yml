@@ -1,0 +1,15 @@
+# Mongo is a hard requirement at boot: no database, no server. This is the
+# supported way to run it locally — nothing to install on the host.
+#
+#   docker compose up -d mongo
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - guide-manager-mongo:/data/db
+
+volumes:
+  guide-manager-mongo:

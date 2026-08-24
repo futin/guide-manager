@@ -86,6 +86,72 @@ try {
 </script>`;
 
 /**
+ * Embed a value in an inline <script> safely. JSON.stringify alone is not
+ * enough: a guide path containing `</script>` would end the element early and
+ * everything after it would be parsed as markup.
+ */
+function jsonForScript(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+/**
+ * Reports reading position for the guide this page renders.
+ *
+ * Throttled on a timer rather than firing per scroll event: a POST per frame
+ * would be hundreds of writes for one page. The unload write uses `keepalive`
+ * so the last position survives the tab closing, which a normal fetch would not.
+ *
+ * `completed` is decided here, in the browser, because only the browser knows
+ * the viewport — the server cannot tell how much of a page fits on screen.
+ */
+function progressReporter(guidePath: string, project: string): string {
+  return `<script>
+(function () {
+  var GUIDE = ${jsonForScript(guidePath)};
+  var PROJECT = ${jsonForScript(project)};
+  var MIN_MS = 5000;
+  var last = 0;
+  var timer = null;
+
+  function percent() {
+    var doc = document.documentElement;
+    var max = doc.scrollHeight - doc.clientHeight;
+    if (max <= 0) return 100; // a page that fits on screen is fully seen
+    return Math.round((doc.scrollTop / max) * 100);
+  }
+
+  function send(keepalive) {
+    var pct = percent();
+    last = Date.now();
+    try {
+      fetch('/api/progress', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          guidePath: GUIDE,
+          project: PROJECT,
+          scrollPercent: pct,
+          completed: pct >= 98 ? true : undefined
+        }),
+        keepalive: !!keepalive
+      });
+    } catch (e) { /* offline, or the server went away — never break the read */ }
+  }
+
+  send(false);
+
+  addEventListener('scroll', function () {
+    if (timer) return;
+    var wait = Math.max(0, MIN_MS - (Date.now() - last));
+    timer = setTimeout(function () { timer = null; send(false); }, wait);
+  }, { passive: true });
+
+  addEventListener('pagehide', function () { send(true); });
+})();
+</script>`;
+}
+
+/**
  * The page shell every server-rendered guide gets.
  *
  * `main` carries `class="wrap"` because assets/bionic.js decorates the first of
@@ -94,12 +160,24 @@ try {
  * so its ready branch finds the content already parsed, and its own SKIP list
  * already excludes pre, code and every heading level.
  */
+export interface WrapPageOptions {
+  bodyClass?: string;
+  /**
+   * The guide this page renders. Given both, the page reports reading progress;
+   * omit them and no reporter is emitted at all — which is what a framed deck
+   * wants, since it scrolls inside an iframe this script cannot observe.
+   */
+  guidePath?: string;
+  project?: string;
+}
+
 export function wrapPage(
   title: string,
   bodyHtml: string,
   headerHtml = '',
-  { bodyClass = '' }: { bodyClass?: string } = {}
+  { bodyClass = '', guidePath, project }: WrapPageOptions = {}
 ): string {
+  const reporter = guidePath ? progressReporter(guidePath, project ?? '') : '';
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -114,6 +192,7 @@ ${THEME_STAMP}
 <body${bodyClass ? ` class="${escapeHtml(bodyClass)}"` : ''}>
 ${headerHtml}<main class="wrap">${bodyHtml}</main>
 <script src="/bionic.js"></script>
+${reporter}
 </body>
 </html>`;
 }

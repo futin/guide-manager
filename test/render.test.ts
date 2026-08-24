@@ -131,6 +131,27 @@ describe('render', () => {
     expect(wrapPage('T', '<p>hi</p>')).toContain('<main class="wrap">');
   });
 
+  it('wrapPage omits the progress reporter when it has no guide to report on', () => {
+    const page = wrapPage('T', '<p>hi</p>');
+    expect(page).not.toContain('/api/progress');
+  });
+
+  it('wrapPage reports progress for the guide it was given', () => {
+    const page = wrapPage('T', '<p>hi</p>', '', { guidePath: '/p/g/a.md', project: 'proj' });
+    expect(page).toContain('/api/progress');
+    expect(page).toContain('"/p/g/a.md"');
+    expect(page).toContain('"proj"');
+  });
+
+  it('wrapPage cannot be broken out of by a guide path containing a closing script tag', () => {
+    const page = wrapPage('T', '<p>hi</p>', '', {
+      guidePath: '/p/</script><script>alert(1)</script>/a.md',
+      project: 'proj'
+    });
+    expect(page).not.toContain('</script><script>alert(1)');
+    expect(page).toContain('\\u003c');
+  });
+
   it('wrapPage can set a body class', () => {
     expect(wrapPage('T', '<p>hi</p>', '', { bodyClass: 'deck-host' })).toContain('<body class="deck-host">');
     expect(wrapPage('T', '<p>hi</p>')).toContain('<body>');

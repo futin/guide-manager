@@ -123,6 +123,21 @@ describe('render routes', () => {
     await request(app.getHttpServer()).get('/guide').expect(404);
   });
 
+  it('a markdown guide page reports its own reading progress', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/guide?p=${guidePath('proj', 'guides', 'a.md')}`)
+      .expect(200);
+    expect(res.text).toContain('/api/progress');
+    expect(res.text).toContain('"proj"');
+  });
+
+  it('a framed deck page carries no reporter — it cannot see the iframe scroll', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/guide?p=${guidePath('proj', 'guides', 'deck.html')}`)
+      .expect(200);
+    expect(res.text).not.toContain('/api/progress');
+  });
+
   it('guide page carries a breadcrumb back to the index', async () => {
     const res = await request(app.getHttpServer())
       .get(`/guide?p=${guidePath('proj', 'guides', 'a.md')}`)

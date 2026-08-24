@@ -25,11 +25,20 @@ export class RenderController {
 
     if (ext === '.md') {
       const md = readFileSync(real, 'utf8');
-      res.type(MIME['.html']).send(wrapPage(meta.title, renderMarkdown(md, real), breadcrumbBar(meta)));
+      res.type(MIME['.html']).send(
+        wrapPage(meta.title, renderMarkdown(md, real), breadcrumbBar(meta), {
+          guidePath: real,
+          project: meta.project ?? ''
+        })
+      );
       return;
     }
     if (ext === '.html' || ext === '.htm') {
       const src = `/asset?p=${encodeURIComponent(real)}`;
+      // No guidePath here on purpose: a deck scrolls inside its own iframe, so a
+      // reporter on this document would only ever measure a page that does not
+      // move. The deck still gets counted as opened by the client when the card
+      // is tapped.
       res.type(MIME['.html']).send(
         wrapPage(meta.title, deckFrame(src, meta.title), breadcrumbBar(meta), { bodyClass: 'deck-host' })
       );
