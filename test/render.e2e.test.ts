@@ -123,6 +123,26 @@ describe('render routes', () => {
     await request(app.getHttpServer()).get('/guide').expect(404);
   });
 
+  it('a markdown guide page carries the reading aid panel, or the aid stays inert', async () => {
+    // init() in assets/bionic.js returns early when .bx-panel is absent — it
+    // looks the panel's controls up before doing anything — so linking bionic.js
+    // without the markup means bionic never applies to this page at all.
+    const res = await request(app.getHttpServer())
+      .get(`/guide?p=${guidePath('proj', 'guides', 'a.md')}`)
+      .expect(200);
+    expect(res.text).toContain('class="bx-panel"');
+    for (const id of ['bx-on', 'bx-strength', 'bx-freq', 'bx-opts', 'bx-strength-out', 'bx-freq-out']) {
+      expect(res.text).toContain(`id="${id}"`);
+    }
+  });
+
+  it('a framed deck page gets no panel — the deck carries its own inside the frame', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/guide?p=${guidePath('proj', 'guides', 'deck.html')}`)
+      .expect(200);
+    expect(res.text).not.toContain('class="bx-panel"');
+  });
+
   it('a markdown guide page reports its own reading progress', async () => {
     const res = await request(app.getHttpServer())
       .get(`/guide?p=${guidePath('proj', 'guides', 'a.md')}`)

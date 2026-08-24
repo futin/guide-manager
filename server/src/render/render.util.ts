@@ -163,6 +163,13 @@ function progressReporter(guidePath: string, project: string): string {
 export interface WrapPageOptions {
   bodyClass?: string;
   /**
+   * The reading aid's panel markup. Required for bionic reading to work at all:
+   * assets/bionic.js resolves the panel's controls in init() and bails if they
+   * are absent. Omit it for a page with no prose of its own — a framed deck,
+   * whose own build embeds a panel inside the frame.
+   */
+  panelHtml?: string;
+  /**
    * The guide this page renders. Given both, the page reports reading progress;
    * omit them and no reporter is emitted at all — which is what a framed deck
    * wants, since it scrolls inside an iframe this script cannot observe.
@@ -175,7 +182,7 @@ export function wrapPage(
   title: string,
   bodyHtml: string,
   headerHtml = '',
-  { bodyClass = '', guidePath, project }: WrapPageOptions = {}
+  { bodyClass = '', guidePath, project, panelHtml = '' }: WrapPageOptions = {}
 ): string {
   const reporter = guidePath ? progressReporter(guidePath, project ?? '') : '';
   return `<!doctype html>
@@ -190,7 +197,7 @@ ${THEME_STAMP}
 <link rel="stylesheet" href="/bionic.css">
 </head>
 <body${bodyClass ? ` class="${escapeHtml(bodyClass)}"` : ''}>
-${headerHtml}<main class="wrap">${bodyHtml}</main>
+${headerHtml}<main class="wrap">${panelHtml}${bodyHtml}</main>
 <script src="/bionic.js"></script>
 ${reporter}
 </body>

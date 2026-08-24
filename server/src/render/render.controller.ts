@@ -3,6 +3,7 @@ import { extname } from 'node:path';
 import { Controller, Get, NotFoundException, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 
+import { BIONIC_PANEL_HTML } from './bionic-panel';
 import { MIME } from './mime';
 import { breadcrumbBar, deckFrame, renderMarkdown, wrapPage } from './render.util';
 import { resolveAllowed } from './paths.util';
@@ -28,7 +29,8 @@ export class RenderController {
       res.type(MIME['.html']).send(
         wrapPage(meta.title, renderMarkdown(md, real), breadcrumbBar(meta), {
           guidePath: real,
-          project: meta.project ?? ''
+          project: meta.project ?? '',
+          panelHtml: BIONIC_PANEL_HTML
         })
       );
       return;
