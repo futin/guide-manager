@@ -13,3 +13,10 @@ dist/
 
 # client build output
 client/dist/
+
+# claude code local state — scoped, not a blanket .claude/: this repo publishes
+# itself as a plugin, so anything shared there (settings.json, agents, hooks)
+# stays trackable. A worktree holds a `.git` file, so `git add -A` commits it as
+# an embedded repo — a gitlink no clone can resolve — rather than as files.
+.claude/worktrees/
+.claude/settings.local.json
