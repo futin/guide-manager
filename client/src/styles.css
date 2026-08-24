@@ -110,8 +110,19 @@ body {
    beside it — the two things that make a row of text read as a header instead of
    as slightly bolder body text.
    Baseline alignment, not centre: the 14px name and the 9.5px mono count only
-   look like one line if they share a baseline. */
+   look like one line if they share a baseline.
+   It is a <button> now — the whole header is the fold disclosure — so the first
+   half of this rule is a button reset. `font: inherit` and `color: inherit`
+   matter most: without them the UA's own 13px system font would win over
+   .bay-name's display face, because the children inherit from the button rather
+   than from .bay. width:100% makes the entire row the tap target, which is the
+   only reason folding is usable on a phone; text-align:left undoes the button
+   default that would otherwise centre the row once it spans the board. */
 .bay-h {
+  appearance: none; width: 100%; margin: 0; padding: 0;
+  background: none; border: 0; font: inherit; color: inherit;
+  text-align: left; cursor: pointer;
+
   display: flex; align-items: baseline; gap: 8px;
   padding-bottom: 5px; border-bottom: 1px solid var(--hairline);
 }
@@ -128,6 +139,32 @@ body {
   text-transform: uppercase; letter-spacing: .07em; color: var(--ink);
 }
 .bay-count { font-family: var(--mono); font-size: 9.5px; color: var(--ink3) }
+/* margin-left:auto, so the caret goes to the far end of the header rather than
+   trailing the count. Two reasons, both found by looking at it: beside the count
+   the glyph reads as punctuation the count picked up — "2 guides ▸" — and at the
+   row's end it reads as a control, which is the whole job. And the header is
+   full-width so the entire row is tappable; a caret parked at x≈120px leaves the
+   other 700px looking like dead header rather than like the rest of the button.
+   10px, not the old .rail-caret's 8px: 8px renders this glyph 4px wide, which was
+   invisible on the row and is below any sane touch-adjacent target.
+   Centred like the tick, and for the same reason — an 8-10px glyph sitting on the
+   14px name's baseline hangs low enough to read as a stray comma.
+   Rotated rather than swapped for a second glyph: ▾ turned a quarter turn
+   anticlockwise points right, which is what the old .rail-caret did and what makes
+   the transition possible at all — two different glyphs would snap. */
+.bay-caret {
+  flex: none; align-self: center; margin-left: auto;
+  font-size: 10px; color: var(--ink3); transition: transform .15s, color .15s;
+}
+.bay-h:hover .bay-caret { color: var(--ink2) }
+/* The folded state, keyed off aria-expanded rather than a class set beside it:
+   the attribute is already on the element and already correct, and a parallel
+   class is one more thing that can end up disagreeing with what the assistive
+   layer is being told. The tick dims to --ink3 so a folded row reads as a closed
+   drawer — full-strength cyan over a header with nothing under it looks instead
+   like a grid that failed to render. */
+.bay-h[aria-expanded="false"] .bay-tick { background: var(--ink3) }
+.bay-h[aria-expanded="false"] .bay-caret { transform: rotate(-90deg) }
 
 /* auto-fill, so the column count follows the width the board actually got rather
    than a breakpoint guessing at it: the same rule gives a phone one column, the

@@ -47,13 +47,27 @@ function mockFetch(body: unknown, ok = true): jest.Mock {
   return fn;
 }
 
+/** Returns the render result so a test can unmount and mount again — which is
+ *  how the persisted fold state is checked without reloading a page jsdom does
+ *  not have. */
 async function renderGuides(body: unknown = INDEX) {
   mockFetch(body);
-  render(<GuidesView />);
+  const result = render(<GuidesView />);
   await waitFor(() => expect(screen.queryByText('loading…')).toBeNull());
+  return result;
 }
 
+/** The bay headers, in board order. They are buttons now — the disclosure is the
+ *  whole header row, not a caret beside it. */
+const headers = () => [...document.querySelectorAll<HTMLElement>('.bay-h')];
+
 describe('GuidesView', () => {
+  /* The fold state is persisted, so without this a bay folded by one test stays
+     folded for every test after it. */
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   afterEach(() => {
     document.documentElement.classList.remove('guide-locked');
   });
@@ -164,6 +178,89 @@ describe('GuidesView', () => {
     expect(grids).toHaveLength(2);
     expect(grids[0].querySelectorAll('.guides-card')).toHaveLength(2);
     expect(grids[1].querySelectorAll('.guides-card')).toHaveLength(1);
+  });
+
+  /*
+    The header is the disclosure itself, rather than a caret button sitting beside
+    the name: on a phone the whole header row is the tap target, and a caret alone
+    is a target the size of a full stop. The grid is removed rather than hidden
+    with CSS, so a folded bay costs nothing to keep on the board — which is the
+    point of folding at all when a project has grown to thirty guides.
+  */
+  it('folds a bay down to its header when the header is tapped, and unfolds it again', async () => {
+    await renderGuides();
+    expect(headers()[0].getAttribute('aria-expanded')).toBe('true');
+
+    act(() => { headers()[0].click(); });
+    expect(headers()[0].getAttribute('aria-expanded')).toBe('false');
+    expect(document.querySelectorAll('.bay')[0].querySelector('.guides-grid')).toBeNull();
+    expect(screen.queryByText('Alpha Guide')).toBeNull();
+
+    act(() => { headers()[0].click(); });
+    expect(headers()[0].getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Alpha Guide')).toBeTruthy();
+  });
+
+  /*
+    One fold, one bay. The board's whole reason for folding is to get from a
+    scroll wall down to the few projects you are actually working in, which does
+    not happen if the fold is all-or-nothing.
+  */
+  it('folds one bay without touching its neighbours', async () => {
+    await renderGuides();
+    act(() => { headers()[0].click(); });
+    expect(screen.queryByText('Alpha Guide')).toBeNull();
+    expect(screen.getByText('Gamma')).toBeTruthy();
+    expect(headers()[1].getAttribute('aria-expanded')).toBe('true');
+  });
+
+  /*
+    Keyed by path, not by name: two checkouts of one repo register the same
+    project name at two different paths, and a name-keyed fold would collapse both
+    at once. The path is the registry's own key, so a stored path whose project is
+    no longer registered simply never matches and no cleanup pass is needed.
+  */
+  it('remembers a folded bay across a remount, keyed by project path', async () => {
+    const first = await renderGuides();
+    act(() => { headers()[0].click(); });
+    expect(JSON.parse(localStorage.getItem('guide-manager.collapsedBays') ?? '[]')).toEqual(['/p']);
+
+    first.unmount();
+    await renderGuides();
+    expect(headers()[0].getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Alpha Guide')).toBeNull();
+    expect(screen.getByText('Gamma')).toBeTruthy();
+  });
+
+  /*
+    A folded bay that hid its own name would be a row you cannot identify well
+    enough to decide whether to unfold it. Name, count and tick are exactly what
+    survives the fold — the header is unchanged, only its grid is gone.
+  */
+  it('keeps the project name and guide count readable while folded', async () => {
+    await renderGuides();
+    act(() => { headers()[0].click(); });
+    const bay = document.querySelectorAll('.bay')[0];
+    /* Assert the fold actually happened first: without this the rest of the test
+       passes on an un-foldable board, where the header is trivially still there. */
+    expect(bay.querySelector('.guides-grid')).toBeNull();
+    expect(bay.querySelector('.bay-name')?.textContent).toBe('guide-manager');
+    expect(bay.querySelector('.bay-count')?.textContent).toBe('2 guides');
+    expect(bay.querySelector('.bay-tick')).toBeTruthy();
+  });
+
+  /*
+    The caret carries aria-hidden because the state it depicts is already on the
+    button's own aria-expanded, and a screen reader reading out the glyph's
+    Unicode name after "collapsed" is noise. Its direction is CSS's business,
+    keyed off aria-expanded exactly as the old rail caret was — asserted here only
+    as far as jsdom can see it, which is that the hook and the element both exist.
+  */
+  it('marks the fold direction with a caret the assistive layer ignores', async () => {
+    await renderGuides();
+    const caret = headers()[0].querySelector('.bay-caret');
+    expect(caret).toBeTruthy();
+    expect(caret?.getAttribute('aria-hidden')).toBe('true');
   });
 
   /*

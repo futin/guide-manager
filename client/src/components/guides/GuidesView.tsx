@@ -1,7 +1,23 @@
 import { useEffect, useState } from 'react';
 
 import { useGuides } from '../../hooks/useGuides';
+import { usePersistedState } from '../../hooks/usePersistedState';
 import type { GuideEntry } from '../../../../shared/types';
+
+/**
+ * Folded bays, stored as the project *paths* that are currently folded shut.
+ *
+ * Paths rather than names because the registry keys on the path: two checkouts of
+ * one repo register the same project name twice, and a name-keyed fold would
+ * collapse both bays on one tap. The list is also self-cleaning — a stored path
+ * whose project is no longer registered simply never matches a bay, so there is
+ * no pruning pass and no way for a stale entry to fold the wrong project.
+ *
+ * Stored as the folded set rather than the open one so that a project registered
+ * after the fold state was written arrives open, which is the useful default: a
+ * new project you have not seen yet should not appear pre-folded.
+ */
+const COLLAPSED_BAYS_KEY = 'guide-manager.collapsedBays';
 
 /** What the viewer pane shows; null means the list is shown instead. */
 interface ViewerState {
@@ -28,6 +44,23 @@ export default function GuidesView() {
   const { index, loading, error } = useGuides();
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   const viewing = viewer !== null;
+  /*
+    Per device, not per account: which projects you keep folded on the phone has
+    nothing to do with what you want folded on the desktop board, and the phone is
+    the whole reason this exists. Must sit above the early return with the other
+    hooks.
+  */
+  const [collapsedBays, setCollapsedBays] = usePersistedState<string[]>(COLLAPSED_BAYS_KEY, []);
+
+  /* usePersistedState hands back a plain setter, not a dispatch, so the next
+     value is computed from the current one here. Safe without an updater form:
+     one tap is one toggle, and there is no path that queues two of them. */
+  const toggleBay = (path: string) =>
+    setCollapsedBays(
+      collapsedBays.includes(path)
+        ? collapsedBays.filter((p) => p !== path)
+        : [...collapsedBays, path]
+    );
 
   /*
     Phone only in effect (the CSS rule lives inside the max-width:700px
@@ -89,39 +122,75 @@ export default function GuidesView() {
       ) : projects.length === 0 ? (
         <div className="guides-empty">nothing registered yet</div>
       ) : (
-        projects.map((project) => (
-          <div className="bay" key={project.path}>
-            {/*
-              The header renders unconditionally, and has to keep doing so once
-              task-7's project filter lands: the board carries the project's name
-              nowhere else, so a single-bay board without its header is a board
-              that never says which project you are looking at. The previous
-              drawer hid the heading whenever one group was showing, which is
-              exactly the bug that produced it.
+        projects.map((project) => {
+          /*
+            task-7 pointer: once the toolbar's search lands, a non-empty query has
+            to force `open` true for any bay holding a match — otherwise typing a
+            query appears to find nothing, because the bay it matched in is folded
+            shut. Derive that here (`open = !folded || queryMatchesThisBay`) and
+            leave `collapsedBays` alone: the fold state is the user's standing
+            preference, and a search that silently rewrote it would leave every
+            searched bay open once the query was cleared.
+          */
+          const open = !collapsedBays.includes(project.path);
 
-              The tick is an empty span, not a text glyph or a border on .bay-h:
-              a glyph would land in the header's textContent and inside anything
-              reading the name off the DOM, and a border cannot be given its own
-              14x3 footprint beside the baseline-aligned name.
-            */}
-            <div className="bay-h">
-              <span className="bay-tick" />
-              <span className="bay-name">{project.name}</span>
-              <span className="bay-count">
-                {project.guides.length} {project.guides.length === 1 ? 'guide' : 'guides'}
-              </span>
+          return (
+            <div className="bay" key={project.path}>
+              {/*
+                The header renders unconditionally, and has to keep doing so once
+                task-7's project filter lands: the board carries the project's name
+                nowhere else, so a single-bay board without its header is a board
+                that never says which project you are looking at. The previous
+                drawer hid the heading whenever one group was showing, which is
+                exactly the bug that produced it.
+
+                The whole header is the disclosure, rather than a caret button
+                beside the name: on a phone the header row is a comfortable tap
+                target and an 8px caret is not. That makes it a real <button> — not
+                a div with onClick — so it gets keyboard focus, Enter/Space, and an
+                aria-expanded the assistive layer already knows how to announce.
+
+                The tick stays an empty span, not a text glyph or a border on
+                .bay-h: a border cannot be given its own 14x3 footprint beside the
+                baseline-aligned name, and a glyph at the *start* of the header
+                would be read as part of the project's name. The caret is a glyph
+                and does land in the header's textContent, which is why it sits
+                last and carries aria-hidden — anything reading the project name
+                off the DOM reads .bay-name, never the header.
+              */}
+              <button
+                type="button"
+                className="bay-h"
+                aria-expanded={open}
+                onClick={() => toggleBay(project.path)}
+              >
+                <span className="bay-tick" />
+                <span className="bay-name">{project.name}</span>
+                <span className="bay-count">
+                  {project.guides.length} {project.guides.length === 1 ? 'guide' : 'guides'}
+                </span>
+                <span className="bay-caret" aria-hidden="true">▾</span>
+              </button>
+              {/*
+                Unmounted rather than hidden with CSS. A folded bay is one a phone
+                should not be paying for at all — hiding the grid would keep every
+                card's DOM, and a board of grown projects folds precisely because
+                that DOM is the scroll wall being folded away.
+              */}
+              {open ? (
+                <div className="guides-grid">
+                  {project.guides.map((g) => (
+                    <GuideCard
+                      key={g.path}
+                      guide={g}
+                      onOpen={() => setViewer({ href: g.href, title: g.title })}
+                    />
+                  ))}
+                </div>
+              ) : null}
             </div>
-            <div className="guides-grid">
-              {project.guides.map((g) => (
-                <GuideCard
-                  key={g.path}
-                  guide={g}
-                  onOpen={() => setViewer({ href: g.href, title: g.title })}
-                />
-              ))}
-            </div>
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   );
