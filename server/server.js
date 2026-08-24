@@ -4,7 +4,7 @@ import { extname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadRegistry, REGISTRY_FILE } from '../bin/register.js';
 import { buildAllowlist, resolveAllowed } from './lib/paths.js';
-import { renderMarkdown, wrapPage, escapeHtml, breadcrumbBar } from './lib/render.js';
+import { renderMarkdown, wrapPage, escapeHtml, breadcrumbBar, deckFrame } from './lib/render.js';
 
 const PUBLIC_DIR = fileURLToPath(new URL('./public', import.meta.url));
 
@@ -90,11 +90,19 @@ export function createServer({ registryFile = REGISTRY_FILE } = {}) {
         const real = resolveAllowed(requested, buildAllowlist(registry));
         if (!real || !statSync(real).isFile()) return send(res, 404, MIME['.txt'], 'not found');
         const ext = extname(real).toLowerCase();
+        // /guide is the read-it-here route and always carries the breadcrumb;
+        // /asset is the verbatim route the deck frame and images pull from.
         if (url.pathname === '/guide' && ext === '.md') {
           const md = readFileSync(real, 'utf8');
           const meta = guideMeta(registry, real);
           return send(res, 200, MIME['.html'],
             wrapPage(meta.title, renderMarkdown(md, real), breadcrumbBar(meta)));
+        }
+        if (url.pathname === '/guide' && (ext === '.html' || ext === '.htm')) {
+          const meta = guideMeta(registry, real);
+          const src = `/asset?p=${encodeURIComponent(real)}`;
+          return send(res, 200, MIME['.html'],
+            wrapPage(meta.title, deckFrame(src, meta.title), breadcrumbBar(meta), { bodyClass: 'deck-host' }));
         }
         if (ext === '.md') {
           return send(res, 200, MIME['.txt'], readFileSync(real));

@@ -64,13 +64,35 @@ test('renders a registered markdown guide', async () => {
   });
 });
 
-test('serves a tutor deck verbatim', async () => {
+test('serves a tutor deck verbatim from /asset', async () => {
   const { root, registryFile } = fixture();
   await withServer(registryFile, async (base) => {
     const p = encodeURIComponent(join(root, 'proj', 'guides', 'deck.html'));
-    const res = await fetch(`${base}/guide?p=${p}`);
+    const res = await fetch(`${base}/asset?p=${p}`);
     assert.equal(res.status, 200);
     assert.equal(await res.text(), '<!doctype html><h1>Deck</h1>');
+  });
+});
+
+test('wraps a tutor deck in a shell with breadcrumb and framed deck', async () => {
+  const { root, registryFile } = fixture();
+  await withServer(registryFile, async (base) => {
+    const deck = join(root, 'proj', 'guides', 'deck.html');
+    const res = await fetch(`${base}/guide?p=${encodeURIComponent(deck)}`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /text\/html/);
+    const html = await res.text();
+    assert.ok(html.includes('class="topbar"'), 'breadcrumb bar');
+    assert.ok(html.includes('href="/"'), 'back link to index');
+    assert.ok(html.includes('badge tutor'), 'type badge');
+    assert.ok(!html.includes('<h1>Deck</h1>'), 'deck body is framed, not inlined');
+    // Follow the frame's own src rather than reconstructing it: the server
+    // resolves symlinks, so the framed path need not equal the requested one.
+    const src = html.match(/<iframe[^>]*\ssrc="([^"]+)"/)?.[1];
+    assert.ok(src?.startsWith('/asset?p='), `iframe src should hit /asset, got ${src}`);
+    const framed = await fetch(base + src);
+    assert.equal(framed.status, 200);
+    assert.equal(await framed.text(), '<!doctype html><h1>Deck</h1>', 'frame serves the deck verbatim');
   });
 });
 

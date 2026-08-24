@@ -52,7 +52,24 @@ export function breadcrumbBar({ project, title, type } = {}) {
 </header>`;
 }
 
-export function wrapPage(title, bodyHtml, headerHtml = '') {
+// A tutor deck is one self-contained HTML file with its own inline CSS/JS and
+// its own Next/Back controls, so it is framed rather than spliced into: the
+// deck bytes stay untouched and reach the browser through /asset. The frame is
+// same-origin, so focusing it lets the deck's own ArrowLeft/ArrowRight
+// listeners fire without the reader having to click into it first.
+export function deckFrame(src, title) {
+  return `<iframe class="deck-frame" src="${escapeHtml(src)}" title="${escapeHtml(title || 'Deck')}"></iframe>
+<script>
+(function () {
+  var frame = document.querySelector('.deck-frame');
+  function focusDeck() { try { frame.contentWindow.focus(); } catch (e) {} }
+  frame.addEventListener('load', focusDeck);
+  focusDeck();
+})();
+</script>`;
+}
+
+export function wrapPage(title, bodyHtml, headerHtml = '', { bodyClass = '' } = {}) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -61,7 +78,7 @@ export function wrapPage(title, bodyHtml, headerHtml = '') {
 <title>${escapeHtml(title)}</title>
 <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body${bodyClass ? ` class="${escapeHtml(bodyClass)}"` : ''}>
 ${headerHtml}<main>${bodyHtml}</main>
 </body>
 </html>`;

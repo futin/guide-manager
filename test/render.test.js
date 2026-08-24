@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderMarkdown, wrapPage, escapeHtml, breadcrumbBar } from '../server/lib/render.js';
+import { renderMarkdown, wrapPage, escapeHtml, breadcrumbBar, deckFrame } from '../server/lib/render.js';
 
 test('renders basic markdown', () => {
   const html = renderMarkdown('# Hello', '/proj/guides/a.md');
@@ -83,4 +83,21 @@ test('breadcrumbBar escapes project, title and type', () => {
 test('wrapPage puts the header before main', () => {
   const page = wrapPage('T', '<p>hi</p>', '<header class="topbar">bar</header>');
   assert.ok(page.indexOf('class="topbar"') < page.indexOf('<main>'));
+});
+
+test('deckFrame points an iframe at the verbatim asset url and focuses it', () => {
+  const frame = deckFrame('/asset?p=%2Fx%2Fdeck.html', 'My Deck');
+  assert.ok(frame.includes('src="/asset?p=%2Fx%2Fdeck.html"'));
+  assert.ok(frame.includes('class="deck-frame"'));
+  assert.ok(frame.includes('contentWindow.focus()'));
+});
+
+test('deckFrame escapes the title it puts in an attribute', () => {
+  const frame = deckFrame('/asset?p=x', 'Deck" onload="x');
+  assert.ok(!frame.includes('onload="x'));
+});
+
+test('wrapPage can set a body class', () => {
+  assert.ok(wrapPage('T', '<p>hi</p>', '', { bodyClass: 'deck-host' }).includes('<body class="deck-host">'));
+  assert.ok(wrapPage('T', '<p>hi</p>').includes('<body>'));
 });
