@@ -82,3 +82,29 @@ test('decorate treats contractions with typographic apostrophe as single words',
   // Should advance word index by 1
   assert.equal(result.next, 1, 'contraction should be counted as one word');
 });
+
+const asset = (name) =>
+  readFileSync(fileURLToPath(new URL(`../assets/${name}`, import.meta.url)), 'utf8');
+
+test('panel markup carries every id the runtime looks up', () => {
+  const html = asset('bionic.html');
+  for (const id of ['bx-on', 'bx-strength', 'bx-freq', 'bx-opts', 'bx-strength-out', 'bx-freq-out']) {
+    assert.ok(html.includes(`id="${id}"`), `missing id ${id}`);
+  }
+  assert.ok(html.includes('class="bx-panel"'));
+  assert.ok(html.includes('class="bx-more"'));
+});
+
+test('panel styles use only the page\'s existing custom properties', () => {
+  const css = asset('bionic.css');
+  const used = [...css.matchAll(/var\((--[a-z-]+)\)/g)].map((m) => m[1]);
+  const allowed = ['--bg', '--fg', '--muted', '--line', '--panel', '--accent', '--good', '--bad'];
+  for (const name of used) assert.ok(allowed.includes(name), `unexpected variable ${name}`);
+  assert.ok(used.length > 0, 'styles should theme with the page variables');
+});
+
+test('assets carry the vendored version header', () => {
+  for (const name of ['bionic.js', 'bionic.css', 'bionic.html']) {
+    assert.match(asset(name), /bionic v1 — vendored from guide-manager assets\/; do not edit here/);
+  }
+});
