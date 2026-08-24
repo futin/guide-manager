@@ -49,3 +49,44 @@ which stay.
 No reference to ProjectDrawer / useCloseOnEscape / ALL_PROJECTS remains; the
 rail only switches sections; the board lists all projects grouped; tests and
 typecheck pass.
+
+## Outcome
+
+2026-08-24 — Done, in the worktree `.claude/worktrees/task-3-plain-rail` on
+branch `worktree-task-3-plain-rail`. `ProjectDrawer.tsx`, `useCloseOnEscape.ts`
+and `test/project-drawer.test.tsx` deleted; the rail is a plain two-tab section
+switch with no `aria-expanded` and no caret; `GuidesView` takes no props and
+renders every project as a group with its heading; the `.guides-scope*`,
+`.rail-caret` and `.nav-drawer` rules are gone from `styles.css` while the type
+pills and the card grid stay. The stored `guide-manager.project` key is left in
+localStorage untouched for task-7, and `test/app-projects.test.tsx` now asserts
+that it survives and is ignored. CLAUDE.md's Layout bullet points at task-7 for
+the toolbar filter.
+
+Red-green on the load-bearing new assertions: temporarily re-adding
+`aria-expanded` and the caret to `SideRail` failed 4 of the 7 rail tests
+("claims no disclosure on any tab, in either section", "leaves no caret behind
+on the tabs" among them); restoring the revert brought them back green.
+
+Suite count dropped 24 → 23 and test count 200 → 170: one deleted suite plus the
+drawer-behaviour tests that had nothing left to describe.
+
+```
+$ pnpm test
+Test Suites: 23 passed, 23 total
+Tests:       170 passed, 170 total
+Snapshots:   0 total
+Time:        22.335 s
+Ran all test suites.
+
+$ pnpm run typecheck
+$ tsc --noEmit
+typecheck exit: 0
+
+$ pnpm run build
+dist/assets/index-CGQ9BqOe.css   19.38 kB │ gzip:  4.02 kB
+dist/assets/GuidesView-Bc2-dEOq.js  2.19 kB │ gzip:  0.84 kB
+dist/assets/SettingsView-B5iJVGjX.js  2.84 kB │ gzip:  1.12 kB
+dist/assets/index-CWFR8PoD.js   146.80 kB │ gzip: 47.62 kB
+✓ built in 1.33s
+```

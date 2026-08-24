@@ -36,89 +36,58 @@ async function renderApp() {
   await waitFor(() => expect(screen.getByText('Alpha Guide')).toBeTruthy());
 }
 
-/** The Guides tab in the rail, told apart from the drawer's own rows by its class. */
+/** The Guides tab in the rail, told apart from anything else by its class. */
 function railGuides(): HTMLElement {
   const el = document.querySelector('.rail .rail-link');
   if (!el) throw new Error('no rail');
   return el as HTMLElement;
 }
 
-function drawerRow(name: string): HTMLElement {
-  const drawer = screen.getByRole('dialog', { name: 'Projects' });
-  const row = [...drawer.querySelectorAll('button')].find((b) => b.textContent?.includes(name));
-  if (!row) throw new Error(`no row for ${name}`);
-  return row;
-}
-
-describe('App — scoping the guide list by project', () => {
+describe('App — the board lists every project', () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('lists every project until told otherwise', async () => {
+  it('lists every registered project at once', async () => {
     await renderApp();
     expect(screen.getByText('Alpha Guide')).toBeTruthy();
     expect(screen.getByText('Gamma')).toBeTruthy();
   });
 
-  it("opens the project drawer from the rail's own Guides tab", async () => {
-    await renderApp();
-    expect(screen.queryByRole('dialog', { name: 'Projects' })).toBeNull();
-    act(() => { railGuides().click(); });
-    expect(screen.getByRole('dialog', { name: 'Projects' })).toBeTruthy();
-  });
-
-  it('shuts the drawer again from the same tab', async () => {
-    await renderApp();
-    act(() => { railGuides().click(); });
-    act(() => { railGuides().click(); });
-    expect(screen.queryByRole('dialog', { name: 'Projects' })).toBeNull();
-  });
-
-  it('narrows the list to the project picked, and shuts the drawer behind it', async () => {
+  /*
+    The rail's Guides tab used to double as the disclosure for a project drawer.
+    Pressing it while Guides is already showing must now do nothing visible —
+    no drawer, no dialog of any kind — rather than the tab silently keeping a
+    second job it no longer has.
+  */
+  it('opens nothing when the showing Guides tab is pressed again', async () => {
     await renderApp();
     act(() => { railGuides().click(); });
-    act(() => { drawerRow('german-study-partner').click(); });
-
-    expect(screen.getByText('Gamma')).toBeTruthy();
-    expect(screen.queryByText('Alpha Guide')).toBeNull();
-    expect(screen.queryByRole('dialog', { name: 'Projects' })).toBeNull();
-  });
-
-  it('widens back out from the all-projects row', async () => {
-    await renderApp();
-    act(() => { railGuides().click(); });
-    act(() => { drawerRow('german-study-partner').click(); });
-    act(() => { railGuides().click(); });
-    act(() => { drawerRow('All projects').click(); });
-
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByText('Alpha Guide')).toBeTruthy();
     expect(screen.getByText('Gamma')).toBeTruthy();
   });
 
-  it('remembers the scope, so coming back lands on the project you were reading', async () => {
-    await renderApp();
-    act(() => { railGuides().click(); });
-    act(() => { drawerRow('german-study-partner').click(); });
-    expect(JSON.parse(localStorage.getItem('guide-manager.project') as string)).toBe('/q');
-  });
-
-  it('applies a remembered scope on load', async () => {
-    localStorage.setItem('guide-manager.project', JSON.stringify('/q'));
-    (globalThis as { fetch?: unknown }).fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(INDEX)
-    });
-    render(<App />);
-    await waitFor(() => expect(screen.getByText('Gamma')).toBeTruthy());
-    expect(screen.queryByText('Alpha Guide')).toBeNull();
-  });
-
-  it('comes back to Guides from Settings without springing the drawer open', async () => {
+  it('still switches sections, and comes back to a board with no drawer on it', async () => {
     await renderApp();
     act(() => { screen.getByRole('button', { name: 'Settings' }).click(); });
+    await waitFor(() => expect(screen.queryByText('Alpha Guide')).toBeNull());
     act(() => { railGuides().click(); });
     await waitFor(() => expect(screen.getByText('Alpha Guide')).toBeTruthy());
-    expect(screen.queryByRole('dialog', { name: 'Projects' })).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  /*
+    A scope remembered from the drawer is deliberately left where it is rather
+    than cleared: task-7's toolbar filter re-reads the same key with compatible
+    values, and wiping it here would throw away a choice that is about to mean
+    something again. Until then it is simply not read, so the board stays whole.
+  */
+  it('ignores a remembered project scope without clearing it', async () => {
+    localStorage.setItem('guide-manager.project', JSON.stringify('/q'));
+    await renderApp();
+    expect(screen.getByText('Alpha Guide')).toBeTruthy();
+    expect(screen.getByText('Gamma')).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem('guide-manager.project') as string)).toBe('/q');
   });
 });
