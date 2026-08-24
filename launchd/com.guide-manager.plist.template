@@ -10,6 +10,15 @@
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
+  <!-- The server exits on a source change so this KeepAlive restart picks up
+       fresh code; the same restart covers a genuine crash. ThrottleInterval is
+       launchd's floor between respawns, so a reload lands within ~10s and a
+       crash loop backs off instead of spinning. -->
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>GM_RESTART_ON_CHANGE</key><string>1</string>
+  </dict>
   <key>StandardOutPath</key><string>__HOME__/Library/Logs/guide-manager.log</string>
   <key>StandardErrorPath</key><string>__HOME__/Library/Logs/guide-manager.log</string>
 </dict>
