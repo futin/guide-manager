@@ -188,7 +188,7 @@ Binds `0.0.0.0:4321`; reachable as `http://<mac-tailscale-name>:4321`.
 
 1. Scaffold repo, server, registry, launchd. Verify from phone.
 2. `git mv`-equivalent: copy `~/.claude/skills/study` and `tutor` into
-   `skills/`, add the register wrap-up step, install as plugin.
+   `../../../.claude/skills/`, add the register wrap-up step, install as plugin.
 3. Verify both skills trigger from another project via the plugin.
 4. Delete `~/.claude/skills/study` and `~/.claude/skills/tutor`.
 5. Optionally back-register existing guides by running `register.js` by

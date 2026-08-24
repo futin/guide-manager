@@ -596,8 +596,8 @@ git commit -m "feat: bionic reading DOM runtime, persistence, and panel wiring"
 The assets exist and are tested; nothing generates a page carrying them yet. This task is the instruction change that makes `/study` vendor and inline them.
 
 **Files:**
-- Modify: `skills/study/references/visuals.md` (new section inserted at line 113, after *Navigation: a sticky side menu* and before *What the generator has to get right*; one bullet in *Before you hand it over*, line 425+)
-- Modify: `skills/study/SKILL.md:158-170` (the `tools/` block of the *File layout* tree in step 6)
+- Modify: `../../../.claude/skills/study/references/visuals.md` (new section inserted at line 113, after *Navigation: a sticky side menu* and before *What the generator has to get right*; one bullet in *Before you hand it over*, line 425+)
+- Modify: `../../../.claude/skills/study/SKILL.md:158-170` (the `tools/` block of the *File layout* tree in step 6)
 
 **Interfaces:**
 - Consumes: the three files from Tasks 1–3, at `${CLAUDE_PLUGIN_ROOT}/assets/`.

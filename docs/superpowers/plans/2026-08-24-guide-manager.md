@@ -977,10 +977,10 @@ git commit -m "feat: launchd LaunchAgent with install script"
 **Files:**
 - Create: `.claude-plugin/plugin.json`
 - Create: `.claude-plugin/marketplace.json`
-- Create: `skills/study/` (copied from `~/.claude/skills/study/`)
-- Create: `skills/tutor/` (copied from `~/.claude/skills/tutor/`)
-- Modify: `skills/study/SKILL.md` (append registration section)
-- Modify: `skills/tutor/SKILL.md` (append registration section)
+- Create: `../../../.claude/skills/study/` (copied from `~/.claude/skills/study/`)
+- Create: `../../../.claude/skills/tutor/` (copied from `~/.claude/skills/tutor/`)
+- Modify: `../../../.claude/skills/study/SKILL.md` (append registration section)
+- Modify: `../../../.claude/skills/tutor/SKILL.md` (append registration section)
 
 **Interfaces:**
 - Consumes: `bin/register.js` CLI (Task 1), reachable from skills as `${CLAUDE_PLUGIN_ROOT}/bin/register.js`.
@@ -1025,7 +1025,7 @@ git commit -m "feat: import study and tutor skills verbatim from ~/.claude/skill
 
 Commit BEFORE modifying — the diff of the next step then shows exactly what the migration changed.
 
-- [ ] **Step 3: Append the registration step to `skills/study/SKILL.md`**
+- [ ] **Step 3: Append the registration step to `../../../.claude/skills/study/SKILL.md`**
 
 Append at the end of the file (adjusting the heading level to match the file's existing structure — it uses `###` for flow steps):
 
@@ -1045,7 +1045,7 @@ If the command prints a warning, mention it to the user and move on —
 registration must never block or fail the wrap-up.
 ```
 
-- [ ] **Step 4: Append the registration step to `skills/tutor/SKILL.md`**
+- [ ] **Step 4: Append the registration step to `../../../.claude/skills/tutor/SKILL.md`**
 
 Append at the end of the file, same shape:
 

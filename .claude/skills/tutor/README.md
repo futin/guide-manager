@@ -65,9 +65,9 @@ Three files ship, and they are the whole skill:
 Two directories are development records and are **not** loaded at runtime — a session
 never reads them, and you can delete them without changing behaviour:
 
-- `docs/` — `design.md`, the approved design spec, and `plan.md`, the implementation
+- `../../../docs` — `design.md`, the approved design spec, and `plan.md`, the implementation
   plan that was executed. Both are dated records, not living documentation.
-- `tests/` — `scenarios.md`, the RED/GREEN scenarios used to measure two discipline
+- `tests` — `scenarios.md`, the RED/GREEN scenarios used to measure two discipline
   rules (answer-leak and wall-of-text), and `baseline-notes.md`, the recorded
   before/after observations.
 

@@ -425,7 +425,7 @@ stays".
 
 **Files:**
 - Modify: `assets/bionic.js` (add a `storage` listener)
-- Modify: `skills/study/references/visuals.md` (note the vendored version bumped)
+- Modify: `../../../.claude/skills/study/references/visuals.md` (note the vendored version bumped)
 - Test: `test/bionic-storage.test.ts`
 
 - [ ] **Step 1: Write the failing test**

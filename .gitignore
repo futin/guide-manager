@@ -4,3 +4,7 @@ node_modules/
 .DS_Store
 .idea/
 server/lib/.reload-probe*.js
+
+# build output
+dist/
+*.tsbuildinfo

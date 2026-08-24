@@ -46,12 +46,12 @@ the page itself stays at the guide root beside `README.md`:
 Resolve paths inside the generator against `import.meta.url`, not the cwd, so it runs from
 any directory — and remember it now resolves **upward**: the markdown is
 `../README.md` + `../guide/*.md` and the output is `../index.html`, relative to `tools/`.
-A generator that reads `./` still finds nothing but its own siblings.
+A generator that reads `` still finds nothing but its own siblings.
 
 **The depth asymmetry the generator must correct.** The page sits at the guide root, the
 same level as `README.md`, so a relative source link harvested from the hub resolves from
 the page unchanged. Chapters are one level deeper, so **every relative link taken from a
-`guide/*.md` file needs one `../` stripped** on its way into the page — a chapter's
+`guide/*.md` file needs one `..` stripped** on its way into the page — a chapter's
 correct `../../../../packages/core/src/parse.ts` becomes `../../../packages/…`. Get it
 wrong and every chapter's file links 404 while the hub's all work, which reads as a random
 failure rather than an off-by-one. Strip exactly one segment; never rewrite the markdown to
@@ -223,7 +223,7 @@ bodies, and link URLs.
 - **No frontmatter, no framework, no runtime dependency.** The *output* is one plain
   `.html` file that needs nothing to display it. The generator is a build step, but it
   runs by hand on demand (`node <dir>/tools/build.mjs`) — do not wire it into
-  `package.json` scripts or CI unless the user asks.
+  `../../../../package.json` scripts or CI unless the user asks.
 
 ## Colors: define once, use everywhere
 

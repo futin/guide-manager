@@ -34,7 +34,7 @@ Copied from the spec; every task's requirements include these.
 The Iron Law of skill-writing: watch agents fail WITHOUT the skill before writing it. Two discipline rules carry real violation risk; capture the baseline behavior and rationalizations they'll need counters for.
 
 **Files:**
-- Create: `.git` (repo init), `.gitignore`
+- Create: `.git` (repo init), `../../../../.gitignore`
 - Create: `tests/scenarios.md` (the exact prompts below, so GREEN reruns use identical inputs)
 - Create: `tests/baseline-notes.md` (observed failures, verbatim rationalizations)
 

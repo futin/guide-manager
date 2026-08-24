@@ -229,12 +229,12 @@ regeneration.
 
 ## Skill documentation changes
 
-- **`skills/study/references/visuals.md`** — a new *Reading controls* section
+- **`../../../.claude/skills/study/references/visuals.md`** — a new *Reading controls* section
   covering the algorithm, the skip set, the panel's place in the sidebar, and
   the runtime-not-baked rule with its checker rationale. One added bullet in
   *Before you hand it over*: toggle it on in both themes, confirm code blocks
   are untouched and find-in-page still locates a decorated word.
-- **`skills/study/SKILL.md`** — the *File layout* tree in step 6 gains
+- **`../../../.claude/skills/study/SKILL.md`** — the *File layout* tree in step 6 gains
   `tools/bionic.js`, `tools/bionic.css`, `tools/bionic.html`.
 
 ## Edge cases and failure modes
