@@ -40,7 +40,11 @@ function indexPage(registry) {
   const sections = registry.projects
     .map((project) => {
       const items = project.guides
-        .filter((g) => existsSync(g.path))
+        .filter((g) => {
+          if (existsSync(g.path)) return true;
+          console.error(`stale guide hidden: ${g.path}`);
+          return false;
+        })
         .map((g) =>
           `<li><a href="/guide?p=${encodeURIComponent(g.path)}">${escapeHtml(g.title)}</a>` +
           ` <span class="badge ${escapeHtml(g.type)}">${escapeHtml(g.type)}</span>` +

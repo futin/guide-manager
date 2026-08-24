@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { homedir } from 'node:os';
 
 export const REGISTRY_FILE =
   process.env.GM_REGISTRY_FILE ||
-  fileURLToPath(new URL('../registry.json', import.meta.url));
+  join(homedir(), '.guide-manager', 'registry.json');
 
 export function loadRegistry(file) {
   try {
@@ -36,7 +37,10 @@ export function upsertGuide(registry, { projectPath, guidePath, type, title, now
 }
 
 export function saveRegistry(file, registry) {
-  writeFileSync(file, JSON.stringify(registry, null, 2) + '\n');
+  mkdirSync(dirname(file), { recursive: true });
+  const tmpFile = `${file}.tmp`;
+  writeFileSync(tmpFile, JSON.stringify(registry, null, 2) + '\n');
+  renameSync(tmpFile, file);
 }
 
 function main() {

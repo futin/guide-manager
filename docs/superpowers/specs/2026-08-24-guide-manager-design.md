@@ -61,16 +61,20 @@ guide-manager/
     com.guide-manager.plist
     install.sh                   # copies plist to ~/Library/LaunchAgents, loads it
   docs/superpowers/specs/        # this spec, future specs
-  registry.json                  # gitignored — machine-specific data
   .gitignore                     # registry.json, node_modules, logs
 ```
+
+Registry data itself lives outside the repo entirely, at
+`~/.guide-manager/registry.json` (see below) — machine-local, and reachable
+from both a normal checkout and any physical plugin-cache copy without a
+split-brain.
 
 Installed like the existing caveman/timify plugins so both skills remain
 available globally in every project.
 
 ## Components
 
-### 1. Registry (`registry.json`, gitignored)
+### 1. Registry (`~/.guide-manager/registry.json`)
 
 ```json
 {
@@ -91,7 +95,11 @@ available globally in every project.
 }
 ```
 
-- Gitignored because paths are machine-specific and writes are automated.
+- Lives at `~/.guide-manager/registry.json` — machine-local, outside the
+  repo and outside any plugin-cache copy of it, so the CLI (invoked from a
+  plugin install via `${CLAUDE_PLUGIN_ROOT}`) and the server (run from this
+  repo) always agree on one file. Override with `GM_REGISTRY_FILE`, which
+  takes precedence over the default.
 - Fresh clone ⇒ empty registry; entries repopulate as guides are written.
 - `type` is `"study"` or `"tutor"`.
 

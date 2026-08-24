@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -86,6 +86,22 @@ test('CLI writes registry at GM_REGISTRY_FILE', () => {
   const reg = loadRegistry(file);
   assert.equal(reg.projects[0].guides[0].title, 'From CLI');
   assert.match(reg.projects[0].guides[0].updated, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test('saveRegistry creates missing parent directories', () => {
+  const base = mkdtempSync(join(tmpdir(), 'gm-'));
+  const file = join(base, 'nested', 'dir', 'registry.json');
+  const reg = upsertGuide({ projects: [] }, { projectPath: '/tmp/p', guidePath: '/tmp/p/g.md', type: 'study', title: 'Nested', now: 'T0' });
+  saveRegistry(file, reg);
+  assert.deepEqual(loadRegistry(file), reg);
+});
+
+test('saveRegistry writes atomically, leaving no .tmp file behind', () => {
+  const file = tmpFile();
+  const reg = upsertGuide({ projects: [] }, { projectPath: '/tmp/p', guidePath: '/tmp/p/g.md', type: 'study', title: 'Atomic', now: 'T0' });
+  saveRegistry(file, reg);
+  assert.equal(existsSync(`${file}.tmp`), false);
+  assert.deepEqual(loadRegistry(file), reg);
 });
 
 test('CLI rejects unknown type but still exits 0', () => {
