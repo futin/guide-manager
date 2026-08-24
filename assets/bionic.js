@@ -35,6 +35,25 @@
     });
   }
 
+  // `n` is a candidate split point into `chars` (an Array.from(word)).
+  // If chars[n] is a combining mark, the split falls inside a base-plus-marks
+  // cluster and has to move: prefer extending the bold prefix past the whole
+  // run of marks, but if that run reaches the end of the word — which would
+  // leave nothing plain, violating "never bold the whole word" — back the
+  // boundary off before the cluster's base character instead. A word that is
+  // one cluster (a single base plus its marks, e.g. NFD "e" + combining
+  // acute) has no legal split at all; this returns 0 for that case, which the
+  // caller already treats the same as any other unboldable word.
+  function markSafeSplit(chars, n) {
+    if (!MARK.test(chars[n])) return n;
+    var end = n;
+    while (end < chars.length && MARK.test(chars[end])) end += 1;
+    if (end < chars.length) return end;
+    var start = n;
+    while (start > 0 && MARK.test(chars[start - 1])) start -= 1;
+    return start - 1;
+  }
+
   // Decorate one run of plain text. Pure, string in and string out, so the whole
   // algorithm is testable with no DOM. `start` continues the document-wide word
   // count — that is what keeps the saccade rhythm regular across text nodes
@@ -49,13 +68,14 @@
       var word = m[0];
       out += escapeHtml(text.slice(last, m.index));
       var n = shouldBold(i, freq) ? bionicWord(word, strength) : 0;
+      var chars;
       if (n > 0) {
         // Slice by code point, not UTF-16 code unit: word.slice(0, n) would
-        // cut a surrogate pair in half for an astral character. Then nudge
-        // the boundary past any combining mark sitting right at the cut, so
-        // a base character never separates from the mark stacked on it.
-        var chars = Array.from(word);
-        while (n < chars.length && MARK.test(chars[n])) n += 1;
+        // cut a surrogate pair in half for an astral character.
+        chars = Array.from(word);
+        n = markSafeSplit(chars, n);
+      }
+      if (n > 0) {
         var head = chars.slice(0, n).join('');
         var tail = chars.slice(n).join('');
         out += '<b class="bx-b">' + escapeHtml(head) + '</b>' + escapeHtml(tail);

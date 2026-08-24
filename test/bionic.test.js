@@ -116,6 +116,65 @@ test('decorate keeps a combining mark attached to its base character (NFD text)'
   assert.equal(tail, 've');
 });
 
+test('decorate never bolds the whole word when trailing marks would otherwise swallow it (NFD "cafe", strength 0.8)', () => {
+  const { decorate } = load();
+  // NFD "cafe" (accent on the e): the mark-nudge must not walk the boundary
+  // all the way to the end of the word. bionicWord's len-1 clamp picks the
+  // mark itself as the initial candidate split here; extending forward would
+  // consume it and leave nothing plain, so the fix has to back the boundary
+  // off before the base character ("e") instead.
+  const word = 'c' + 'a' + 'f' + 'e' + '\u0301';
+  const result = decorate(word, 0.8, 1, 0);
+  assert.equal(strip(result.html), word);
+  const match = result.html.match(/^<b class="bx-b">([^<]*)<\/b>([^<]*)$/);
+  assert.ok(match, 'expected exactly one <b> wrapping a prefix, with a non-empty plain remainder');
+  const [, head, tail] = match;
+  assert.equal(head, 'caf');
+  assert.equal(tail, 'e' + '\u0301');
+});
+
+test('decorate never bolds the whole word when trailing marks would otherwise swallow it (NFD "cafe", strength 0.7)', () => {
+  const { decorate } = load();
+  // Same word, a different strength that lands on the same mark-adjacent
+  // split point — regressed at both 0.7 and 0.8 in the pre-fix code, and
+  // both are inside the 0.2-0.8 range readState() clamps UI input to.
+  const word = 'c' + 'a' + 'f' + 'e' + '\u0301';
+  const result = decorate(word, 0.7, 1, 0);
+  assert.equal(strip(result.html), word);
+  const match = result.html.match(/^<b class="bx-b">([^<]*)<\/b>([^<]*)$/);
+  assert.ok(match, 'expected exactly one <b> wrapping a prefix, with a non-empty plain remainder');
+  const [, head, tail] = match;
+  assert.equal(head, 'caf');
+  assert.equal(tail, 'e' + '\u0301');
+});
+
+test('decorate leaves a single-grapheme NFD word entirely plain', () => {
+  const { decorate } = load();
+  // A base character plus its combining mark, and nothing else, has no legal
+  // split at all: any boundary either falls inside the cluster or bolds the
+  // whole word. 0 (no bold) is the only correct answer, same outcome a plain
+  // one-character word already gets.
+  const word = 'e' + '\u0301';
+  const result = decorate(word, 0.5, 1, 0);
+  assert.equal(strip(result.html), word);
+  assert.ok(!result.html.includes('<b'), 'a single grapheme must never be split');
+  assert.equal(result.html, word);
+});
+
+test('decorate keeps a run of two combining marks attached to its base character', () => {
+  const { decorate } = load();
+  // Two marks stacked on the same base, at the very end of the word. Exercises
+  // the multi-iteration path of the mark-skipping loop, not just a single mark.
+  const word = 'c' + 'a' + 't' + '\u0301' + '\u0323';
+  const result = decorate(word, 0.6, 1, 0);
+  assert.equal(strip(result.html), word);
+  const match = result.html.match(/^<b class="bx-b">([^<]*)<\/b>([^<]*)$/);
+  assert.ok(match, 'expected exactly one <b> wrapping a prefix, with a non-empty plain remainder');
+  const [, head, tail] = match;
+  assert.equal(head, 'ca');
+  assert.equal(tail, 't' + '\u0301' + '\u0323');
+});
+
 const asset = (name) =>
   readFileSync(fileURLToPath(new URL(`../assets/${name}`, import.meta.url)), 'utf8');
 
