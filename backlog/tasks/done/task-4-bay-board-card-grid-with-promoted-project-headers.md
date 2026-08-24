@@ -94,4 +94,27 @@ Ran all test suites.
 
 174 tests at the branch point, 178 now: four new jsdom cases cover the bay
 count's singular/plural, the per-bay tick, the per-bay grid nesting, and the
-card footer. Uncommitted — staging is the user's call.
+card footer.
+
+Committed as `3a9125c` and merged into `main` as `02d6f3f`, no conflicts. The
+worktree at `.claude/worktrees/task-4-bay-board` was left on disk. Re-verified
+on the merged main:
+
+```
+$ pnpm test
+Test Suites: 23 passed, 23 total
+Tests:       178 passed, 178 total
+
+$ pnpm run build
+dist/assets/barlow-condensed-latin-700-normal-v1xN8_Wq.woff2  22.44 kB
+dist/assets/index-0MiiDE0x.css                                19.62 kB │ gzip: 4.06 kB
+dist/assets/GuidesView-BzTCEXTr.js                             2.42 kB │ gzip: 0.89 kB
+✓ built in 771ms
+```
+
+Worth noting from that build: Barlow Condensed 700 is now in the bundle, where
+task-3's was not. `.bay-name` is the first thing in the shell to ask for the
+display font at 700 — the section titles and the old group heading were both
+600 — so the header renders in real Barlow Condensed Bold rather than a
+browser-synthesised one. Anything later that wants a heavier display weight is
+already paying for this face.
