@@ -1,40 +1,9 @@
-import { dirname, resolve } from 'node:path';
-import { Marked, type Token } from 'marked';
-
 import type { GuideMeta } from '../../../shared/types';
 
 export function escapeHtml(s: unknown): string {
   return String(s).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string
   ));
-}
-
-function rewriteUrl(url: string, baseDir: string): string {
-  if (/^(https?:|mailto:|data:|#|\/)/i.test(url)) return url;
-  // Strip query string and fragment before resolving
-  const [cleanUrl, fragment] = url.split('#');
-  const [pathOnly] = cleanUrl.split('?');
-  const abs = resolve(baseDir, pathOnly);
-  const route = /\.md$/i.test(abs) ? '/guide' : '/asset';
-  const rewritten = `${route}?p=${encodeURIComponent(abs)}`;
-  // Re-append fragment for /guide targets (in-page anchors)
-  return route === '/guide' && fragment ? `${rewritten}#${fragment}` : rewritten;
-}
-
-export function renderMarkdown(md: string, guidePath: string): string {
-  const baseDir = dirname(guidePath);
-  const marked = new Marked({
-    walkTokens(token: Token) {
-      if ((token.type === 'link' || token.type === 'image') && token.href) {
-        token.href = rewriteUrl(token.href, baseDir);
-      }
-    }
-  });
-  try {
-    return marked.parse(md) as string;
-  } catch {
-    return `<pre>${escapeHtml(md)}</pre>`;
-  }
 }
 
 /**
@@ -96,105 +65,26 @@ try {
 </script>`;
 
 /**
- * Embed a value in an inline <script> safely. JSON.stringify alone is not
- * enough: a guide path containing `</script>` would end the element early and
- * everything after it would be parsed as markup.
- */
-function jsonForScript(value: unknown): string {
-  return JSON.stringify(value).replace(/</g, '\\u003c');
-}
-
-/**
- * Reports reading position for the guide this page renders.
+ * The page shell every guide gets: a breadcrumb bar, and the guide itself in an
+ * iframe.
  *
- * Throttled on a timer rather than firing per scroll event: a POST per frame
- * would be hundreds of writes for one page. The unload write uses `keepalive`
- * so the last position survives the tab closing, which a normal fetch would not.
- *
- * `completed` is decided here, in the browser, because only the browser knows
- * the viewport — the server cannot tell how much of a page fits on screen.
- */
-function progressReporter(guidePath: string, project: string): string {
-  return `<script>
-(function () {
-  var GUIDE = ${jsonForScript(guidePath)};
-  var PROJECT = ${jsonForScript(project)};
-  var MIN_MS = 5000;
-  var last = 0;
-  var timer = null;
-
-  function percent() {
-    var doc = document.documentElement;
-    var max = doc.scrollHeight - doc.clientHeight;
-    if (max <= 0) return 100; // a page that fits on screen is fully seen
-    return Math.round((doc.scrollTop / max) * 100);
-  }
-
-  function send(keepalive) {
-    var pct = percent();
-    last = Date.now();
-    try {
-      fetch('/api/progress', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          guidePath: GUIDE,
-          project: PROJECT,
-          scrollPercent: pct,
-          completed: pct >= 98 ? true : undefined
-        }),
-        keepalive: !!keepalive
-      });
-    } catch (e) { /* offline, or the server went away — never break the read */ }
-  }
-
-  send(false);
-
-  addEventListener('scroll', function () {
-    if (timer) return;
-    var wait = Math.max(0, MIN_MS - (Date.now() - last));
-    timer = setTimeout(function () { timer = null; send(false); }, wait);
-  }, { passive: true });
-
-  addEventListener('pagehide', function () { send(true); });
-})();
-</script>`;
-}
-
-/**
- * The page shell every server-rendered guide gets.
- *
- * `main` carries `class="wrap"` because assets/bionic.js decorates the first of
- * `.wrap`, `.shell`, `body` that it finds — matching `.wrap` keeps the reading
- * aid off the breadcrumb bar. The aid's script is loaded at the end of `<body>`
- * so its ready branch finds the content already parsed, and its own SKIP list
- * already excludes pre, code and every heading level.
+ * It deliberately carries no reading aid of its own. Every guide is a generated
+ * HTML document now, framed rather than spliced into, so the only prose on this
+ * page is the breadcrumb title — and since bionic v3 runs without a panel,
+ * linking the aid here would decorate exactly that and nothing else. The guide's
+ * own document picks the aid up from /asset instead, inside the frame where the
+ * prose actually is.
  */
 export interface WrapPageOptions {
   bodyClass?: string;
-  /**
-   * The reading aid's panel markup. Required for bionic reading to work at all:
-   * assets/bionic.js resolves the panel's controls in init() and bails if they
-   * are absent. Omit it for a page with no prose of its own — a framed deck,
-   * whose own build embeds a panel inside the frame.
-   */
-  panelHtml?: string;
-  /**
-   * The guide this page renders. Given both, the page reports reading progress;
-   * omit them and no reporter is emitted at all — which is what a framed deck
-   * wants, since it scrolls inside an iframe this script cannot observe.
-   */
-  guidePath?: string;
-  project?: string;
 }
 
 export function wrapPage(
   title: string,
   bodyHtml: string,
   headerHtml = '',
-  { bodyClass = '', guidePath, project, panelHtml = '' }: WrapPageOptions = {}
+  { bodyClass = '' }: WrapPageOptions = {}
 ): string {
-  const reporter = guidePath ? progressReporter(guidePath, project ?? '') : '';
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -204,12 +94,49 @@ export function wrapPage(
 ${THEME_STAMP}
 <link rel="stylesheet" href="/theme.css">
 <link rel="stylesheet" href="/style.css">
-<link rel="stylesheet" href="/bionic.css">
 </head>
 <body${bodyClass ? ` class="${escapeHtml(bodyClass)}"` : ''}>
-${headerHtml}<main class="wrap">${panelHtml}${bodyHtml}</main>
-<script src="/bionic.js"></script>
-${reporter}
+${headerHtml}<main class="wrap">${bodyHtml}</main>
 </body>
 </html>`;
+}
+
+/**
+ * Splice the reading aid into a generated guide document.
+ *
+ * A study guide's `index.html` build and a tutor deck are both framed rather
+ * than rendered, so the page shell around the iframe cannot reach their prose —
+ * decoration has to happen inside the framed document or not at all. Serving
+ * the aid from here rather than relying on the copy `tools/build.mjs` vendors
+ * means one implementation governs every guide the app frames: a build from
+ * before the aid existed picks it up, and a fix to bionic.js reaches all of
+ * them without regenerating anything.
+ *
+ * Skipped outright when the document already carries a `bionic vN` header. A
+ * current build inlines its own copy, and two copies do not cooperate: each
+ * script closes over its own `bound` flag, so both would run apply() over the
+ * same tree and the second would decorate the first's spans.
+ *
+ * String splicing rather than a DOM parse because the bytes are otherwise none
+ * of our business — a build's own inline CSS/JS, its hand-authored SVG and its
+ * whitespace all reach the browser exactly as generated.
+ */
+const AID_CSS = '<link rel="stylesheet" href="/bionic.css">';
+const AID_JS = '<script src="/bionic.js"></script>';
+
+export function injectReadingAid(html: string): string {
+  if (/bionic v\d+/i.test(html)) return html;
+  return splice(splice(html, /<\/head\s*>/i, AID_CSS, true), /<\/body\s*>/i, AID_JS, false);
+}
+
+/**
+ * Insert `what` at the first match of `at`, falling back to the head or the
+ * foot of the document when the tag is absent — hand-written and older
+ * generated builds are not reliably well-formed, and dropping the aid because a
+ * closing tag is missing would put back the silence this exists to fix.
+ */
+function splice(html: string, at: RegExp, what: string, atStartIfMissing: boolean): string {
+  const m = at.exec(html);
+  if (!m) return atStartIfMissing ? what + html : html + what;
+  return html.slice(0, m.index) + what + html.slice(m.index);
 }

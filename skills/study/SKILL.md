@@ -320,18 +320,22 @@ guide-manager viewer lists it:
       --type study \
       --title "<the guide's human-readable title>"
 
-**Which file to register** — whichever one is the *whole* guide:
+**Which file to register** — the generated `index.html`, and only ever that.
 
-- **HTML build present** (the *Mermaid + a browsable HTML build* option at step 3):
-  register the generated `index.html`, not `README.md`. The viewer renders a `.md`
-  guide by running that one file through `marked` and its own stylesheet: no mermaid
-  renderer, no generated table of contents, and no sibling chapters. A directory
-  guide registered at its hub therefore shows up as the hub alone — fences as raw
-  text, chapters missing — while the build already carries every chapter, the
-  contents rail, and the fences as drawn SVG. A registered `.html` guide is framed
-  verbatim, so all of that survives.
-- **No HTML build** — register the single markdown file, or a directory guide's
-  `README.md`.
+The viewer frames a guide rather than rendering it, so what it lists has to be a
+finished HTML page. It used to render a `.md` guide by running that one file
+through `marked` and its own stylesheet — no mermaid renderer, no generated table
+of contents, no sibling chapters — so a directory guide registered at its hub
+showed up as the hub alone, fences as raw text and chapters missing. That path is
+gone, and `register.js` now refuses a `.md` guide outright rather than leaving a
+card on the board that cannot open.
+
+**So a guide with no HTML build cannot be registered.** If the reader declined
+the build at step 3, skip this step entirely and tell them plainly: the guide is
+written and readable in the repo, but it will not appear in guide-manager until
+`tools/build.mjs` has produced an `index.html` for it. Offer to add the build
+rather than registering the markdown and letting them find the broken card
+themselves.
 
 Re-pointing an already-registered guide at a different file is two calls, because
 the registry keys on the path and would otherwise keep both:

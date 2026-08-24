@@ -3,9 +3,8 @@ import { extname } from 'node:path';
 import { Controller, Get, NotFoundException, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 
-import { BIONIC_PANEL_HTML } from './bionic-panel';
 import { MIME } from './mime';
-import { breadcrumbBar, deckFrame, renderMarkdown, wrapPage } from './render.util';
+import { breadcrumbBar, deckFrame, injectReadingAid, wrapPage } from './render.util';
 import { resolveAllowed } from './paths.util';
 import { RegistryService } from '../registry/registry.service';
 
@@ -14,57 +13,50 @@ export class RenderController {
   constructor(private readonly registry: RegistryService) {}
 
   /**
-   * The read-it-here route: always carries the breadcrumb. A markdown guide is
-   * rendered inline; a generated HTML page is framed so its own inline CSS/JS
-   * reach the browser untouched.
+   * The read-it-here route: a breadcrumb bar, and the guide itself framed so its
+   * own inline CSS/JS reach the browser untouched.
    *
-   * Both guide kinds land in that second branch. A tutor deck is framed for its
-   * Next/Back controls; a study guide's `index.html` build is framed because it
-   * is the only artifact that holds the *whole* guide — every chapter, the
-   * contents rail, and hand-authored SVG where the markdown has mermaid fences,
-   * none of which the inline markdown path reproduces.
+   * A guide is a generated HTML page — a tutor deck, or a study guide's
+   * `index.html` build — and nothing else. The markdown branch that used to
+   * render a README hub inline is gone: it was `marked` plus a stylesheet, with
+   * no mermaid renderer and no notion of sibling files, so a directory guide
+   * came out as its hub alone — fences as raw text, no contents rail, no
+   * chapters. The build already holds every chapter, the rail, and the fences as
+   * drawn SVG, so framing it is the only rendering worth having. Anything else
+   * registered as a guide is a mistake upstream, and 404 says so.
    */
   @Get('guide')
   guide(@Query('p') requested: string, @Res() res: Response): void {
     const real = this.resolve(requested);
-    const meta = this.registry.guideMeta(real);
     const ext = extname(real).toLowerCase();
-
-    if (ext === '.md') {
-      const md = readFileSync(real, 'utf8');
-      res.type(MIME['.html']).send(
-        wrapPage(meta.title, renderMarkdown(md, real), breadcrumbBar(meta), {
-          guidePath: real,
-          project: meta.project ?? '',
-          panelHtml: BIONIC_PANEL_HTML
-        })
-      );
-      return;
-    }
-    if (ext === '.html' || ext === '.htm') {
-      const src = `/asset?p=${encodeURIComponent(real)}`;
-      // No guidePath here on purpose: a framed page scrolls inside its own
-      // iframe, so a reporter on this document would only ever measure a page
-      // that does not move. It still gets counted as opened by the client when
-      // the card is tapped.
-      res.type(MIME['.html']).send(
-        wrapPage(meta.title, deckFrame(src, meta.title), breadcrumbBar(meta), { bodyClass: 'deck-host' })
-      );
-      return;
-    }
-    // Anything else is not a guide — fall back to the verbatim route's rules.
-    res.type(MIME[ext] || 'application/octet-stream').send(readFileSync(real));
+    if (ext !== '.html' && ext !== '.htm') throw new NotFoundException('not a guide');
+    const meta = this.registry.guideMeta(real);
+    const src = `/asset?p=${encodeURIComponent(real)}`;
+    res.type(MIME['.html']).send(
+      wrapPage(meta.title, deckFrame(src, meta.title), breadcrumbBar(meta), { bodyClass: 'deck-host' })
+    );
   }
 
-  /** The verbatim route the deck frame and inline images pull from. */
+  /**
+   * The route the guide frame and inline images pull from.
+   *
+   * Verbatim for everything except a guide document, which gets the reading aid
+   * spliced in. That splice has to happen here rather than in the shell above:
+   * the guide's prose lives inside the iframe, and a script on the host document
+   * cannot cross into it. Serving the aid from this repo is also the whole point
+   * — a build generated before the aid existed picks it up without being
+   * regenerated, and the settings it reads are the ones the app's own Settings
+   * page writes, since the frame is same-origin and localStorage is shared.
+   */
   @Get('asset')
   asset(@Query('p') requested: string, @Res() res: Response): void {
     const real = this.resolve(requested);
     const ext = extname(real).toLowerCase();
-    // A raw .md request is text, not a download: the old server served it as
-    // text/plain and rewritten links rely on that.
-    const type = ext === '.md' ? MIME['.txt'] : MIME[ext] || 'application/octet-stream';
-    res.type(type).send(readFileSync(real));
+    if (ext === '.html' || ext === '.htm') {
+      res.type(MIME['.html']).send(injectReadingAid(readFileSync(real, 'utf8')));
+      return;
+    }
+    res.type(MIME[ext] || 'application/octet-stream').send(readFileSync(real));
   }
 
   /**

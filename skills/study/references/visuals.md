@@ -124,11 +124,19 @@ cp "${CLAUDE_PLUGIN_ROOT}/assets/bionic.css"  <dir>/tools/
 cp "${CLAUDE_PLUGIN_ROOT}/assets/bionic.html" <dir>/tools/
 ```
 
-Copy them; never retype them. They carry a `bionic v2` header — that is how a
+Copy them; never retype them. They carry a `bionic v3` header — that is how a
 later session tells a stale vendored copy from a current one, so re-copy on
 every regeneration. (v1 is the same reading algorithm with no `storage`
 listener: a v1 guide still works, but it only picks up a settings change on
-reload rather than repainting live.)
+reload rather than repainting live. v2 added that listener but bailed out
+entirely when the page had no control panel; v3 runs either way.)
+
+Vendoring is still worth doing even though guide-manager splices its own copy of
+`bionic.css` and `bionic.js` into every guide it frames — the vendored copy is
+what makes the build self-contained, so the aid is there when the page is opened
+straight off disk, over `file://`, or sent to someone who has no guide-manager.
+The two do not collide: the splice is skipped for any document that already
+carries a `bionic vN` header.
 
 `tools/build.mjs` then inlines all three, resolving them against
 `import.meta.url` like everything else it reads:
@@ -145,7 +153,9 @@ reload rather than repainting live.)
 - `bionic.js` emitted as an inline `<script>` beside the scroll-spy script.
 - On a no-sidebar page (the single-file skeleton has no `.side` — see *Page
   skeleton* below), skip the panel injection entirely: there is nowhere to put
-  it, and `init()` already no-ops when `.bx-panel` is absent from the page.
+  it. Since v3 that costs less than it used to — the aid still runs, driven by
+  the stored settings alone, where v2 would have gone inert. The reader just has
+  no in-guide control, only guide-manager's Settings page.
 
 **It must stay a runtime pass — never bake the bolding into the markup.** The
 fidelity check in `tools/check.mjs` compares word sequences after stripping

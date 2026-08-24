@@ -153,9 +153,12 @@ describe('bionic storage propagation', () => {
   });
 
   it('is still the vendored file, only version-bumped', () => {
+    // v3 is the panel-optional runtime: a guide with no vendored panel still
+    // decorates, driven by the app's Settings page alone. The three files carry
+    // one version between them so a guide's copy can be told stale at a glance.
     for (const name of ['bionic.js', 'bionic.css', 'bionic.html']) {
       expect(readFileSync(join(ASSETS, name), 'utf8'))
-        .toMatch(/bionic v2 — vendored from guide-manager assets\/; do not edit here/);
+        .toMatch(/bionic v3 — vendored from guide-manager assets\/; do not edit here/);
     }
   });
 });

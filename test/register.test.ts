@@ -30,16 +30,28 @@ interface Registry {
 const read = (file: string): Registry => JSON.parse(readFileSync(file, 'utf8')) as Registry;
 
 describe('register CLI', () => {
+  it('refuses to register a markdown file as a guide', () => {
+    // The viewer frames generated HTML and nothing else — a study guide's
+    // index.html build, or a tutor deck. A README hub registered here used to
+    // render as the hub alone, and now would not render at all, so the writer
+    // refuses it at the point the mistake is made rather than leaving a card on
+    // the board that cannot open.
+    const file = tmpFile();
+    const res = run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/README.md', '--type', 'study', '--title', 'A']);
+    expect(res.stderr).toMatch(/\.md/);
+    expect(existsSync(file)).toBe(false);
+  });
+
   it('creates the registry file and the project entry', () => {
     const file = tmpFile();
-    const res = run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'study', '--title', 'A']);
+    const res = run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A']);
     expect(res.status).toBe(0);
     const reg = read(file);
     expect(reg.projects).toHaveLength(1);
     expect(reg.projects[0].name).toBe('proj');
     expect(reg.projects[0].path).toBe('/tmp/proj');
     expect(reg.projects[0].guides[0]).toMatchObject({
-      path: '/tmp/proj/guides/a.md',
+      path: '/tmp/proj/guides/a.html',
       type: 'study',
       title: 'A'
     });
@@ -48,8 +60,8 @@ describe('register CLI', () => {
 
   it('updates an existing guide in place rather than duplicating it', () => {
     const file = tmpFile();
-    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'study', '--title', 'A']);
-    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'tutor', '--title', 'A2']);
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A']);
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'tutor', '--title', 'A2']);
     const reg = read(file);
     expect(reg.projects).toHaveLength(1);
     expect(reg.projects[0].guides).toHaveLength(1);
@@ -59,8 +71,8 @@ describe('register CLI', () => {
 
   it('adds a second guide to the same project', () => {
     const file = tmpFile();
-    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'study', '--title', 'A']);
-    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/b.md', '--type', 'study', '--title', 'B']);
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A']);
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/b.html', '--type', 'study', '--title', 'B']);
     const reg = read(file);
     expect(reg.projects).toHaveLength(1);
     expect(reg.projects[0].guides.map((g) => g.title)).toEqual(['A', 'B']);
@@ -69,7 +81,7 @@ describe('register CLI', () => {
   it('recovers from a corrupt registry instead of throwing', () => {
     const file = tmpFile();
     writeFileSync(file, '{not json');
-    const res = run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'study', '--title', 'A']);
+    const res = run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A']);
     expect(res.status).toBe(0);
     expect(read(file).projects).toHaveLength(1);
   });
@@ -77,19 +89,19 @@ describe('register CLI', () => {
   it('recovers from a registry of the wrong shape', () => {
     const file = tmpFile();
     writeFileSync(file, '{"projects": "nope"}');
-    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'study', '--title', 'A']);
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A']);
     expect(read(file).projects).toHaveLength(1);
   });
 
   it('leaves no temp file behind after an atomic save', () => {
     const file = tmpFile();
-    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'study', '--title', 'A']);
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A']);
     expect(existsSync(`${file}.tmp`)).toBe(false);
   });
 
   it('exits 0 with a warning on a bad type, so a skill wrap-up never breaks', () => {
     const file = tmpFile();
-    const res = run(file, ['--project', '/tmp/proj', '--guide', '/tmp/g.md', '--type', 'nonsense', '--title', 'A']);
+    const res = run(file, ['--project', '/tmp/proj', '--guide', '/tmp/g.html', '--type', 'nonsense', '--title', 'A']);
     expect(res.status).toBe(0);
     expect(res.stderr).toContain('unknown type');
     expect(existsSync(file)).toBe(false);
@@ -115,9 +127,9 @@ describe('register CLI', () => {
 describe('register CLI --remove', () => {
   it('drops the named guide and leaves its siblings alone', () => {
     const file = tmpFile();
-    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'study', '--title', 'A']);
-    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/b.md', '--type', 'study', '--title', 'B']);
-    const res = run(file, ['--remove', '--guide', '/tmp/proj/guides/a.md']);
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A']);
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/b.html', '--type', 'study', '--title', 'B']);
+    const res = run(file, ['--remove', '--guide', '/tmp/proj/guides/a.html']);
     expect(res.status).toBe(0);
     const reg = read(file);
     expect(reg.projects).toHaveLength(1);
@@ -128,16 +140,16 @@ describe('register CLI --remove', () => {
   // the board rather than a state worth keeping.
   it('drops the project once its last guide is removed', () => {
     const file = tmpFile();
-    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'study', '--title', 'A']);
-    run(file, ['--remove', '--guide', '/tmp/proj/guides/a.md']);
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A']);
+    run(file, ['--remove', '--guide', '/tmp/proj/guides/a.html']);
     expect(read(file).projects).toEqual([]);
   });
 
   it('exits 0 with a warning on an unknown guide, and writes nothing', () => {
     const file = tmpFile();
-    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.md', '--type', 'study', '--title', 'A']);
+    run(file, ['--project', '/tmp/proj', '--guide', '/tmp/proj/guides/a.html', '--type', 'study', '--title', 'A']);
     const before = readFileSync(file, 'utf8');
-    const res = run(file, ['--remove', '--guide', '/tmp/proj/guides/nope.md']);
+    const res = run(file, ['--remove', '--guide', '/tmp/proj/guides/nope.html']);
     expect(res.status).toBe(0);
     expect(res.stderr).toContain('not registered');
     expect(readFileSync(file, 'utf8')).toBe(before);

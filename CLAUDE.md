@@ -33,7 +33,7 @@ stack they are fixed. This machine currently maps the client to `5176`.
 - `client/src/` — React SPA: side rail, Guides view (guide framed in an iframe,
   scoped to one project by `guides/ProjectDrawer.tsx`), Settings view.
 - `shared/` — `types.ts` (registry + API shapes), `theme.css` (tokens).
-- `assets/` — the bionic reading aid injected into rendered guide pages.
+- `assets/` — the bionic reading aid, spliced into every guide the app frames.
 - `skills/study/`, `skills/tutor/` — the skills this repo publishes.
 - `bin/register.js` — the only writer of the registry; the skills call it.
 - `backlog/` — file-based backlog, one Markdown file per item (`backlog/README.md`).
@@ -63,9 +63,23 @@ stack they are fixed. This machine currently maps the client to `5176`.
   published port resets connections until the container is restarted. Tailnet
   hostnames are allowlisted there (`allowedHosts: ['.ts.net']`); Vite 5.4.12+
   403s an unknown Host.
-- **Reading-aid assets carry a `bionic v2` header.** Copy them into a guide;
-  never retype. v2 listens for `storage` so a framed guide repaints when the
-  Settings page changes a value.
+- **A guide is a generated HTML page, never markdown.** `GET /guide` frames a
+  tutor deck or a study guide's `index.html` build and 404s anything else;
+  `bin/register.js` refuses a `.md` guide at the point the mistake is made. The
+  old `marked` path rendered a directory guide's README hub alone — no chapters,
+  no contents rail, mermaid fences as raw text — so it is gone, and with it the
+  scroll-progress reporter, which could never see inside an iframe anyway.
+- **The reading aid is spliced into the framed guide by `GET /asset`, not by the
+  page shell.** The guide's prose lives inside the iframe, where a script on the
+  host document cannot reach it — and the shell's only text is the breadcrumb,
+  which the aid would then be decorating instead. `injectReadingAid` skips any
+  document that already carries a `bionic vN` header, because two copies do not
+  cooperate: each closes over its own `bound` flag and the second decorates the
+  first's spans.
+- **Reading-aid assets carry a `bionic v3` header.** Copy them into a guide;
+  never retype. v3 runs with or without the control panel — a guide with no
+  vendored panel is driven by the Settings page alone — and listens for
+  `storage`, so a framed guide repaints when that page changes a value.
 - **pnpm is the only package manager here**, pinned by `packageManager` in
   `package.json` and enforced in the image through corepack. `npm install` would
   write a `package-lock.json` nobody reads and a flat `node_modules` that

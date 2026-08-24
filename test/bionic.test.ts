@@ -202,7 +202,7 @@ describe('bionic', () => {
 
   it('assets carry the vendored version header', () => {
     for (const name of ['bionic.js', 'bionic.css', 'bionic.html']) {
-      expect(asset(name)).toMatch(/bionic v2 — vendored from guide-manager assets\/; do not edit here/);
+      expect(asset(name)).toMatch(/bionic v3 — vendored from guide-manager assets\/; do not edit here/);
     }
   });
 
@@ -236,7 +236,11 @@ describe('bionic', () => {
     expect(() => load().init()).not.toThrow();
   });
 
-  it('init is inert when the panel is absent from the page', () => {
+  it('init survives a page with no panel and no prose root of its own', () => {
+    // Since v3 a missing panel is no longer a bail-out — the aid runs headless
+    // off the stored settings, which is how a framed guide with no vendored
+    // panel gets decorated at all (test/bionic-panelless.test.ts covers that
+    // path). What still has to hold is that a document this bare cannot throw.
     const doc = {
       readyState: 'complete',
       querySelector: () => null,

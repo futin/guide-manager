@@ -1,29 +1,8 @@
 import {
-  renderMarkdown, wrapPage, escapeHtml, breadcrumbBar, deckFrame
+  wrapPage, escapeHtml, breadcrumbBar, deckFrame
 } from '../server/src/render/render.util';
 
 describe('render', () => {
-  it('renders basic markdown', () => {
-    const html = renderMarkdown('# Hello', '/proj/guides/a.md');
-    expect(html).toMatch(/<h1[^>]*>Hello<\/h1>/);
-  });
-
-  it('rewrites relative image to /asset with absolute path', () => {
-    const html = renderMarkdown('![pic](img.png)', '/proj/guides/a.md');
-    expect(html).toContain(`/asset?p=${encodeURIComponent('/proj/guides/img.png')}`);
-  });
-
-  it('rewrites relative md link to /guide with absolute path', () => {
-    const html = renderMarkdown('[next](sub/next.md)', '/proj/guides/a.md');
-    expect(html).toContain(`/guide?p=${encodeURIComponent('/proj/guides/sub/next.md')}`);
-  });
-
-  it('leaves absolute http links and anchors untouched', () => {
-    const html = renderMarkdown('[x](https://example.com) [y](#section)', '/proj/guides/a.md');
-    expect(html).toContain('href="https://example.com"');
-    expect(html).toContain('href="#section"');
-  });
-
   it('escapeHtml escapes the five specials', () => {
     expect(escapeHtml(`<&>"'`)).toBe('&lt;&amp;&gt;&quot;&#39;');
   });
@@ -40,22 +19,14 @@ describe('render', () => {
     expect(wrapPage('T', '<p>hi</p>')).toContain('href="/style.css"');
   });
 
-  it('relative md link with fragment rewrites to /guide and re-appends fragment', () => {
-    const html = renderMarkdown('[install](setup.md#install)', '/proj/guides/a.md');
-    const encoded = encodeURIComponent('/proj/guides/setup.md');
-    expect(html).toContain(`/guide?p=${encoded}#install`);
-  });
-
-  it('relative md link with query rewrites to /guide, query discarded', () => {
-    const html = renderMarkdown('[setup](setup.md?x=1)', '/proj/guides/a.md');
-    const encoded = encodeURIComponent('/proj/guides/setup.md');
-    expect(html).toContain(`/guide?p=${encoded}`);
-    expect(html).not.toContain('?x=1');
-  });
-
-  it('data: URI image passes through untouched', () => {
-    const html = renderMarkdown('![pic](data:image/png;base64,AAAA)', '/proj/guides/a.md');
-    expect(html).toContain('src="data:image/png;base64,AAAA"');
+  it('the page shell does not load the reading aid', () => {
+    // The shell holds a breadcrumb and an iframe, nothing else. Since bionic v3
+    // runs without a panel, linking the aid here would decorate the one piece of
+    // text on the page — the breadcrumb title — and never touch the guide, whose
+    // prose is inside the frame and picks the aid up on its own way out.
+    const page = wrapPage('T', deckFrame('/asset?p=x'), breadcrumbBar({ title: 'T' }), { bodyClass: 'deck-host' });
+    expect(page).not.toContain('/bionic.js');
+    expect(page).not.toContain('/bionic.css');
   });
 
   it('breadcrumbBar links back to the index and shows project, title and type', () => {
@@ -120,44 +91,17 @@ describe('render', () => {
     expect(page.indexOf('dataset.theme')).toBeLessThan(page.indexOf('href="/theme.css"'));
   });
 
-  it('wrapPage links the theme tokens, the page styles and the reading aid', () => {
+  it('wrapPage links the theme tokens and the page styles', () => {
     const page = wrapPage('T', '<p>hi</p>');
     expect(page).toContain('href="/theme.css"');
     expect(page).toContain('href="/style.css"');
-    expect(page).toContain('href="/bionic.css"');
-    expect(page).toContain('src="/bionic.js"');
   });
 
-  it('wrapPage loads the reading aid after the body it decorates', () => {
-    const page = wrapPage('T', '<p>hi</p>');
-    expect(page.indexOf('<main')).toBeLessThan(page.indexOf('src="/bionic.js"'));
-  });
-
-  it('wrapPage gives main the class the reading aid decorates', () => {
-    // bionic.js looks for .wrap, then .shell, then body. Matching .wrap keeps
-    // the aid off the breadcrumb bar.
-    expect(wrapPage('T', '<p>hi</p>')).toContain('<main class="wrap">');
-  });
-
-  it('wrapPage omits the progress reporter when it has no guide to report on', () => {
-    const page = wrapPage('T', '<p>hi</p>');
-    expect(page).not.toContain('/api/progress');
-  });
-
-  it('wrapPage reports progress for the guide it was given', () => {
-    const page = wrapPage('T', '<p>hi</p>', '', { guidePath: '/p/g/a.md', project: 'proj' });
-    expect(page).toContain('/api/progress');
-    expect(page).toContain('"/p/g/a.md"');
-    expect(page).toContain('"proj"');
-  });
-
-  it('wrapPage cannot be broken out of by a guide path containing a closing script tag', () => {
-    const page = wrapPage('T', '<p>hi</p>', '', {
-      guidePath: '/p/</script><script>alert(1)</script>/a.md',
-      project: 'proj'
-    });
-    expect(page).not.toContain('</script><script>alert(1)');
-    expect(page).toContain('\\u003c');
+  it('wrapPage emits no progress reporter — every guide scrolls inside its frame', () => {
+    // An iframe's scroll is invisible to the host document, so a reporter on
+    // this page would only ever measure a page that does not move. Guides count
+    // as opened, which the client records when the card is tapped.
+    expect(wrapPage('T', '<p>hi</p>')).not.toContain('/api/progress');
   });
 
   it('wrapPage can set a body class', () => {

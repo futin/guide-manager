@@ -1,4 +1,4 @@
-/* bionic v2 — vendored from guide-manager assets/; do not edit here */
+/* bionic v3 — vendored from guide-manager assets/; do not edit here */
 (function () {
   'use strict';
 
@@ -174,8 +174,21 @@
   function init() {
     var doc = globalThis.document;
     if (!doc) return;
-    var panel = doc.querySelector('.bx-panel');
     var root = doc.querySelector('.wrap') || doc.querySelector('.shell') || doc.body;
+    if (!root) return;
+    if (bound) return; // already wired up; a second call must not double-bind every listener
+    bound = true;
+
+    var state = readState();
+
+    // The control panel is optional, and that is the whole difference from v2.
+    // A guide's own build vendors the panel markup, but guide-manager splices
+    // this script into guides that have none: a build generated before the aid
+    // existed, and a tutor deck, which has no sidebar to hang a panel off. There
+    // the app's Settings page is the only control, and the `storage` listener
+    // below is how it reaches this document. Bailing out on a missing panel — as
+    // v2 did — would mean those guides silently never decorate at all.
+    var panel = doc.querySelector('.bx-panel');
     var onBox = doc.getElementById('bx-on');
     var strengthEl = doc.getElementById('bx-strength');
     var freqEl = doc.getElementById('bx-freq');
@@ -183,16 +196,17 @@
     var strengthOut = doc.getElementById('bx-strength-out');
     var freqOut = doc.getElementById('bx-freq-out');
     var moreBtn = panel && panel.querySelector('.bx-more');
-    if (!panel || !root || !onBox || !strengthEl || !freqEl || !opts || !strengthOut || !freqOut || !moreBtn) return;
-    if (bound) return; // already wired up; a second call must not double-bind every listener
-    bound = true;
+    // All or nothing: a half-present panel is a broken build, and wiring up the
+    // half that exists would put controls on screen that do not work.
+    var hasPanel = !!(panel && onBox && strengthEl && freqEl && opts && strengthOut && freqOut && moreBtn);
 
-    var state = readState();
-    onBox.checked = state.on;
-    strengthEl.value = String(Math.round(state.strength * 100));
-    freqEl.value = String(state.freq);
+    function paint() {
+      if (state.on) apply(root, state.strength, state.freq);
+      else restore(root);
+    }
 
     function render() {
+      if (!hasPanel) return;
       strengthOut.textContent = strengthEl.value + '%';
       var freqWord = ordinal(Number(freqEl.value));
       freqOut.textContent = freqWord;
@@ -201,30 +215,40 @@
       freqEl.disabled = !onBox.checked;
     }
 
-    // A full guide is ~15k spans, so a rebuild per drag frame stutters: the
-    // readout follows `input`, the rewrite waits for `change`.
-    function commit() {
-      state = {
-        on: onBox.checked,
-        strength: Number(strengthEl.value) / 100,
-        freq: Number(freqEl.value),
-      };
-      writeState(state);
-      render();
-      if (state.on) apply(root, state.strength, state.freq);
-      else restore(root);
+    function syncControls() {
+      if (!hasPanel) return;
+      onBox.checked = state.on;
+      strengthEl.value = String(Math.round(state.strength * 100));
+      freqEl.value = String(state.freq);
     }
 
-    onBox.addEventListener('change', commit);
-    strengthEl.addEventListener('change', commit);
-    freqEl.addEventListener('change', commit);
-    strengthEl.addEventListener('input', render);
-    freqEl.addEventListener('input', render);
-    moreBtn.addEventListener('click', function () {
-      var open = moreBtn.getAttribute('aria-expanded') === 'true';
-      moreBtn.setAttribute('aria-expanded', String(!open));
-      opts.hidden = open;
-    });
+    if (hasPanel) {
+      syncControls();
+
+      // A full guide is ~15k spans, so a rebuild per drag frame stutters: the
+      // readout follows `input`, the rewrite waits for `change`.
+      var commit = function () {
+        state = {
+          on: onBox.checked,
+          strength: Number(strengthEl.value) / 100,
+          freq: Number(freqEl.value),
+        };
+        writeState(state);
+        render();
+        paint();
+      };
+
+      onBox.addEventListener('change', commit);
+      strengthEl.addEventListener('change', commit);
+      freqEl.addEventListener('change', commit);
+      strengthEl.addEventListener('input', render);
+      freqEl.addEventListener('input', render);
+      moreBtn.addEventListener('click', function () {
+        var open = moreBtn.getAttribute('aria-expanded') === 'true';
+        moreBtn.setAttribute('aria-expanded', String(!open));
+        opts.hidden = open;
+      });
+    }
 
     // The central Settings page lives in another document — the app shell, which
     // may be framing this very guide. localStorage is per-origin, so a write
@@ -232,20 +256,23 @@
     // already-open guide repaint instead of waiting for a reload. Reads the key
     // rather than the event's newValue: readState() is the one place the stored
     // shape is validated, and a hand-edited value must fall back the same way on
-    // this path as on every other. The panel keeps working as a local override —
-    // it writes the same key, so both routes converge on one state, and syncing
-    // the controls here stops the panel from showing a stale value and silently
-    // undoing the change on its next commit().
-    globalThis.addEventListener('storage', function (e) {
-      if (e.key !== STORAGE_KEY) return;
-      state = readState();
-      onBox.checked = state.on;
-      strengthEl.value = String(Math.round(state.strength * 100));
-      freqEl.value = String(state.freq);
-      render();
-      if (state.on) apply(root, state.strength, state.freq);
-      else restore(root);
-    });
+    // this path as on every other. A panel, where one exists, keeps working as a
+    // local override — it writes the same key, so both routes converge on one
+    // state, and syncing the controls here stops the panel from showing a stale
+    // value and silently undoing the change on its next commit().
+    //
+    // Guarded on the function's existence because the panel-less path reaches
+    // this line on documents v2 bailed out of well before it — including a host
+    // that provides a `document` and nothing else.
+    if (typeof globalThis.addEventListener === 'function') {
+      globalThis.addEventListener('storage', function (e) {
+        if (e.key !== STORAGE_KEY) return;
+        state = readState();
+        syncControls();
+        render();
+        paint();
+      });
+    }
 
     render();
     if (state.on) apply(root, state.strength, state.freq);

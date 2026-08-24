@@ -6,8 +6,8 @@ project, into one board you can read from your phone.
 
 The skills write guides into whatever project they were run in. Each one
 registers itself in `~/.guide-manager/registry.json`. This app reads that
-registry, renders any registered Markdown guide as a styled page, and tracks how
-far through each one you are.
+registry, serves each registered guide with a breadcrumb bar and the reading aid
+around it, and tracks which ones you have opened.
 
 - **No auth.** The Tailscale network boundary is the access control — nothing is
   exposed publicly.
@@ -71,10 +71,13 @@ without a restart.
 Registering by hand:
 
 ```bash
-node bin/register.js --project /abs/path/to/project --guide /abs/path/to/guide.md --type study --title "Some guide"
+node bin/register.js --project /abs/path/to/project --guide /abs/path/to/guide/index.html --type study --title "Some guide"
 ```
 
-`--type` is `study` or `tutor`. A failed registration is a warning, never an
+`--type` is `study` or `tutor`, and `--guide` must name a generated HTML page —
+a study guide's `index.html` build or a tutor deck, never the markdown it was
+built from. `--remove --guide <abs>` drops one again, and drops its project with
+it once that was the last guide. A failed registration is a warning, never an
 error — it must not break the calling skill's wrap-up.
 
 ## Read it from your phone
@@ -127,22 +130,23 @@ skills (study, tutor)  ->  bin/register.js  ->  ~/.guide-manager/registry.json
                                                         |
                                                    read-only
                                                         v
-  React SPA (client/)  <->  Nest API (server/)  ->  guide .md on disk
+  React SPA (client/)  <->  Nest API (server/)  ->  guide .html on disk
                                     |
                                   Mongo (reading progress)
 ```
 
 - `server/src/registry/` — read-only view of the registry, re-read per request so
   a just-registered guide shows up immediately.
-- `server/src/render/` — `GET /guide?p=<abs path>` renders Markdown to a styled
-  page; `GET /asset` serves files sitting next to a guide (images, plus raw `.md`
-  as text for deck frames). Both resolve through an allowlist built from the
-  registry, so only registered trees are reachable.
+- `server/src/render/` — `GET /guide?p=<abs path>` puts a breadcrumb bar around
+  the guide and frames it, so the build's own inline CSS/JS reach the browser
+  untouched; `GET /asset` serves the framed document — with the reading aid
+  spliced in — and everything sitting next to it verbatim. Both resolve through
+  an allowlist built from the registry, so only registered trees are reachable.
 - `server/src/guides/` — `GET /api/guides`: the board, with progress joined in.
 - `server/src/progress/` — `GET`/`POST /api/progress`, stored in Mongo.
-- `assets/` — the bionic reading aid (bold word-openings) injected into rendered
-  guides; the Settings page and the in-guide panel write the same key, and the
-  guide repaints live.
+- `assets/` — the bionic reading aid (bold word-openings), spliced into every
+  guide the app frames; the Settings page and a guide's own panel, where it has
+  one, write the same key, and the guide repaints live.
 - `client/src/` — side rail, Guides board with the guide framed in an iframe, and
   Settings.
 

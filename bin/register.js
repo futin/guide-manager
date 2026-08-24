@@ -97,6 +97,15 @@ function main() {
     throw new Error('usage: register.js --project <abs> --guide <abs> --type study|tutor --title <text>');
   }
   if (type !== 'study' && type !== 'tutor') throw new Error(`unknown type: ${type}`);
+  // The viewer frames generated HTML and nothing else: a study guide's
+  // index.html build, or a tutor deck. Registering a markdown hub used to render
+  // as that hub alone — no chapters, no contents rail, mermaid fences as raw
+  // text — and now renders as nothing at all. Refusing it here is the only place
+  // the mistake is still cheap; caught later it is a card on the board that
+  // cannot open.
+  if (!/\.html?$/i.test(guide)) {
+    throw new Error(`not an HTML guide: ${guide} — register the generated build, not its markdown source`);
+  }
   const registry = loadRegistry(REGISTRY_FILE);
   upsertGuide(registry, {
     projectPath: project,
