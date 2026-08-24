@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 
 import { useGuides } from '../../hooks/useGuides';
+import { ProjectDrawer } from './ProjectDrawer';
 import type { GuideEntry } from '../../../../shared/types';
 
 /** What the viewer pane shows; null means the list is shown instead. */
@@ -9,10 +10,26 @@ interface ViewerState {
   title: string;
 }
 
+interface Props {
+  /**
+   * Which project's guides to list: a project path, or `'all'`. A path is the key
+   * rather than the name because the registry's own identity for a project is its
+   * path — two checkouts of the same repo would collide on name.
+   */
+  project: string;
+  /** Open the project drawer — the scope button in the bar is a second way in. */
+  onOpenProjects: () => void;
+  projectsOpen: boolean;
+  onSelectProject: (scope: string) => void;
+  onCloseProjects: () => void;
+  /** Forwarded to the drawer, which excludes rail presses from its outside-press close. */
+  railRef: RefObject<HTMLElement>;
+}
+
 /**
  * Guides section — every guide registered in ~/.guide-manager/registry.json,
- * read via GET /api/guides, grouped by the project it belongs to. Read-only and
- * unpolled.
+ * read via GET /api/guides, grouped by the project it belongs to, or narrowed to
+ * one project by the drawer. Read-only and unpolled.
  *
  * Ported from ../claude-agents-dashboard/client/src/components/guides/GuidesView.tsx.
  * Two changes: the fixed Decks / Study-guides pair becomes one group per project,
@@ -24,7 +41,14 @@ interface ViewerState {
  * class name a later companion panel would mount into, so its shape must stay
  * stable.
  */
-export default function GuidesView() {
+export default function GuidesView({
+  project,
+  onOpenProjects,
+  projectsOpen,
+  onSelectProject,
+  onCloseProjects,
+  railRef
+}: Props) {
   const { index, loading, error } = useGuides();
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   const viewing = viewer !== null;
@@ -74,13 +98,47 @@ export default function GuidesView() {
     );
   }
 
-  const projects = index?.projects ?? [];
+  const all = index?.projects ?? [];
+  /*
+    The scope is applied here rather than in App because this is where the index
+    lives, and the fail-open needs it: a project path remembered from a previous
+    session may no longer be registered (the guide moved, the project was
+    dropped), and an unmatched filter that emptied the board would look like the
+    server broke. An unmatched path reads as "all" — the same fail-open the stored
+    section value gets in App — and the bar then says "All projects", so the
+    fallback is visible rather than silent.
+  */
+  const scoped = all.filter((p) => p.path === project);
+  const projects = scoped.length > 0 ? scoped : all;
+  const single = scoped.length > 0;
 
   return (
     <div className="guides">
       <div className="guides-bar">
         <div className="guides-title">Guides</div>
+        {/* Names the scope and opens the drawer. The rail's Guides button opens the
+            same drawer; this one exists so the gesture is discoverable at all. */}
+        <button className="guides-scope" onClick={onOpenProjects} aria-haspopup="dialog">
+          {single ? scoped[0].name : 'All projects'}
+          <span className="guides-scope-caret" aria-hidden="true">▾</span>
+        </button>
       </div>
+
+      {/*
+        Rendered here rather than in App because this is where the index already
+        is — see the note on ProjectDrawer. Below the viewer's early return on
+        purpose: inside the viewer there is no list to scope, and a drawer
+        floating over a framed guide would only be a way to lose your place.
+      */}
+      {projectsOpen ? (
+        <ProjectDrawer
+          projects={all}
+          selected={project}
+          onSelect={onSelectProject}
+          onClose={onCloseProjects}
+          railRef={railRef}
+        />
+      ) : null}
 
       {loading ? (
         <div className="guides-empty">loading…</div>
@@ -89,11 +147,13 @@ export default function GuidesView() {
       ) : projects.length === 0 ? (
         <div className="guides-empty">nothing registered yet</div>
       ) : (
-        projects.map((project) => (
-          <div className="guides-group" key={project.path}>
-            <div className="guides-group-h">{project.name}</div>
+        projects.map((p) => (
+          <div className="guides-group" key={p.path}>
+            {/* Only worth a heading while there is more than one group to tell
+                apart — filtered to one project, the bar already says which. */}
+            {single ? null : <div className="guides-group-h">{p.name}</div>}
             <div className="guides-list">
-              {project.guides.map((g) => (
+              {p.guides.map((g) => (
                 <GuideCard
                   key={g.path}
                   guide={g}
@@ -109,19 +169,23 @@ export default function GuidesView() {
 }
 
 /**
- * One tappable guide card: title, then a meta line of type · date · how far you
- * got. A finished guide reads as a state ("read"); a part-read one as a number,
- * because there the number is the information. A guide never opened says nothing
- * at all rather than "0%", which would look like a failure to start.
+ * One tappable guide card: title, the type as a pill, then a meta line of date ·
+ * how far you got. A finished guide reads as a state ("read"); a part-read one as
+ * a number, because there the number is the information. A guide never opened
+ * says nothing at all rather than "0%", which would look like a failure to start.
  */
 function GuideCard({ guide, onOpen }: { guide: GuideEntry; onOpen: () => void }) {
-  const meta: string[] = [guide.type, guide.updated.slice(0, 10)];
-
   return (
     <div className="guides-card" role="button" onClick={onOpen}>
       <div className="guides-card-title">{guide.title}</div>
+      {/*
+        The type leads the meta line as a coloured pill rather than a word in the
+        run of monospace text. Both types get one: a card with no pill would read
+        as missing data rather than as "the plain kind".
+      */}
+      <span className={`pill pill-${guide.type}`}>{guide.type}</span>
       <div className="guides-card-meta">
-        {meta.join(' · ')}
+        {guide.updated.slice(0, 10)}
         {guide.progress?.completed ? (
           <span className="guides-card-read"> · read</span>
         ) : guide.progress ? (

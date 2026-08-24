@@ -30,8 +30,8 @@ stack they are fixed. This machine currently maps the client to `5176`.
   (`GET`/`POST /api/progress`), `render/` (`GET /guide`, `GET /asset`, plus
   `style.css`, `theme.css`, `bionic.css`, `bionic.js`), `registry/` (read-only
   view of the registry file), `static.ts` (serves `client/dist` when built).
-- `client/src/` — React SPA: side rail, Guides view (guide framed in an iframe),
-  Settings view.
+- `client/src/` — React SPA: side rail, Guides view (guide framed in an iframe,
+  scoped to one project by `guides/ProjectDrawer.tsx`), Settings view.
 - `shared/` — `types.ts` (registry + API shapes), `theme.css` (tokens).
 - `assets/` — the bionic reading aid injected into rendered guide pages.
 - `skills/study/`, `skills/tutor/` — the skills this repo publishes.
