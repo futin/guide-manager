@@ -66,6 +66,14 @@ describe('render', () => {
     expect(bar).toContain('class="badge study"');
   });
 
+  it('breadcrumbBar back link leaves the viewer frame rather than loading the app inside it', () => {
+    // The guide is read inside a same-origin iframe in the Guides tab. Without a
+    // target, this link navigates the frame — so `/` renders the whole app inside
+    // its own viewer, and every click from there nests one level deeper.
+    const bar = breadcrumbBar({ title: 'Alpha Guide' });
+    expect(bar).toMatch(/<a class="back"[^>]*target="_top"/);
+  });
+
   it('breadcrumbBar omits project and badge when unknown', () => {
     const bar = breadcrumbBar({ title: 'orphan.md' });
     expect(bar).toContain('href="/"');

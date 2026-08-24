@@ -99,7 +99,12 @@
   --muted:var(--ink2);
   --line:var(--hairline);
   --card:var(--strip);
-  --panel:var(--strip-hi);
+  /* --strip, not --strip-hi: the aid's panel sits directly on the page, whose
+     background is --board, so it needs the card-on-board tone. --strip-hi is the
+     raised-on-a-card tone — lighter than --strip on the four dark palettes, but
+     on daylight a tint BETWEEN board and strip, which left the panel at 1.09:1
+     against the page and reading as no panel at all. */
+  --panel:var(--strip);
   --good:var(--green);
   --bad:var(--red);
 }

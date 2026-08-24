@@ -171,6 +171,15 @@ describe('render routes', () => {
     expect(html.indexOf('<header')).toBeLessThan(html.indexOf('<main'));
   });
 
+  it('back link targets the top window, so the framed guide cannot nest the app', async () => {
+    for (const file of ['a.md', 'deck.html']) {
+      const res = await request(app.getHttpServer())
+        .get(`/guide?p=${guidePath('proj', 'guides', file)}`)
+        .expect(200);
+      expect(res.text).toMatch(/<a class="back"[^>]*target="_top"/);
+    }
+  });
+
   it('unregistered sibling guide still gets a back link, titled by filename', async () => {
     writeFileSync(join(root, 'proj', 'guides', 'sibling.md'), '# Sibling');
     const res = await request(app.getHttpServer())

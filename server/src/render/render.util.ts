@@ -37,7 +37,16 @@ export function renderMarkdown(md: string, guidePath: string): string {
   }
 }
 
-// Sticky context bar for a guide page: where you are, and the way back.
+/**
+ * Sticky context bar for a guide page: where you are, and the way back.
+ *
+ * `target="_top"` on the back link is load-bearing. A guide is normally read
+ * inside a same-origin iframe in the client's Guides tab, and an untargeted
+ * `href="/"` navigates *the frame* — which loads the whole app inside its own
+ * viewer, and every click from there nests one level deeper. Targeting the top
+ * window takes the tab itself back to the guides list, and reads the same when
+ * the guide is opened standalone, where top is the page.
+ */
 export function breadcrumbBar({ project, title, type }: Partial<GuideMeta> = {}): string {
   const projectCrumb = project
     ? `<span class="crumb-sep" aria-hidden="true">/</span>` +
@@ -48,7 +57,7 @@ export function breadcrumbBar({ project, title, type }: Partial<GuideMeta> = {})
     : '';
   return `<header class="topbar">
 <div class="topbar-inner">
-<nav class="crumbs" aria-label="Breadcrumb"><a class="back" href="/"><span class="arrow" aria-hidden="true">←</span> Guides</a>${projectCrumb}</nav>
+<nav class="crumbs" aria-label="Breadcrumb"><a class="back" href="/" target="_top"><span class="arrow" aria-hidden="true">←</span> Guides</a>${projectCrumb}</nav>
 <div class="topbar-title"><span class="crumb-title">${escapeHtml(title || '')}</span>${badge}</div>
 </div>
 </header>`;
