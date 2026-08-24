@@ -88,9 +88,9 @@ body {
 }
 
 /* ---------------------------------------------- Guides section
-   Registered guides read via GET /api/guides, grouped by project. Two states: a
-   card list, or — once a card is tapped — the viewer pane, a same-origin iframe
-   in .guide-viewer-body pointed at the entry's own /guide href. */
+   Registered guides read via GET /api/guides, one bay per project. Two states: a
+   board of bays, or — once a card is tapped — the viewer pane, a same-origin
+   iframe in .guide-viewer-body pointed at the entry's own /guide href. */
 .guides { display: flex; flex-direction: column; gap: 14px }
 .guides-bar { display: flex; align-items: baseline; gap: 10px }
 .guides-title {
@@ -98,27 +98,62 @@ body {
   text-transform: uppercase; letter-spacing: .07em; color: var(--ink);
 }
 .guides-empty { font-size: 11px; color: var(--ink3); padding: 20px 2px; text-align: center }
-.guides-group { display: flex; flex-direction: column; gap: 8px }
-.guides-group-h {
-  font-family: var(--display); font-size: 10.5px; font-weight: 600;
-  color: var(--ink3); text-transform: uppercase; letter-spacing: .09em;
+
+/* A bay is one project: its header, then its own card grid. The gap is smaller
+   than the .guides gap between bays, so a header binds visually to the cards
+   below it rather than floating between two grids. */
+.bay { display: flex; flex-direction: column; gap: 8px }
+/* The promoted header. This is the whole fix for "project names are almost not
+   visible": the name was a 10.5px --ink3 caption, the same weight as a field
+   label, and on a board of bright cards it disappeared. Now display font at the
+   section title's own size in full --ink, with a rule under it and a cyan tick
+   beside it — the two things that make a row of text read as a header instead of
+   as slightly bolder body text.
+   Baseline alignment, not centre: the 14px name and the 9.5px mono count only
+   look like one line if they share a baseline. */
+.bay-h {
+  display: flex; align-items: baseline; gap: 8px;
+  padding-bottom: 5px; border-bottom: 1px solid var(--hairline);
 }
-.guides-list { display: flex; flex-direction: column; gap: 10px }
-/* A grid, not a stack, because the DOM order is title → pill → meta but the pill
-   belongs *on* the meta line: named areas put it there without reordering the
-   markup, where the pill would otherwise take a line of its own. */
+/* Centred rather than baseline-aligned, alone among the header's children: an
+   empty inline box takes its bottom margin edge as its baseline, so a
+   baseline-aligned tick would sit *under* the name like a stray underscore
+   instead of beside it. flex:none because a 14px bar has no business shrinking. */
+.bay-tick {
+  flex: none; align-self: center;
+  width: 14px; height: 3px; background: var(--cyan);
+}
+.bay-name {
+  font-family: var(--display); font-size: 14px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--ink);
+}
+.bay-count { font-family: var(--mono); font-size: 9.5px; color: var(--ink3) }
+
+/* auto-fill, so the column count follows the width the board actually got rather
+   than a breakpoint guessing at it: the same rule gives a phone one column, the
+   820px board three, and the 1280px wide board more. 220px is the floor at which
+   a card's mono meta line still fits beside its pill without wrapping. */
+.guides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px }
+/* A flex column, where the row layout used a named-areas grid. The grid put the
+   pill and the meta line in a grid row, and a grid row cannot be pushed to the
+   bottom of a cell that a taller neighbour stretched — which is what every cell
+   in a card grid is. .guides-card-foot plus margin-top:auto can be.
+   Every padding and gap the card has lives in this one rule, so task-8's
+   [data-density="compact"] override is a single block rather than a hunt through
+   four selectors. */
 .guides-card {
-  display: grid; grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: 'title title' 'pill meta';
-  align-items: center; column-gap: 8px; row-gap: 4px;
+  display: flex; flex-direction: column; gap: 10px;
   background: var(--strip); border: 1px solid var(--hairline); border-radius: 2px;
   padding: 10px 14px; cursor: pointer; transition: border-color .15s;
   box-shadow: inset 0 1px 0 var(--edge);
 }
 .guides-card:hover { border-color: var(--hairline2) }
-.guides-card-title { grid-area: title; font-size: 13px; font-weight: 600; color: var(--ink) }
-.guides-card > .pill { grid-area: pill }
-.guides-card-meta { grid-area: meta; font-size: 10.5px; color: var(--ink3); font-family: var(--mono) }
+.guides-card-title { font-size: 13px; font-weight: 600; color: var(--ink) }
+/* margin-top:auto is the pin: cards in a row are as tall as the tallest title, and
+   without it the meta lines of neighbours sit at different heights. */
+.guides-card-foot { margin-top: auto; display: flex; align-items: baseline; gap: 8px }
+.guides-card-foot .pill { flex: none }
+.guides-card-meta { min-width: 0; font-size: 10.5px; color: var(--ink3); font-family: var(--mono) }
 
 /* Type pill. Outline and ink only, no tint: a tinted fill would need a mix per
    palette, and five palettes is five places for one of them to come out

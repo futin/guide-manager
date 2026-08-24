@@ -15,7 +15,7 @@ interface ViewerState {
  * unpolled.
  *
  * Ported from ../claude-agents-dashboard/client/src/components/guides/GuidesView.tsx.
- * Two changes: the fixed Decks / Study-guides pair becomes one group per project,
+ * Two changes: the fixed Decks / Study-guides pair becomes one bay per project,
  * and the viewer carries the entry's own `href` instead of a relative path it
  * would otherwise have to rebuild — the server already resolved and encoded it,
  * and re-deriving it here is how the two would drift.
@@ -90,9 +90,28 @@ export default function GuidesView() {
         <div className="guides-empty">nothing registered yet</div>
       ) : (
         projects.map((project) => (
-          <div className="guides-group" key={project.path}>
-            <div className="guides-group-h">{project.name}</div>
-            <div className="guides-list">
+          <div className="bay" key={project.path}>
+            {/*
+              The header renders unconditionally, and has to keep doing so once
+              task-7's project filter lands: the board carries the project's name
+              nowhere else, so a single-bay board without its header is a board
+              that never says which project you are looking at. The previous
+              drawer hid the heading whenever one group was showing, which is
+              exactly the bug that produced it.
+
+              The tick is an empty span, not a text glyph or a border on .bay-h:
+              a glyph would land in the header's textContent and inside anything
+              reading the name off the DOM, and a border cannot be given its own
+              14x3 footprint beside the baseline-aligned name.
+            */}
+            <div className="bay-h">
+              <span className="bay-tick" />
+              <span className="bay-name">{project.name}</span>
+              <span className="bay-count">
+                {project.guides.length} {project.guides.length === 1 ? 'guide' : 'guides'}
+              </span>
+            </div>
+            <div className="guides-grid">
               {project.guides.map((g) => (
                 <GuideCard
                   key={g.path}
@@ -109,28 +128,39 @@ export default function GuidesView() {
 }
 
 /**
- * One tappable guide card: title, the type as a pill, then a meta line of date ·
- * how far you got. A finished guide reads as a state ("read"); a part-read one as
- * a number, because there the number is the information. A guide never opened
- * says nothing at all rather than "0%", which would look like a failure to start.
+ * One tappable guide card: title on top, then a footer row of the type as a pill
+ * and a meta line of date · how far you got. A finished guide reads as a state
+ * ("read"); a part-read one as a number, because there the number is the
+ * information. A guide never opened says nothing at all rather than "0%", which
+ * would look like a failure to start.
+ *
+ * The pill and the meta line are wrapped in .guides-card-foot rather than sitting
+ * on the card directly. The old layout was a two-row named-areas grid, which was
+ * the right shape while cards were a single column of full-width rows — but in a
+ * grid of side-by-side cards the cells stretch to the tallest card in the row, and
+ * a grid row cannot be pushed to the bottom of a taller cell. One footer element
+ * can: .guides-card is a flex column and the footer takes `margin-top:auto`, so
+ * the meta lines of neighbouring cards align however long their titles run.
  */
 function GuideCard({ guide, onOpen }: { guide: GuideEntry; onOpen: () => void }) {
   return (
     <div className="guides-card" role="button" onClick={onOpen}>
       <div className="guides-card-title">{guide.title}</div>
-      {/*
-        The type leads the meta line as a coloured pill rather than a word in the
-        run of monospace text. Both types get one: a card with no pill would read
-        as missing data rather than as "the plain kind".
-      */}
-      <span className={`pill pill-${guide.type}`}>{guide.type}</span>
-      <div className="guides-card-meta">
-        {guide.updated.slice(0, 10)}
-        {guide.progress?.completed ? (
-          <span className="guides-card-read"> · read</span>
-        ) : guide.progress ? (
-          <span className="guides-card-part"> · {guide.progress.scrollPercent}%</span>
-        ) : null}
+      <div className="guides-card-foot">
+        {/*
+          The type leads the footer as a coloured pill rather than a word in the
+          run of monospace text. Both types get one: a card with no pill would read
+          as missing data rather than as "the plain kind".
+        */}
+        <span className={`pill pill-${guide.type}`}>{guide.type}</span>
+        <div className="guides-card-meta">
+          {guide.updated.slice(0, 10)}
+          {guide.progress?.completed ? (
+            <span className="guides-card-read"> · read</span>
+          ) : guide.progress ? (
+            <span className="guides-card-part"> · {guide.progress.scrollPercent}%</span>
+          ) : null}
+        </div>
       </div>
     </div>
   );

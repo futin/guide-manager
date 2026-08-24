@@ -46,3 +46,52 @@ IS the fix for "project names are almost not visible". Depends on task-3.
 
 The board renders bays with promoted headers and card grids; a phone-width
 viewport collapses each grid to one column; tests and typecheck pass.
+
+## Outcome
+
+2026-08-24 — done, on branch `worktree-task-4-bay-board`.
+
+`GuidesView` renders one `.bay` per project: `.bay-h` holding an empty
+`.bay-tick` span, `.bay-name`, and a `.bay-count` that says "N guides" or
+"1 guide", above a `.guides-grid`. `GuideCard` became a flex column with the
+pill and meta wrapped in `.guides-card-foot`, pinned by `margin-top:auto` —
+without that wrapper the two could not be pushed to the bottom of a cell a
+taller neighbour had stretched, which is every cell in a card grid.
+
+Two deviations from the plan as written, both to make it work rather than to
+change it:
+
+- `.bay-tick` is `align-self:center`, alone among the header's children. An
+  empty inline box takes its bottom margin edge as its baseline, so under the
+  header's `align-items:baseline` the tick rendered *under* the name like a
+  stray underscore instead of beside it.
+- `.guides-card-foot .pill { flex: none }` was added. The pill is a flex item
+  now rather than a grid area, and would otherwise shrink below its own text.
+
+Spot-checked in the browser against the live registry at 1280px and 375px:
+midnight shows the cyan tick and full-ink name against `--strip` cards;
+daylight's `--cyan` (#136d78) and `--ink` (#231f1a) both hold on the light
+board, and the hairline rule under the header stays visible. At 375px each
+grid collapses to one column (220px floor against ~327px of content), and no
+console errors.
+
+`pnpm run typecheck` — exit 0:
+
+```
+$ tsc --noEmit
+TYPECHECK_EXIT=0
+```
+
+`pnpm test`:
+
+```
+Test Suites: 23 passed, 23 total
+Tests:       178 passed, 178 total
+Snapshots:   0 total
+Time:        21.545 s
+Ran all test suites.
+```
+
+174 tests at the branch point, 178 now: four new jsdom cases cover the bay
+count's singular/plural, the per-bay tick, the per-bay grid nesting, and the
+card footer. Uncommitted — staging is the user's call.
