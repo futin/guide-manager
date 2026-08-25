@@ -34,7 +34,13 @@ describe('vite dev proxy', () => {
   it('reads the asset routes off the controller', () => {
     // Guard the guard: a metadata shape change must not turn this suite into a
     // no-op that passes because it found nothing to check.
-    expect(assetRoutes().sort()).toEqual(['/bionic.css', '/bionic.js', '/style.css', '/theme.css']);
+    expect(assetRoutes().sort()).toEqual([
+      '/bionic.css',
+      '/bionic.js',
+      '/progress.js',
+      '/style.css',
+      '/theme.css'
+    ]);
   });
 
   it('proxies every route the server owns', () => {
