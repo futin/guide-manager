@@ -279,12 +279,198 @@
     if (restored) showPill(pillText());
   }
 
-  // Deck mode and the pill are defined in later revisions of this file; the
-  // stubs keep doc mode loadable on its own.
-  function deckMeasure() { return { percent: state.percent, position: state.position }; }
-  function restoreDeck() { return false; }
-  function watchDeck() {}
-  function unwatchDeck() {}
+  // ---------------------------------------------------------------- deck mode
+
+  /*
+    A pending resume: the card index the replay is walking towards, or -1.
+
+    It outlives the initial walk on purpose. `Next` is disabled while an
+    unanswered quiz card is showing, so a replay can stall short of its target —
+    and that stall is correct, because the gate is what a quiz card is for and
+    quiz answers are not stored. Keeping the target pending means answering the
+    question carries the reader the rest of the way, instead of leaving them to
+    tap Next eighteen times by hand.
+  */
+  var pending = -1;
+  var observer = null;
+
+  function deckCards(root) {
+    // Flat and in document order, exactly as a deck's own JS collects them:
+    // section wrappers exist for the update flow's benefit and navigation
+    // crosses them transparently (deck.md §1).
+    return Array.prototype.slice.call(root.querySelectorAll('.card'));
+  }
+
+  function activeIndex() {
+    var cards = deckCards(document);
+    for (var i = 0; i < cards.length; i += 1) {
+      if (cards[i].classList.contains('active')) return i;
+    }
+    return -1;
+  }
+
+  function deckPosition(cards, i) {
+    var card = cards[i];
+    var pos = { kind: 'deck', cardIndex: i };
+    if (!card) return pos;
+    var section = typeof card.closest === 'function' ? card.closest('section[id]') : null;
+    if (section) {
+      // Section ids are permanent by contract (deck.md §6), so this pair outlives
+      // an incremental regeneration that rewrote an earlier section and shifted
+      // every absolute index after it. The opener and the recap card sit outside
+      // every wrapper and get neither field.
+      pos.sectionId = section.id;
+      pos.cardOffset = deckCards(section).indexOf(card);
+    }
+    return pos;
+  }
+
+  function deckTarget(cards, position) {
+    if (!position || position.kind !== 'deck' || cards.length === 0) return -1;
+    if (position.sectionId) {
+      var section = document.getElementById(position.sectionId);
+      if (section) {
+        var own = deckCards(section);
+        if (own.length > 0) {
+          var card = own[Math.min(position.cardOffset || 0, own.length - 1)];
+          var found = cards.indexOf(card);
+          if (found >= 0) return found;
+        }
+      }
+    }
+    // Clamped rather than refused: a deck that lost cards should resume near
+    // where the reader was, not at card one.
+    var raw = typeof position.cardIndex === 'number' ? position.cardIndex : 0;
+    return Math.min(Math.max(raw, 0), cards.length - 1);
+  }
+
+  function deckPercent(index, total) {
+    // The same fraction the deck's own progress bar uses. A one-card deck has no
+    // distance to divide by, and its only card is also its last.
+    if (total <= 1) return 100;
+    return Math.min(100, Math.max(0, Math.round((index / (total - 1)) * 100)));
+  }
+
+  function deckMeasure() {
+    var cards = deckCards(document);
+    var i = activeIndex();
+    if (i < 0) return { percent: state.percent, position: state.position };
+    return { percent: deckPercent(i, cards.length), position: deckPosition(cards, i) };
+  }
+
+  /**
+   * The deck's `Next` control.
+   *
+   * Guaranteed to exist by deck.md §2 — one persistent Next/Back pair, never
+   * duplicated per card — but not to be spelled any particular way, so it is
+   * matched several ways and the reporter simply declines to restore if none of
+   * them hits. Anything else would be guessing at another program's markup.
+   */
+  function nextControl() {
+    var explicit = document.querySelector('[data-next], [rel="next"], #next, .next');
+    if (explicit) return explicit;
+    var buttons = document.querySelectorAll('button, a');
+    for (var i = 0; i < buttons.length; i += 1) {
+      if (/^\s*next\s*[›→>]?\s*$/i.test(buttons[i].textContent || '')) return buttons[i];
+    }
+    return null;
+  }
+
+  var gated = function (control) {
+    return control.disabled === true || control.getAttribute('aria-disabled') === 'true';
+  };
+
+  /**
+   * Walk forward towards `pending` by clicking the deck's own control.
+   *
+   * Never by setting `.active` directly: the deck owns its current index, its
+   * score and its progress bar, and a hand-set card leaves all three describing a
+   * screen that is not there — the reader's next Back tap would jump to card one.
+   *
+   * Stops on three conditions: arrival, a gate, and no movement. The last is the
+   * guard that matters most — if a click does not change the visible card, the
+   * control is not the one this deck navigates with, and looping on it would spin
+   * forever inside someone's guide.
+   */
+  function advance() {
+    var control = nextControl();
+    if (!control || pending < 0) return;
+    var guard = deckCards(document).length + 1;
+    while (guard > 0) {
+      var at = activeIndex();
+      if (at < 0 || at >= pending) break;
+      if (gated(control)) break;
+      control.click();
+      if (activeIndex() === at) break;
+      guard -= 1;
+    }
+    if (activeIndex() >= pending) pending = -1;
+  }
+
+  function restoreDeck() {
+    var cards = deckCards(document);
+    var storedProgress = ctx && ctx.progress;
+    if (cards.length === 0 || !storedProgress) return false;
+    var target = deckTarget(cards, storedProgress.position);
+    // Card one is where a deck already opens, so there is nothing to restore and
+    // nothing to announce.
+    if (target <= 0 || target <= activeIndex()) return false;
+    pending = target;
+    state.replaying = true;
+    advance();
+    state.replaying = false;
+    return activeIndex() > 0;
+  }
+
+  /**
+   * Watch the deck rather than wrap its functions.
+   *
+   * A MutationObserver works whatever the deck named its handlers and however it
+   * wired them, and there is no second copy of the navigation logic to keep in
+   * sync. Two things are watched together because they are the same event seen
+   * from two sides: the active card changing (the reader moved, or the replay
+   * did) and `Next` losing its disabled state (a gate cleared, so a stalled
+   * replay can continue).
+   */
+  function watchDeck() {
+    if (typeof MutationObserver === 'undefined') return;
+    var last = activeIndex();
+    observer = new MutationObserver(function () {
+      var now = activeIndex();
+      if (now === last) {
+        // No card change: this is the gate clearing. Resume a stalled replay.
+        if (pending >= 0 && now < pending) {
+          state.replaying = true;
+          advance();
+          state.replaying = false;
+          if (activeIndex() !== last) {
+            last = activeIndex();
+            schedule('deck', deckMeasure);
+          }
+        }
+        return;
+      }
+      if (pending >= 0 && now < last) {
+        // Backwards while a resume is pending: the reader has taken control, and
+        // a resume that fought them would be worse than no resume at all.
+        pending = -1;
+      }
+      last = now;
+      if (pending < 0) schedule('deck', deckMeasure);
+    });
+    observer.observe(document.body, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'disabled', 'aria-disabled']
+    });
+  }
+
+  function unwatchDeck() {
+    if (observer) observer.disconnect();
+    observer = null;
+    pending = -1;
+  }
+
   function pillText() { return 'resumed'; }
   function showPill() {}
 
@@ -298,6 +484,12 @@
   if (typeof globalThis !== 'undefined') {
     globalThis.__gmProgress = {
       readContext: readContext,
+      deckCards: deckCards,
+      deckPosition: deckPosition,
+      deckTarget: deckTarget,
+      deckPercent: deckPercent,
+      restoreDeck: restoreDeck,
+      activeIndex: activeIndex,
       docAnchor: docAnchor,
       docPercent: docPercent,
       restoreDoc: restoreDoc,
