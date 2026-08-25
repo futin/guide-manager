@@ -35,9 +35,61 @@ export interface GuideMeta {
   project?: string;
 }
 
+/**
+ * Where the reader is inside one guide, in the terms that guide actually uses.
+ *
+ * A single percent cannot express either type honestly. A tutor deck's position
+ * is discrete — card 12 of 30, one `.card.active` at a time — and a percent
+ * round-trips to the wrong card. A study build is one long page, so a percent
+ * *is* its position, but a stored one lands somewhere else the moment the reader
+ * changes the text-size setting and the page reflows; a heading id does not move.
+ */
+export type GuidePosition =
+  | {
+      kind: 'deck';
+      /** Index into the deck's flat, in-document-order card list. */
+      cardIndex: number;
+      /**
+       * The `<section id>` the card sits in, when it sits in one — a deck's
+       * opener and its recap card do not. Section ids are permanent by contract
+       * (skills/tutor/references/deck.md §6: never reassigned, never reused), so
+       * this pair survives an incremental regeneration that shifts every
+       * absolute index after the section it rewrote. `cardIndex` is the fallback.
+       */
+      sectionId?: string;
+      /** The card's offset among that section's own cards. */
+      cardOffset?: number;
+    }
+  | {
+      kind: 'doc';
+      /**
+       * Id of the last heading scrolled past. Absent on a build with no id'd
+       * headings, where the percent is all there is.
+       */
+      anchorId?: string;
+    };
+
 /** Per-guide reading progress as the API publishes it. Null when never opened. */
 export interface GuideProgress {
-  scrollPercent: number;
+  /**
+   * The guide this row belongs to. Required because `GET /api/progress` returns
+   * a flat list, and a list of positions with no paths in it cannot be read.
+   */
+  guidePath: string;
+  /**
+   * Where the reader is, 0-100. Named for neither scrolling nor cards, because
+   * it is derived from whichever one the guide has: a deck reports
+   * `cardIndex / (total - 1)`, a doc its scroll offset. It replaced a
+   * `scrollPercent` that no longer told the truth about half the guides.
+   */
+  percent: number;
+  /**
+   * The high-water mark, never lowered — see ProgressService.record's `$max`.
+   * The board shows this one: glancing back at chapter one must not erase the
+   * fact that you had reached chapter nine, and one number cannot say both.
+   */
+  furthestPercent: number;
+  position: GuidePosition | null;
   completed: boolean;
   lastOpenedAt: string;
   openCount: number;
