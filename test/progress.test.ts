@@ -1,13 +1,61 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Test } from '@nestjs/testing';
+import { BaseExceptionFilter } from '@nestjs/core';
+import { Catch, HttpException } from '@nestjs/common';
 import request from 'supertest';
-import type { INestApplication } from '@nestjs/common';
+import type { ArgumentsHost, INestApplication } from '@nestjs/common';
 
 import { ProgressController } from '../server/src/progress/progress.controller';
 import { ProgressService } from '../server/src/progress/progress.service';
 import { ReadingProgress, ReadingProgressSchema } from '../server/src/progress/progress.schema';
 import type { GuideProgress } from '../shared/types';
+
+/**
+ * Diagnostics for a flake seen exactly once: this suite's first POST came back
+ * 401 "Unauthorized" on a full run, and every rerun since has been green -- 26
+ * consecutive full runs, plus 120 isolated first-request iterations.
+ *
+ * The status is the whole puzzle. No route here is guarded, and Nest gives a
+ * response a status it was not handed by an HttpException only when the thrown
+ * error carries a `statusCode` of its own (BaseExceptionFilter.isHttpError) --
+ * and nothing in this repo or anywhere in its dependency tree mints a 401. So
+ * either the response did not come from this app, or an error shape nobody has
+ * accounted for reached the filter. The two hooks below answer exactly those
+ * two questions, because the first sighting could answer neither.
+ *
+ * Both stay silent on the statuses this suite means to produce, so a passing
+ * run prints nothing at all. Background:
+ * backlog/bugs/open/bug-1-progress-suite-401-flake.md
+ */
+const EXPECTED_STATUSES = new Set([200, 201, 204, 400]);
+
+/**
+ * Which error. Logs the raw exception's own properties -- above all whether it
+ * carries the `statusCode` that would explain a status like 401 -- and then
+ * defers to the stock filter, so every response is byte-for-byte what it would
+ * have been without this installed.
+ */
+@Catch()
+class DiagnosticFilter extends BaseExceptionFilter {
+  catch(exception: unknown, host: ArgumentsHost): void {
+    const deliberate =
+      exception instanceof HttpException && EXPECTED_STATUSES.has(exception.getStatus());
+    if (!deliberate) {
+      const err = exception as Record<string, unknown> | null | undefined;
+      // eslint-disable-next-line no-console
+      console.error('[progress] exception reached the filter', {
+        constructor: err?.constructor?.name,
+        message: err?.message,
+        statusCode: err?.statusCode,
+        code: err?.code,
+        codeName: err?.codeName,
+        own: Object.getOwnPropertyNames(err ?? {})
+      });
+    }
+    super.catch(exception, host);
+  }
+}
 
 describe('progress', () => {
   let mongo: MongoMemoryServer;
@@ -24,6 +72,7 @@ describe('progress', () => {
       providers: [ProgressService]
     }).compile();
     app = moduleRef.createNestApplication();
+    app.useGlobalFilters(new DiagnosticFilter(app.getHttpAdapter()));
     await app.init();
   });
 
@@ -32,9 +81,36 @@ describe('progress', () => {
     await mongo.stop();
   });
 
+  /**
+   * Who answered. An Express response carries `x-powered-by`, and the socket
+   * names the port that actually served it: if either disagrees with the server
+   * under test, the response came from somewhere other than this app and no
+   * amount of reading this app's code will ever explain it.
+   */
+  const diagnose = (res: request.Response): void => {
+    if (EXPECTED_STATUSES.has(res.status)) return;
+    // `res` (the underlying IncomingMessage) is real but undeclared on
+    // superagent's Response type, and the socket is the only place the serving
+    // port is recorded.
+    const socket = (res as unknown as { res?: { socket?: { remoteAddress?: string; remotePort?: number; localPort?: number } } }).res?.socket;
+    // eslint-disable-next-line no-console
+    console.error('[progress] unexpected status', {
+      status: res.status,
+      headers: res.headers,
+      body: res.text?.slice(0, 500),
+      servedBy: socket && { remote: `${socket.remoteAddress}:${socket.remotePort}`, local: socket.localPort },
+      serverUnderTest: app.getHttpServer().address()
+    });
+  };
+
+  const watched = (test: request.Test): request.Test => test.on('response', diagnose);
+
   // `string | object` is what supertest's send() accepts; the 'nonsense' case
   // below is a deliberate non-object body the endpoint has to reject.
-  const post = (body: string | object) => request(app.getHttpServer()).post('/api/progress').send(body);
+  const post = (body: string | object) =>
+    watched(request(app.getHttpServer()).post('/api/progress').send(body));
+  const list = () => watched(request(app.getHttpServer()).get('/api/progress'));
+  const del = (query = '') => watched(request(app.getHttpServer()).delete(`/api/progress${query}`));
 
   it('creates a document on first open with openCount 1', async () => {
     const res = await post({ guidePath: '/p/a.md', project: 'p', percent: 12, opened: true }).expect(201);
@@ -48,7 +124,7 @@ describe('progress', () => {
   it('upserts the same guidePath rather than inserting a second row', async () => {
     await post({ guidePath: '/p/b.md', project: 'p', percent: 10 }).expect(201);
     await post({ guidePath: '/p/b.md', project: 'p', percent: 40 }).expect(201);
-    const all = (await request(app.getHttpServer()).get('/api/progress').expect(200)).body as GuideProgress[];
+    const all = (await list().expect(200)).body as GuideProgress[];
     expect(all.filter((p) => p.percent === 40)).toHaveLength(1);
   });
 
@@ -169,7 +245,7 @@ describe('progress', () => {
 
   it('names the guide in every row it returns', async () => {
     await post({ guidePath: '/p/named.html', project: 'p', percent: 1, opened: true }).expect(201);
-    const all = (await request(app.getHttpServer()).get('/api/progress').expect(200)).body as GuideProgress[];
+    const all = (await list().expect(200)).body as GuideProgress[];
     // Without guidePath the list route hands back rows with no way to tell
     // which guide each one belongs to.
     expect(all.some((p) => p.guidePath === '/p/named.html')).toBe(true);
@@ -177,8 +253,8 @@ describe('progress', () => {
 
   it('resets one guide by deleting its row', async () => {
     await post({ guidePath: '/p/reset.html', project: 'p', percent: 90, opened: true }).expect(201);
-    await request(app.getHttpServer()).delete('/api/progress?guidePath=%2Fp%2Freset.html').expect(204);
-    const all = (await request(app.getHttpServer()).get('/api/progress').expect(200)).body as GuideProgress[];
+    await del('?guidePath=%2Fp%2Freset.html').expect(204);
+    const all = (await list().expect(200)).body as GuideProgress[];
     // Deleted, not zeroed: "start over" means a guide you have not read, and a
     // surviving openCount: 7 beside a zeroed position is a state the board
     // would have to explain. Absence already renders correctly.
@@ -186,12 +262,12 @@ describe('progress', () => {
   });
 
   it('refuses a reset with no guide named', async () => {
-    await request(app.getHttpServer()).delete('/api/progress').expect(400);
+    await del().expect(400);
   });
 
   it('answers a reset for a guide with no row', async () => {
     // Idempotent on purpose: the pill's "start over" fires without knowing
     // whether anything was ever stored, and a 404 there would be noise.
-    await request(app.getHttpServer()).delete('/api/progress?guidePath=%2Fp%2Fnever.html').expect(204);
+    await del('?guidePath=%2Fp%2Fnever.html').expect(204);
   });
 });
