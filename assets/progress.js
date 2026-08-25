@@ -471,8 +471,133 @@
     pending = -1;
   }
 
-  function pillText() { return 'resumed'; }
-  function showPill() {}
+  // --------------------------------------------------------------------- pill
+
+  var PILL_MS = 6000;
+  var pillTimer = null;
+
+  /*
+    Styled from the page's own theme tokens with literal fallbacks, because a
+    guide is also a file someone can open straight off disk over file:// — where
+    /theme.css was never linked and every var() would resolve to nothing.
+
+    The z-index is deliberately near the top of the range: a deck's own sticky
+    nav sits above its cards, and a pill buried under it is a pill nobody reads.
+  */
+  var PILL_CSS = [
+    '.gm-progress-pill{',
+    'position:fixed;bottom:12px;left:12px;z-index:2147483000;',
+    'display:flex;align-items:center;gap:8px;',
+    'padding:7px 11px;border-radius:3px;',
+    'font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;',
+    'color:var(--fg,#e6e6e6);background:var(--panel,#1b1b1b);',
+    'border:1px solid var(--line,#333);box-shadow:0 2px 10px rgba(0,0,0,.35);',
+    'opacity:1;transition:opacity .25s}',
+    '.gm-progress-pill[data-leaving]{opacity:0}',
+    '.gm-progress-pill button{',
+    'font:inherit;color:var(--accent,#4db6c4);background:none;',
+    'border:0;padding:0;cursor:pointer;text-decoration:underline}'
+  ].join('');
+
+  function ensurePillStyles() {
+    // Inlined rather than served as a second stylesheet route: one more route is
+    // one more Vite proxy entry and one more line in the static-fallback
+    // exclusion, each of which fails invisibly when forgotten. A dozen rules do
+    // not earn that. Marked with an attribute so repeated shows share one copy.
+    if (document.querySelector('style[data-gm-progress-style]')) return;
+    var style = document.createElement('style');
+    style.setAttribute('data-gm-progress-style', '');
+    style.textContent = PILL_CSS;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function dismissPill() {
+    if (pillTimer !== null) {
+      clearTimeout(pillTimer);
+      pillTimer = null;
+    }
+    var existing = document.querySelector('.gm-progress-pill');
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+  }
+
+  /** Send the guide back to its own beginning — card one, or the top — and
+   *  forget the stored position through the same endpoint the viewer's reset
+   *  button uses. One way to forget a guide, not two that could disagree. */
+  function restart() {
+    pending = -1;
+    var cards = deckCards(document);
+    if (cards.length > 0) {
+      // Back, repeatedly, for the same reason the resume uses Next: the deck's
+      // own control keeps the deck's own index honest. Bounded by the card count,
+      // and stops early if a click does not move anything.
+      var control = document.querySelector('[data-prev], [rel="prev"], #back, .back') || backByText();
+      var guard = cards.length + 1;
+      while (control && guard > 0 && activeIndex() > 0) {
+        var at = activeIndex();
+        if (gated(control)) break;
+        control.click();
+        if (activeIndex() === at) break;
+        guard -= 1;
+      }
+    } else if (typeof window.scrollTo === 'function') {
+      window.scrollTo(0, 0);
+    }
+    reset();
+    dismissPill();
+  }
+
+  function backByText() {
+    var buttons = document.querySelectorAll('button, a');
+    for (var i = 0; i < buttons.length; i += 1) {
+      if (/^\s*[‹←<]?\s*back\s*$/i.test(buttons[i].textContent || '')) return buttons[i];
+    }
+    return null;
+  }
+
+  function showPill(text) {
+    if (typeof document === 'undefined' || !document.body) return null;
+    // One pill at a time: a second would cover the first, and both would be
+    // describing the same restore.
+    dismissPill();
+    ensurePillStyles();
+
+    var el = document.createElement('div');
+    el.className = 'gm-progress-pill';
+    var label = document.createElement('span');
+    label.textContent = text;
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('data-gm-restart', '');
+    button.textContent = 'start over';
+    button.addEventListener('click', restart);
+    el.appendChild(label);
+    el.appendChild(button);
+    document.body.appendChild(el);
+
+    // Fades out on its own: it is an explanation, not a control panel, and once
+    // read it is in the way of the guide it just explained. The reset it offers
+    // also lives permanently in the viewer's head, so nothing is lost with it.
+    pillTimer = setTimeout(function () {
+      pillTimer = null;
+      el.setAttribute('data-leaving', '');
+      setTimeout(dismissPill, 250);
+    }, PILL_MS);
+
+    return el;
+  }
+
+  /**
+   * What the pill says.
+   *
+   * A parked replay gets its own wording rather than a bare "resumed": the deck
+   * is showing a question, not the card the reader left off on, and naming that
+   * turns a stall into an instruction. Everything else is a plain statement of
+   * what happened.
+   */
+  function pillText() {
+    if (pending >= 0) return 'resuming — answer this to continue';
+    return 'resumed where you left off';
+  }
 
   if (typeof document !== 'undefined') {
     // Spliced at the end of <body>, so the document is normally parsed already —
@@ -495,6 +620,7 @@
       restoreDoc: restoreDoc,
       report: report,
       reset: reset,
+      showPill: showPill,
       init: init,
       stop: stop
     };
