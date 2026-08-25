@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useGuides } from '../../hooks/useGuides';
 import { usePersistedState } from '../../hooks/usePersistedState';
@@ -49,10 +49,15 @@ type SortKey = 'created' | 'name' | 'type';
  *  reorder the board the day a third type is registered. */
 const TYPE_ORDER: Record<GuideType, number> = { study: 0, tutor: 1 };
 
-/** What the viewer pane shows; null means the list is shown instead. */
+/** What the viewer pane shows; null means the list is shown instead.
+ *
+ *  `path` rides along beside the href purely for the reset button: the API keys
+ *  progress on the guide's absolute path, and pulling it back out of the href's
+ *  encoded query would be re-deriving what the entry already states. */
 interface ViewerState {
   href: string;
   title: string;
+  path: string;
 }
 
 /** One bay as the board renders it: the project it names, and that project's
@@ -108,9 +113,28 @@ function sortGuides(guides: GuideEntry[], sort: SortKey): GuideEntry[] {
  * stable.
  */
 export default function GuidesView() {
-  const { index, loading, error } = useGuides();
+  const { index, loading, error, refetch } = useGuides();
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   const viewing = viewer !== null;
+  /*
+    Whether the viewer's reset button is armed. Two taps, because it is a
+    destructive control sitting beside the back link on a phone: the first tap
+    turns it into "sure?", the second fires. Held here rather than inside a
+    child so that closing the viewer disarms it — see the effect below.
+  */
+  const [resetArmed, setResetArmed] = useState(false);
+  /*
+    Bumped by a reset, and part of the frame's key, so the guide is remounted and
+    reloads.
+
+    Without it a reset is only half done: the row is gone and the board is
+    repainted, but the frame on screen is still showing card twelve — the position
+    the server has just forgotten. Reloading is also all that is needed to
+    restart the guide, since a guide with no stored position opens at its own
+    beginning; the reporter needs no instruction and there is nothing to keep in
+    step.
+  */
+  const [resetNonce, setResetNonce] = useState(0);
   /*
     Per device, not per account: which projects you keep folded on the phone has
     nothing to do with what you want folded on the desktop board, and the phone is
@@ -157,12 +181,91 @@ export default function GuidesView() {
     return () => root.classList.remove('guide-locked');
   }, [viewing]);
 
+  /*
+    Disarm on every change of guide, including on leaving the viewer entirely. An
+    armed control that survived into the next guide would make the reader's first
+    tap there reset something they never aimed at — and "armed" is a state with no
+    visible cause once the guide under it has changed.
+  */
+  useEffect(() => {
+    setResetArmed(false);
+  }, [viewer?.path]);
+
+  /*
+    Coming back to the board refetches it.
+
+    A guide reports its position as it is read, so by the time the reader taps
+    back the index this view is holding is out of date — and the card they land
+    on is the one that says so. The reporter's own announcement covers this too,
+    but not the write it makes *as* the frame is torn down, which can land after
+    that message has been handled; asking once more on the way out costs one
+    request per guide read and closes the gap.
+
+    Keyed on leaving rather than on `viewer` changing, so opening a guide does not
+    fetch an index that was just fetched.
+  */
+  const hadViewer = useRef(false);
+  useEffect(() => {
+    if (viewing) {
+      hadViewer.current = true;
+      return;
+    }
+    // Only on the way *back*. Without the ref this also fires on mount, where
+    // `viewing` is already false and the hook has just fetched the index — two
+    // requests for the same board every time the tab is opened.
+    if (!hadViewer.current) return;
+    hadViewer.current = false;
+    refetch();
+  }, [viewing, refetch]);
+
+  /*
+    Reset one guide, then ask for the board again.
+
+    The refetch is not optional: the card's meta line is a claim about stored
+    state, so without it the board goes on reporting 62% for a guide the server
+    has just forgotten. The DELETE is answered 204 with no body, so there is
+    nothing to read — only a reason to re-read the index.
+  */
+  const resetGuide = (path: string) => {
+    fetch(`/api/progress?guidePath=${encodeURIComponent(path)}`, { method: 'DELETE' })
+      .then(() => {
+        refetch();
+        // Only after the DELETE lands. Reloading first would race it: the frame
+        // would come back, report the position it still had, and re-create the
+        // row the reset was meant to remove.
+        setResetNonce((n) => n + 1);
+      })
+      // Swallowed on purpose: the reader is looking at the guide, not at a
+      // bookkeeping call, and the board they return to will simply still show
+      // the old number.
+      .catch(() => {});
+    setResetArmed(false);
+  };
+
   if (viewer !== null) {
     return (
       <div className="guide-viewer">
         <div className="guide-viewer-head">
           <button className="guide-viewer-back" onClick={() => setViewer(null)}>‹ Guides</button>
           <span className="guide-viewer-title">{viewer.title}</span>
+          {/*
+            Reset belongs here rather than on the board's cards. `.guides-card` is
+            a whole-card role="button" in a dense grid, so a nested destructive
+            control there is one mis-tap from discarding a session on the device
+            this app exists for. In the viewer there is exactly one guide it could
+            mean — the one on screen.
+
+            The label carries the confirmation rather than a dialog: a window.confirm
+            inside an overlay on a phone is a second modal over a modal, and the
+            two-state button says the same thing in the space it already occupies.
+          */}
+          <button
+            type="button"
+            className={`guide-viewer-reset${resetArmed ? ' armed' : ''}`}
+            onClick={() => (resetArmed ? resetGuide(viewer.path) : setResetArmed(true))}
+          >
+            {resetArmed ? 'sure?' : '↺ reset'}
+          </button>
         </div>
         <div className="guide-viewer-body">
           {/*
@@ -177,7 +280,16 @@ export default function GuidesView() {
             untrusted content here to isolate, so do not add a `sandbox` back
             without re-testing the pager, the quiz, and bionic reading against it.
           */}
+          {/*
+            Keyed by the guide *and* the reset counter. React would otherwise
+            reuse this element across a reset — same type, same props — and the
+            frame would keep showing the position the server has just forgotten.
+            Changing the key remounts it, which reloads the guide, which is the
+            whole of "start over": a guide with no stored position opens at its
+            own beginning.
+          */}
           <iframe
+            key={`${viewer.href}#${resetNonce}`}
             className="guide-viewer-frame"
             src={viewer.href}
             title={viewer.title}
@@ -376,7 +488,7 @@ export default function GuidesView() {
                     <GuideCard
                       key={g.path}
                       guide={g}
-                      onOpen={() => setViewer({ href: g.href, title: g.title })}
+                      onOpen={() => setViewer({ href: g.href, title: g.title, path: g.path })}
                     />
                   ))}
                 </div>
@@ -395,6 +507,12 @@ export default function GuidesView() {
  * ("read"); a part-read one as a number, because there the number is the
  * information. A guide never opened says nothing at all rather than "0%", which
  * would look like a failure to start.
+ *
+ * The number is `furthestPercent`, never `percent`. The two disagree whenever the
+ * reader has scrolled back — and a card that reported the *current* position
+ * would walk the board backwards for glancing at chapter one, which is the one
+ * thing a progress display must never do. Where you are is the frame's business,
+ * and the frame restores it; how far you got is the board's.
  *
  * The pill and the meta line are wrapped in .guides-card-foot rather than sitting
  * on the card directly. The old layout was a two-row named-areas grid, which was
@@ -420,7 +538,7 @@ function GuideCard({ guide, onOpen }: { guide: GuideEntry; onOpen: () => void })
           {guide.progress?.completed ? (
             <span className="guides-card-read"> · read</span>
           ) : guide.progress ? (
-            <span className="guides-card-part"> · {guide.progress.scrollPercent}%</span>
+            <span className="guides-card-part"> · {guide.progress.furthestPercent}%</span>
           ) : null}
         </div>
       </div>

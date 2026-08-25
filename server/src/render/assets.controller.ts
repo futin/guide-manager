@@ -31,7 +31,7 @@ function findRepoRoot(): string {
 export const REPO_ROOT = findRepoRoot();
 
 /**
- * The four files every server-rendered guide page links. Read per request, not
+ * The five files every server-rendered guide page links. Read per request, not
  * cached: the old server re-read style.css on each request, which is why a CSS
  * edit needed no restart, and that property is worth keeping.
  *
@@ -58,6 +58,18 @@ export class AssetsController {
   @Get('bionic.js')
   bionicJs(@Res() res: Response): void {
     this.sendFile(res, join('assets', 'bionic.js'), MIME['.js']);
+  }
+
+  /**
+   * The progress reporter, spliced into every framed guide by GET /asset.
+   *
+   * Served rather than vendored for the same reason as the reading aid: one
+   * implementation governs every guide the app frames, however old the build is,
+   * and a fix reaches all of them without regenerating anything.
+   */
+  @Get('progress.js')
+  progressJs(@Res() res: Response): void {
+    this.sendFile(res, join('assets', 'progress.js'), MIME['.js']);
   }
 
   private sendFile(res: Response, relPath: string, type: string): void {

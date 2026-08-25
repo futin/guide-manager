@@ -1,4 +1,4 @@
-import type { GuideMeta } from '../../../shared/types';
+import type { GuideMeta, GuideProgress } from '../../../shared/types';
 
 export function escapeHtml(s: unknown): string {
   return String(s).replace(/[&<>"']/g, (c) => (
@@ -127,6 +127,66 @@ const AID_JS = '<script src="/bionic.js"></script>';
 export function injectReadingAid(html: string): string {
   if (/bionic v\d+/i.test(html)) return html;
   return splice(splice(html, /<\/head\s*>/i, AID_CSS, true), /<\/body\s*>/i, AID_JS, false);
+}
+
+/**
+ * What the injected reporter needs to know about the guide it is running in.
+ *
+ * Inlined by the server rather than fetched by the reporter: /asset has already
+ * resolved this request through the registry allowlist, so it knows the absolute
+ * path, the project, the type and the stored position without being asked
+ * again. A fetch from inside the frame would put a round trip in front of the
+ * restore, which the reader would see as the guide jumping after it had already
+ * painted.
+ */
+export interface ProgressContext {
+  guidePath: string;
+  project: string;
+  /**
+   * Which restore strategy applies. Taken from the registry entry's type rather
+   * than sniffed from the markup: the registry is the authority on what a file
+   * is, and bin/register.js is what enforces it.
+   */
+  kind: 'deck' | 'doc';
+  /** What is already stored, so the reporter can restore on its first frame. */
+  progress: GuideProgress | null;
+}
+
+const REPORTER_JS = '<script src="/progress.js"></script>';
+
+/**
+ * Encode a context for an inline `application/json` block.
+ *
+ * `<` becomes its JSON unicode escape, which parses back to the same string and
+ * cannot end the block early. A guide path is a filesystem path — it can contain
+ * `</script>`, and left raw that would close the block and spill the rest of the
+ * context into the document as markup. Escaping the character rather than the
+ * one sequence also covers `<!--`, which an HTML parser treats as the start of a
+ * comment inside a script element.
+ */
+function jsonForScript(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+/**
+ * Splice the progress reporter into a generated guide document.
+ *
+ * Same splice point, and the same reasoning, as injectReadingAid: the guide's
+ * cards and its scroll position live inside the iframe, where a script on the
+ * host document cannot reach them. Serving the reporter from here rather than
+ * vendoring it into each guide means one implementation governs every guide the
+ * app frames — a build from before this feature picks it up, and a fix reaches
+ * all of them without regenerating anything.
+ *
+ * Skipped outright for a document that already carries a `progress vN` header.
+ * Two reporters would each restore and each report, and each closes over its own
+ * pending-replay state — so one would drive a deck forward while the other read
+ * that as the reader navigating and cancelled itself.
+ */
+export function injectProgressReporter(html: string, ctx: ProgressContext): string {
+  if (/progress v\d+/i.test(html)) return html;
+  const blob = `<script type="application/json" id="gm-progress">${jsonForScript(ctx)}</script>`;
+  return splice(html, /<\/body\s*>/i, blob + REPORTER_JS, false);
 }
 
 /**

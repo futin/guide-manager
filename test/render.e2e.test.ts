@@ -1,12 +1,14 @@
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { INestApplication } from '@nestjs/common';
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { RenderController } from '../server/src/render/render.controller';
 import { RegistryService, REGISTRY_FILE } from '../server/src/registry/registry.service';
+import { ProgressService } from '../server/src/progress/progress.service';
+import type { GuideProgress } from '../shared/types';
 
 /**
  * The compatibility suite, ported from the old test/server.test.js. These
@@ -28,6 +30,9 @@ function fixture(): { root: string; registryFile: string } {
   writeFileSync(join(root, 'proj', 'guides', 'index.html'), BUILD);
   writeFileSync(join(root, 'proj', 'guides', 'diagram.png'), 'fake-png');
   writeFileSync(join(root, 'proj', 'guides', 'deck.html'), '<!doctype html><h1>Deck</h1>');
+  // Served because it sits beside a registered guide, but not registered
+  // itself — the case the progress reporter must not be injected into.
+  writeFileSync(join(root, 'proj', 'guides', 'sibling.html'), '<!doctype html><h1>Sibling</h1>');
   // Registered, but not a guide this server will render — the shape a registry
   // written before markdown support was dropped still has on disk.
   writeFileSync(join(root, 'proj', 'guides', 'a.md'), '# Alpha Guide');
@@ -48,10 +53,28 @@ function fixture(): { root: string; registryFile: string } {
   return { root, registryFile };
 }
 
-async function makeApp(registryFile: string): Promise<INestApplication> {
+/**
+ * A stand-in for ProgressService, which /asset now reads so it can hand a framed
+ * guide its stored position. A stub rather than the real service plus a mongod:
+ * what this suite is checking is that the controller passes what it was given
+ * into the context blob, and booting a database to assert that would only make
+ * the suite slower and its failures less specific.
+ */
+function progressStub(stored: Map<string, unknown> = new Map()) {
+  return { find: async (): Promise<Map<string, unknown>> => stored };
+}
+
+async function makeApp(
+  registryFile: string,
+  stored?: Map<string, unknown>
+): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({
     controllers: [RenderController],
-    providers: [{ provide: REGISTRY_FILE, useValue: registryFile }, RegistryService]
+    providers: [
+      { provide: REGISTRY_FILE, useValue: registryFile },
+      RegistryService,
+      { provide: ProgressService, useValue: progressStub(stored) }
+    ]
   }).compile();
   const app = moduleRef.createNestApplication();
   await app.init();
@@ -258,5 +281,98 @@ describe('render routes through a symlinked registry path', () => {
     const p = encodeURIComponent(join(root, 'link', 'guides', 'a.html'));
     const res = await request(app.getHttpServer()).get(`/guide?p=${p}`).expect(200);
     expect(res.text).toContain('Alpha Guide');
+  });
+});
+
+/**
+ * The progress reporter's half of /asset.
+ *
+ * A guide is framed, so the only place a reporter can see its cards or its
+ * scroll position is inside the framed document. /asset is where that splice
+ * happens — and it is also the only place that already knows, from the registry,
+ * which kind of guide the bytes belong to.
+ */
+describe('GET /asset progress reporter', () => {
+  let app: INestApplication;
+  let root: string;
+
+  const stored: GuideProgress = {
+    guidePath: '',
+    percent: 40,
+    furthestPercent: 70,
+    position: { kind: 'deck', cardIndex: 7, sectionId: 's2', cardOffset: 1 },
+    completed: false,
+    lastOpenedAt: '2026-08-25T10:00:00.000Z',
+    openCount: 3
+  };
+
+  beforeAll(async () => {
+    const f = fixture();
+    // Realpathed, because the controller realpaths every request through the
+    // allowlist and the context carries the resolved path. On macOS the temp
+    // root is under /var, which is a symlink to /private/var — so an unresolved
+    // fixture path is a different string for the same file, and both the stored
+    // map's key and this suite's assertions have to use the one the server will.
+    root = realpathSync(f.root);
+    const deck = join(root, 'proj', 'guides', 'deck.html');
+    app = await makeApp(f.registryFile, new Map([[deck, { ...stored, guidePath: deck }]]));
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  const assetUrl = (...parts: string[]): string =>
+    `/asset?p=${encodeURIComponent(join(root, ...parts))}`;
+
+  const contextOf = (html: string): Record<string, unknown> =>
+    JSON.parse(/id="gm-progress">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? 'null');
+
+  it('injects the reporter and its context into a registered deck', async () => {
+    const res = await request(app.getHttpServer()).get(assetUrl('proj', 'guides', 'deck.html')).expect(200);
+    expect(res.text).toContain('<script src="/progress.js"></script>');
+    expect(contextOf(res.text)).toMatchObject({
+      kind: 'deck',
+      project: 'proj',
+      guidePath: join(root, 'proj', 'guides', 'deck.html')
+    });
+  });
+
+  it('hands the stored position to the frame, so the restore needs no round trip', async () => {
+    const res = await request(app.getHttpServer()).get(assetUrl('proj', 'guides', 'deck.html')).expect(200);
+    expect((contextOf(res.text).progress as GuideProgress).position).toEqual({
+      kind: 'deck',
+      cardIndex: 7,
+      sectionId: 's2',
+      cardOffset: 1
+    });
+  });
+
+  it('maps a registered study build to doc mode', async () => {
+    // The two types are restored by entirely different means — cards versus a
+    // heading anchor — so this one field decides which one runs.
+    const res = await request(app.getHttpServer()).get(assetUrl('proj', 'guides', 'index.html')).expect(200);
+    expect(contextOf(res.text).kind).toBe('doc');
+  });
+
+  it('reports null progress for a guide never opened', async () => {
+    const res = await request(app.getHttpServer()).get(assetUrl('proj', 'guides', 'index.html')).expect(200);
+    expect(contextOf(res.text).progress).toBeNull();
+  });
+
+  it('leaves a sibling HTML file that is not a registered guide alone', async () => {
+    // A file served merely because it sits beside a guide has no registry entry:
+    // no type to pick a restore strategy from, and no card on the board for a
+    // position to ever be shown on.
+    const res = await request(app.getHttpServer()).get(assetUrl('proj', 'guides', 'sibling.html')).expect(200);
+    expect(res.text).not.toContain('/progress.js');
+    expect(res.text).not.toContain('gm-progress');
+  });
+
+  it('still splices the reading aid alongside it', async () => {
+    // The two injections share a splice point. Neither may cost the other.
+    const res = await request(app.getHttpServer()).get(assetUrl('proj', 'guides', 'deck.html')).expect(200);
+    expect(res.text).toContain('/bionic.js');
+    expect(res.text).toContain('/progress.js');
   });
 });

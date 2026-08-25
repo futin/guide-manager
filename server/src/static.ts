@@ -31,7 +31,16 @@ export function clientDistModules(distDir: string = CLIENT_DIST): DynamicModule[
       rootPath: distDir,
       // Express 5 path syntax, which is what Nest 11 ships. Without these the
       // SPA fallback would answer /api/* and the render routes with index.html.
-      exclude: ['/api/{*path}', '/guide', '/asset', '/style.css', '/theme.css', '/bionic.css', '/bionic.js']
+      exclude: [
+        '/api/{*path}',
+        '/guide',
+        '/asset',
+        '/style.css',
+        '/theme.css',
+        '/bionic.css',
+        '/bionic.js',
+        '/progress.js'
+      ]
     })
   ];
 }

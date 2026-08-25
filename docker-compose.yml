@@ -40,6 +40,17 @@ services:
       mongo:
         condition: service_healthy
     environment:
+      # pnpm 11 runs a dependency-status check before `pnpm run <script>`, and
+      # when it decides node_modules disagrees with the lockfile it wants to
+      # remove the directory — which it refuses to do without a TTY, so the
+      # container exits 1 and compose restarts it forever. That turns
+      # `docker compose restart client` — an operation this repo's own
+      # invariants require after any vite.config.ts edit — into a crash loop.
+      # CI=true is pnpm's documented answer for a non-interactive environment:
+      # it proceeds instead of asking. The dependencies themselves are the
+      # image's, installed from the same lockfile, so there is nothing here for
+      # a prompt to protect.
+      CI: 'true'
       PORT: '4321'
       MONGO_URL: mongodb://mongo:27017/guide-manager
       # The registry stores absolute host paths, and defaultRegistryFile() reads
@@ -76,6 +87,17 @@ services:
     depends_on:
       - server
     environment:
+      # pnpm 11 runs a dependency-status check before `pnpm run <script>`, and
+      # when it decides node_modules disagrees with the lockfile it wants to
+      # remove the directory — which it refuses to do without a TTY, so the
+      # container exits 1 and compose restarts it forever. That turns
+      # `docker compose restart client` — an operation this repo's own
+      # invariants require after any vite.config.ts edit — into a crash loop.
+      # CI=true is pnpm's documented answer for a non-interactive environment:
+      # it proceeds instead of asking. The dependencies themselves are the
+      # image's, installed from the same lockfile, so there is nothing here for
+      # a prompt to protect.
+      CI: 'true'
       # vite.config.ts builds its proxy target from these. localhost inside this
       # container is this container, so the API has to be named by service.
       API_HOST: server
