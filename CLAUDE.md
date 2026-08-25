@@ -31,9 +31,12 @@ stack they are fixed. This machine currently maps the client to `5176`.
   `style.css`, `theme.css`, `bionic.css`, `bionic.js`), `registry/` (read-only
   view of the registry file), `static.ts` (serves `client/dist` when built).
 - `client/src/` — React SPA: side rail (a plain section switch), Guides view
-  (every registered project listed, grouped, each guide framed in an iframe),
-  Settings view. Narrowing the board to one project is a toolbar filter still to
-  be built — see `backlog/tasks/open/task-7-*`.
+  (every registered project listed as a foldable bay, each guide framed in an
+  iframe), Settings view. The Guides toolbar — search, project, type, sort — is
+  entirely client-side over the fetched index: no route answers it, so nothing in
+  `vite.config.ts`'s proxy list is involved. Its three selects persist to
+  `guide-manager.project` / `.filterType` / `.sort`; the query deliberately does
+  not persist.
 - `shared/` — `types.ts` (registry + API shapes), `theme.css` (tokens).
 - `assets/` — the bionic reading aid, spliced into every guide the app frames.
 - `skills/study/`, `skills/tutor/` — the skills this repo publishes.

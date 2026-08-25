@@ -25,15 +25,22 @@ const INDEX: GuidesIndex = {
   ]
 };
 
-/** The whole shell, with /api/guides and /api/settings answered from memory. */
-async function renderApp() {
+/**
+ * The whole shell, with /api/guides and /api/settings answered from memory.
+ *
+ * `settled` is the card title to wait for. It is a parameter rather than a fixed
+ * 'Alpha Guide' because the toolbar can start out narrowed — a project scope
+ * remembered from a previous session is read on the first render — so the card
+ * that proves the lazy Guides chunk has arrived is not always the same one.
+ */
+async function renderApp(settled = 'Alpha Guide') {
   (globalThis as { fetch?: unknown }).fetch = jest.fn().mockResolvedValue({
     ok: true,
     json: () => Promise.resolve(INDEX)
   });
   render(<App />);
   // The Guides chunk is lazy, so the list is not there on the first paint.
-  await waitFor(() => expect(screen.getByText('Alpha Guide')).toBeTruthy());
+  await waitFor(() => expect(screen.getByText(settled)).toBeTruthy());
 }
 
 /** The Guides tab in the rail, told apart from anything else by its class. */
@@ -78,16 +85,17 @@ describe('App — the board lists every project', () => {
   });
 
   /*
-    A scope remembered from the drawer is deliberately left where it is rather
-    than cleared: task-7's toolbar filter re-reads the same key with compatible
-    values, and wiping it here would throw away a choice that is about to mean
-    something again. Until then it is simply not read, so the board stays whole.
+    The scope the removed drawer used to write was deliberately left in
+    localStorage rather than cleared, because the toolbar's project select re-reads
+    that same key with the same values — a registry project path, or the "all"
+    sentinel. This is the test that the promise was kept: a phone that has not been
+    opened since the drawer existed comes back scoped to the project it was left
+    on, rather than quietly resetting to the whole board.
   */
-  it('ignores a remembered project scope without clearing it', async () => {
+  it('honours a project scope remembered from the removed drawer', async () => {
     localStorage.setItem('guide-manager.project', JSON.stringify('/q'));
-    await renderApp();
-    expect(screen.getByText('Alpha Guide')).toBeTruthy();
-    expect(screen.getByText('Gamma')).toBeTruthy();
+    await renderApp('Gamma');
+    expect(screen.queryByText('Alpha Guide')).toBeNull();
     expect(JSON.parse(localStorage.getItem('guide-manager.project') as string)).toBe('/q');
   });
 });
