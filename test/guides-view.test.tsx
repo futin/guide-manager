@@ -26,7 +26,11 @@ const INDEX: GuidesIndex = {
         {
           path: '/p/g/deck.html', title: 'Beta Deck', type: 'tutor', updated: '2026-08-20T00:00:00Z', createdAt: '2026-08-10T00:00:00Z',
           href: '/guide?p=%2Fp%2Fg%2Fdeck.html',
-          progress: { scrollPercent: 100, completed: true, lastOpenedAt: '2026-08-23T00:00:00Z', openCount: 4 }
+          progress: {
+            guidePath: '/p/g/deck.html', percent: 100, furthestPercent: 100,
+            position: { kind: 'deck', cardIndex: 29 },
+            completed: true, lastOpenedAt: '2026-08-23T00:00:00Z', openCount: 4
+          }
         },
         {
           path: '/p/g/omega.md', title: 'Omega Notes', type: 'study', updated: '2026-08-18T00:00:00Z', createdAt: '2026-08-05T00:00:00Z',
@@ -41,7 +45,15 @@ const INDEX: GuidesIndex = {
         {
           path: '/q/g/c.md', title: 'Gamma', type: 'study', updated: '2026-08-22T00:00:00Z', createdAt: '2026-08-01T00:00:00Z',
           href: '/guide?p=%2Fq%2Fg%2Fc.md',
-          progress: { scrollPercent: 37, completed: false, lastOpenedAt: '2026-08-23T00:00:00Z', openCount: 2 }
+          /* percent and furthestPercent deliberately disagree: the reader is
+             back near the top, having once reached 62%. The card must show the
+             high-water mark, so a test that could pass on either number would
+             not be testing anything. */
+          progress: {
+            guidePath: '/q/g/c.md', percent: 8, furthestPercent: 62,
+            position: { kind: 'doc', anchorId: 'intro' },
+            completed: false, lastOpenedAt: '2026-08-23T00:00:00Z', openCount: 2
+          }
         }
       ]
     }
@@ -123,7 +135,12 @@ describe('GuidesView', () => {
     const beta = screen.getByText('Beta Deck').parentElement?.querySelector('.guides-card-meta');
     expect(beta?.textContent).toContain('read');
     const gamma = screen.getByText('Gamma').parentElement?.querySelector('.guides-card-meta');
-    expect(gamma?.textContent).toContain('37%');
+    // 62 is the high-water mark; 8 is where the reader currently is. The card
+    // reports how far this guide has been read, not which end of it was looked
+    // at last — otherwise glancing back at chapter one walks the board
+    // backwards.
+    expect(gamma?.textContent).toContain('62%');
+    expect(gamma?.textContent).not.toContain('8%');
   });
 
   it('shows no progress marker for a guide never opened', async () => {
@@ -504,5 +521,60 @@ describe('GuidesView', () => {
     await renderGuides();
     expect(searchBox().value).toBe('');
     expect(cardTitles()).toHaveLength(4);
+  });
+  /*
+    Reset lives in the viewer head, not on the board's cards. `.guides-card` is a
+    whole-card role="button" in a dense grid, and a nested destructive control
+    there is one mis-tap from discarding a session on the device this app exists
+    for. In the viewer you are looking at the guide you mean to restart.
+  */
+  describe('resetting one guide', () => {
+    const openViewer = (title: string) => {
+      act(() => {
+        screen.getByText(title).closest('.guides-card')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+    };
+
+    const resetButton = () => screen.getByRole('button', { name: /reset|sure/i });
+
+    it('needs two taps, and sends nothing on the first', async () => {
+      const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
+      openViewer('Beta Deck');
+      fetchMock.mockClear();
+
+      act(() => { resetButton().click(); });
+      // The first tap only arms the control. A single-tap DELETE beside the back
+      // link is a mis-tap away from throwing a reading session away.
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(resetButton().textContent).toMatch(/sure/i);
+
+      act(() => { resetButton().click(); });
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/progress?guidePath=${encodeURIComponent('/p/g/deck.html')}`,
+        expect.objectContaining({ method: 'DELETE' })
+      );
+    });
+
+    it('refetches the board, so the card stops claiming a position the server forgot', async () => {
+      const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
+      openViewer('Beta Deck');
+      fetchMock.mockClear();
+      act(() => { resetButton().click(); });
+      act(() => { resetButton().click(); });
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/guides'));
+    });
+
+    it('disarms itself when the viewer is left', async () => {
+      await renderGuides();
+      openViewer('Beta Deck');
+      act(() => { resetButton().click(); });
+      expect(resetButton().textContent).toMatch(/sure/i);
+
+      act(() => { screen.getByRole('button', { name: /Guides/ }).click(); });
+      openViewer('Gamma');
+      // An armed control must not still be armed over a different guide: the
+      // next tap would then reset something the reader never aimed at.
+      expect(resetButton().textContent).toMatch(/reset/i);
+    });
   });
 });

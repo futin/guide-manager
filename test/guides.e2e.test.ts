@@ -94,11 +94,22 @@ describe('GET /api/guides', () => {
     await app.get(ProgressService).record({
       guidePath: join(root, 'proj', 'guides', 'a.md'),
       project: 'proj',
-      scrollPercent: 64
+      percent: 64,
+      position: { kind: 'doc', anchorId: 'intro' },
+      opened: true
     });
 
     const guides = (await index()).projects[0].guides;
-    expect(guides[0].progress).toMatchObject({ scrollPercent: 64, completed: false, openCount: 1 });
+    expect(guides[0].progress).toMatchObject({
+      percent: 64,
+      // The board renders this one, so the join has to carry it: a card showing
+      // the last position instead of the high-water mark would report backwards
+      // the moment the reader glanced at chapter one.
+      furthestPercent: 64,
+      position: { kind: 'doc', anchorId: 'intro' },
+      completed: false,
+      openCount: 1
+    });
     expect(guides[1].progress).toBeNull();
   });
 });

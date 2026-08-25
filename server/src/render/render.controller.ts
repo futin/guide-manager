@@ -4,13 +4,23 @@ import { Controller, Get, NotFoundException, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 
 import { MIME } from './mime';
-import { breadcrumbBar, deckFrame, injectReadingAid, wrapPage } from './render.util';
+import {
+  breadcrumbBar,
+  deckFrame,
+  injectProgressReporter,
+  injectReadingAid,
+  wrapPage
+} from './render.util';
 import { resolveAllowed } from './paths.util';
 import { RegistryService } from '../registry/registry.service';
+import { ProgressService } from '../progress/progress.service';
 
 @Controller()
 export class RenderController {
-  constructor(private readonly registry: RegistryService) {}
+  constructor(
+    private readonly registry: RegistryService,
+    private readonly progress: ProgressService
+  ) {}
 
   /**
    * The read-it-here route: a breadcrumb bar, and the guide itself framed so its
@@ -49,11 +59,35 @@ export class RenderController {
    * page writes, since the frame is same-origin and localStorage is shared.
    */
   @Get('asset')
-  asset(@Query('p') requested: string, @Res() res: Response): void {
+  async asset(@Query('p') requested: string, @Res() res: Response): Promise<void> {
     const real = this.resolve(requested);
     const ext = extname(real).toLowerCase();
     if (ext === '.html' || ext === '.htm') {
-      res.type(MIME['.html']).send(injectReadingAid(readFileSync(real, 'utf8')));
+      const meta = this.registry.guideMeta(real);
+      let html = injectReadingAid(readFileSync(real, 'utf8'));
+      /*
+        Only a *registered* guide gets the progress reporter, and `meta.type`'s
+        absence is exactly that test: a sibling HTML file served because it sits
+        beside a guide has no registry entry, so there is no type to pick a
+        restore strategy from and no card on the board for a position to ever be
+        shown on.
+
+        The stored progress is read here rather than fetched by the frame. This
+        request has already been resolved through the allowlist, so the path is
+        known and one query answers it — whereas a fetch from inside the frame
+        would put a round trip in front of the restore, which the reader sees as
+        the guide jumping after it has already painted.
+      */
+      if (meta.type) {
+        const stored = await this.progress.find([real]);
+        html = injectProgressReporter(html, {
+          guidePath: real,
+          project: meta.project ?? '',
+          kind: meta.type === 'tutor' ? 'deck' : 'doc',
+          progress: stored.get(real) ?? null
+        });
+      }
+      res.type(MIME['.html']).send(html);
       return;
     }
     res.type(MIME[ext] || 'application/octet-stream').send(readFileSync(real));
