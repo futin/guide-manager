@@ -44,3 +44,22 @@ Left for later, deliberately: per-quiz-answer state (needs a stable per-card id,
 which decks do not have), and goals — see
 [`backlog/ideas/open/idea-2-learning-goals.md`](../../ideas/open/idea-2-learning-goals.md),
 whose "does completion need to be honest first" question this task answers.
+
+## Verification status
+
+Green at every layer that can be checked without a browser: 294 jest tests,
+`typecheck`, `build`, and a run against the live compose stack with the real
+registry — `/asset` injecting the reporter and its context into an actual
+registered deck, a position written and read back through the Vite proxy (the
+path the phone uses), `furthestPercent` holding at 48 while the current position
+went back to 8, `openCount` staying at 1 across a position write, and the reset
+answering 204 and emptying the row. The test row was deleted afterwards, so no
+guide carries invented progress.
+
+Not yet checked, because it needs a real browser and a phone — the list in the
+plan's *Manual verification* section: the pill as it actually renders, a deck
+replay running inside the live iframe, and the `visibilitychange` flush on the
+phone. Everything those exercise is covered by the jsdom suites against fixtures
+built from the real decks' markup, but that is not the same as having seen it.
+
+Move this to `done/` once that pass is made.
