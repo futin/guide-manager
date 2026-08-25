@@ -276,7 +276,7 @@
     // background are different events, and neither implies the other.
     on(window, 'pagehide', function () { flush(measure); });
 
-    if (restored) showPill(pillText());
+    if (restored) showNotice(pillText());
   }
 
   // ---------------------------------------------------------------- deck mode
@@ -544,16 +544,11 @@
     'border:0;padding:2px 0;min-height:24px;cursor:pointer;text-decoration:underline}'
   ].join('');
 
+  // Both stylesheets are inlined rather than served as routes of their own: one
+  // more route is one more Vite proxy entry and one more line in the
+  // static-fallback exclusion, each of which fails invisibly when forgotten.
   function ensurePillStyles() {
-    // Inlined rather than served as a second stylesheet route: one more route is
-    // one more Vite proxy entry and one more line in the static-fallback
-    // exclusion, each of which fails invisibly when forgotten. A dozen rules do
-    // not earn that. Marked with an attribute so repeated shows share one copy.
-    if (document.querySelector('style[data-gm-progress-style]')) return;
-    var style = document.createElement('style');
-    style.setAttribute('data-gm-progress-style', '');
-    style.textContent = PILL_CSS;
-    (document.head || document.documentElement).appendChild(style);
+    ensureStyles(document, 'data-gm-progress-style', PILL_CSS);
   }
 
   function dismissPill() {
@@ -589,6 +584,129 @@
     }
     reset();
     dismissPill();
+    dismissNotice();
+  }
+
+  /**
+   * The guide's own header, if this guide is being framed by one.
+   *
+   * `GET /guide` wraps every guide in a shell whose sticky topbar carries the
+   * breadcrumb and the title, and frames the guide itself — so from in here the
+   * header is one document up. That document is same-origin on purpose (the
+   * shell already reaches the other way, calling focus() on this frame), so
+   * reaching it needs no message channel: the notice is appended to the parent's
+   * `.topbar-title`, and its "start over" button keeps working because the
+   * handler is a closure from *this* document however the element is parented.
+   *
+   * Null when there is no such header — a guide opened straight off disk, or
+   * framed by something that is not our shell — and then the floating fallback
+   * is used instead. Wrapped in try/catch because a cross-origin parent throws
+   * on property access rather than returning null.
+   */
+  function headerHost() {
+    try {
+      if (typeof window === 'undefined' || !window.parent || window.parent === window) return null;
+      var doc = window.parent.document;
+      if (!doc) return null;
+      /*
+        The breadcrumb line, not the title line. Both are in the topbar, but
+        `.topbar-inner` is capped at 44rem and the title row is a flex line whose
+        `.crumb-title` already ellipsizes — so a notice parked there takes its
+        space and truncates the guide's own name ("… a learning wal…"). The
+        breadcrumb above it is a short run of small text with the rest of the line
+        empty, which is exactly the slack this needs. The title row is the
+        fallback, for a shell rendered without crumbs.
+      */
+      return doc.querySelector('.topbar .crumbs') || doc.querySelector('.topbar-title');
+    } catch (e) {
+      return null;
+    }
+  }
+
+  var NOTICE_CSS = [
+    /*
+      The breadcrumb line becomes a flex row, but only while a notice is mounted —
+      the rule ships with the notice's stylesheet, so a shell without one keeps the
+      plain inline nav it has always had.
+
+      Flex rather than a float on the notice alone. A float does not contribute to
+      its parent's height, so in a one-line bar it has nowhere to land: at phone
+      width the notice was in the DOM and simply not on screen. Flexing the parent
+      gives it a place in the line, and `margin-left:auto` puts it at the end
+      without a spacer element. The crumbs' own children keep their margins and so
+      keep their spacing.
+    */
+    '.topbar .crumbs{display:flex;align-items:center;min-width:0}',
+    '.topbar .crumbs .crumb-project{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.gm-progress-note{',
+    'margin-left:auto;padding-left:12px;display:inline-flex;align-items:center;gap:8px;',
+    'min-width:0;font-size:.75rem;font-weight:400;color:var(--muted,#8b8b8b)}',
+    // Ellipsis rather than display:none below some width: a bare "start over" with
+    // its explanation hidden is an action with no stated cause, which is worse in
+    // the header than a truncated sentence.
+    '.gm-progress-note .gm-progress-note-text{',
+    'overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.gm-progress-note button{',
+    'flex:none;font:inherit;color:var(--accent,#4db6c4);background:none;border:0;',
+    // A phone-sized target without growing the bar: the padding is horizontal, and
+    // the bar's height is set by the crumbs beside it.
+    'padding:.25rem 0;cursor:pointer;text-decoration:underline}'
+  ].join('');
+
+  /**
+   * Mount the resume notice in the header, or fall back to the floating pill.
+   *
+   * The header is the right home for it: a guide's own chrome is where a
+   * statement about that guide belongs, and it occludes nothing. The pill it
+   * replaces had to float, so it also had to leave — this does not, and stays for
+   * the session, which is what makes "start over" reachable later rather than
+   * only in the six seconds after the guide opened.
+   */
+  function showNotice(text) {
+    var host = headerHost();
+    if (!host) return showPill(text);
+
+    dismissNotice();
+    ensureStyles(host.ownerDocument, 'data-gm-progress-note-style', NOTICE_CSS);
+
+    var doc = host.ownerDocument;
+    var el = doc.createElement('span');
+    el.className = 'gm-progress-note';
+    var label = doc.createElement('span');
+    label.className = 'gm-progress-note-text';
+    label.textContent = text;
+    var button = doc.createElement('button');
+    button.type = 'button';
+    button.setAttribute('data-gm-restart', '');
+    button.textContent = 'start over';
+    button.addEventListener('click', restart);
+    el.appendChild(label);
+    el.appendChild(button);
+    host.appendChild(el);
+
+    // The notice describes *this* document's position, so it must not outlive it:
+    // a frame that navigates away would otherwise leave a stale claim sitting in
+    // a header that now belongs to something else.
+    on(window, 'pagehide', dismissNotice);
+    return el;
+  }
+
+  function dismissNotice() {
+    var host = headerHost();
+    if (!host) return;
+    var existing = host.ownerDocument.querySelectorAll('.gm-progress-note');
+    for (var i = 0; i < existing.length; i += 1) {
+      if (existing[i].parentNode) existing[i].parentNode.removeChild(existing[i]);
+    }
+  }
+
+  /** Inject a stylesheet into a document once, marked so repeats share it. */
+  function ensureStyles(doc, marker, css) {
+    if (!doc || doc.querySelector('style[' + marker + ']')) return;
+    var style = doc.createElement('style');
+    style.setAttribute(marker, '');
+    style.textContent = css;
+    (doc.head || doc.documentElement).appendChild(style);
   }
 
   function showPill(text) {
@@ -632,8 +750,8 @@
    * what happened.
    */
   function pillText() {
-    if (pending >= 0) return 'resuming — answer this to continue';
-    return 'resumed where you left off';
+    if (pending >= 0) return 'resuming — answer this';
+    return 'resumed';
   }
 
   if (typeof document !== 'undefined') {
@@ -658,6 +776,8 @@
       report: report,
       reset: reset,
       showPill: showPill,
+      showNotice: showNotice,
+      headerHost: headerHost,
       init: init,
       stop: stop
     };

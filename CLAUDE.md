@@ -94,6 +94,17 @@ stack they are fixed. This machine currently maps the client to `5176`.
   the reporter existed reports and resumes without being regenerated. It is
   injected only for a file the registry knows as a guide; `guideMeta`'s missing
   `type` is what tells a sibling HTML file apart from a guide.
+- **The resume notice lives in the shell's header, reached across the frame
+  boundary.** `GET /guide`'s topbar is one document up from the reporter, and
+  the two are same-origin on purpose — the shell already reaches the other way
+  to `focus()` the frame — so `progress.js` appends the notice to the parent's
+  `.crumbs` and its "start over" keeps working because the handler is a closure
+  from the framed document, no message channel involved. It goes on the
+  breadcrumb line, not the title line: `.topbar-inner` is capped at 44rem and
+  `.crumb-title` ellipsizes, so a notice on the title row truncates the guide's
+  own name. The floating pill is only the fallback for a guide with no shell
+  around it (opened straight off disk), which is why it is the one that fades:
+  it occludes the guide, and the header does not.
 - **A deck is resumed by clicking its own `Next`, never by setting `.active`.**
   The deck owns `currentCardIndex`, the score tally, the progress bar and the
   disabled state of `Next`; a hand-set card leaves all four describing a screen
