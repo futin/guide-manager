@@ -359,9 +359,9 @@
   }
 
   /**
-   * Find one of the deck's two navigation controls.
+   * Find the deck's `Next` control.
    *
-   * deck.md §2 guarantees the pair exists — one persistent Next/Back, never
+   * deck.md §2 guarantees the persistent Next/Back pair exists — never
    * duplicated per card — but spells neither, and the decks in the wild prove how
    * far that goes: one carries `<button id="nav-next">Next</button>`, another
    * `<button id="btn-next">Weiter</button>`. So the *id or class* is tried first
@@ -372,22 +372,20 @@
    * Three passes, narrowest first, and a null when none of them hits: opening at
    * card one is a worse outcome than resuming, but clicking something that is not
    * the pager is worse than both.
+   *
+   * Only `Next` is looked for. Walking a deck *backwards* was needed by the
+   * notice's own "start over", which is gone — resetting a guide is the app
+   * header's single job now, and it restarts the guide by reloading the frame,
+   * which needs no in-deck navigation at all.
    */
-  function control(kind) {
-    var hook = kind === 'next'
-      ? '[data-next], [rel="next"]'
-      : '[data-prev], [data-back], [rel="prev"]';
-    var explicit = document.querySelector(hook);
+  function nextControl() {
+    var explicit = document.querySelector('[data-next], [rel="next"]');
     if (explicit) return explicit;
 
     // `nav-next`, `btn-next`, `next`, `pager-next` — the word as its own segment,
     // so `nextChapter` or a `.context` class cannot be mistaken for the pager.
-    var ident = kind === 'next'
-      ? /(?:^|[-_\s])(?:next|fwd|forward)(?:$|[-_\s])/i
-      : /(?:^|[-_\s])(?:back|prev|previous)(?:$|[-_\s])/i;
-    var label = kind === 'next'
-      ? /^\s*[‹«]?\s*next\s*[›»→>]?\s*$/i
-      : /^\s*[‹«←<]?\s*back\s*[›»]?\s*$/i;
+    var ident = /(?:^|[-_\s])(?:next|fwd|forward)(?:$|[-_\s])/i;
+    var label = /^\s*[‹«]?\s*next\s*[›»→>]?\s*$/i;
 
     var candidates = document.querySelectorAll('button, a, [role="button"]');
     var byLabel = null;
@@ -397,10 +395,6 @@
       if (byLabel === null && label.test(el.textContent || '')) byLabel = el;
     }
     return byLabel;
-  }
-
-  function nextControl() {
-    return control('next');
   }
 
   var gated = function (control) {
@@ -536,12 +530,7 @@
     'border:1px solid var(--line,#333);box-shadow:0 4px 16px rgba(0,0,0,.4);',
     'opacity:1;transition:opacity .25s}',
     '.gm-progress-pill[data-leaving]{opacity:0}',
-    '.gm-progress-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-    '.gm-progress-pill button{',
-    'flex:none;font:inherit;color:var(--accent,#4db6c4);background:none;',
-    // A real tap target rather than a bare text run: this is reached from a
-    // phone, where an 11px line of text is a coin toss.
-    'border:0;padding:2px 0;min-height:24px;cursor:pointer;text-decoration:underline}'
+    '.gm-progress-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
   ].join('');
 
   // Both stylesheets are inlined rather than served as routes of their own: one
@@ -560,33 +549,6 @@
     if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
   }
 
-  /** Send the guide back to its own beginning — card one, or the top — and
-   *  forget the stored position through the same endpoint the viewer's reset
-   *  button uses. One way to forget a guide, not two that could disagree. */
-  function restart() {
-    pending = -1;
-    var cards = deckCards(document);
-    if (cards.length > 0) {
-      // Back, repeatedly, for the same reason the resume uses Next: the deck's
-      // own control keeps the deck's own index honest. Bounded by the card count,
-      // and stops early if a click does not move anything.
-      var back = control('back');
-      var guard = cards.length + 1;
-      while (back && guard > 0 && activeIndex() > 0) {
-        var at = activeIndex();
-        if (gated(back)) break;
-        back.click();
-        if (activeIndex() === at) break;
-        guard -= 1;
-      }
-    } else if (typeof window.scrollTo === 'function') {
-      window.scrollTo(0, 0);
-    }
-    reset();
-    dismissPill();
-    dismissNotice();
-  }
-
   /**
    * The guide's own header, if this guide is being framed by one.
    *
@@ -595,8 +557,7 @@
    * header is one document up. That document is same-origin on purpose (the
    * shell already reaches the other way, calling focus() on this frame), so
    * reaching it needs no message channel: the notice is appended to the parent's
-   * `.topbar-title`, and its "start over" button keeps working because the
-   * handler is a closure from *this* document however the element is parented.
+   * breadcrumb nav directly.
    *
    * Null when there is no such header — a guide opened straight off disk, or
    * framed by something that is not our shell — and then the floating fallback
@@ -645,12 +606,7 @@
     // its explanation hidden is an action with no stated cause, which is worse in
     // the header than a truncated sentence.
     '.gm-progress-note .gm-progress-note-text{',
-    'overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-    '.gm-progress-note button{',
-    'flex:none;font:inherit;color:var(--accent,#4db6c4);background:none;border:0;',
-    // A phone-sized target without growing the bar: the padding is horizontal, and
-    // the bar's height is set by the crumbs beside it.
-    'padding:.25rem 0;cursor:pointer;text-decoration:underline}'
+    'overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
   ].join('');
 
   /**
@@ -658,9 +614,13 @@
    *
    * The header is the right home for it: a guide's own chrome is where a
    * statement about that guide belongs, and it occludes nothing. The pill it
-   * replaces had to float, so it also had to leave — this does not, and stays for
-   * the session, which is what makes "start over" reachable later rather than
-   * only in the six seconds after the guide opened.
+   * replaces had to float, so it also had to leave; this does not, and stays for
+   * the session.
+   *
+   * It states what happened and nothing more. Starting the guide over is the
+   * app's viewer header's job — one control, in the app's own chrome, present
+   * whether or not anything was restored. A second one here would be a second
+   * way to do the same thing, and the two would have to agree forever.
    */
   function showNotice(text) {
     var host = headerHost();
@@ -675,13 +635,7 @@
     var label = doc.createElement('span');
     label.className = 'gm-progress-note-text';
     label.textContent = text;
-    var button = doc.createElement('button');
-    button.type = 'button';
-    button.setAttribute('data-gm-restart', '');
-    button.textContent = 'start over';
-    button.addEventListener('click', restart);
     el.appendChild(label);
-    el.appendChild(button);
     host.appendChild(el);
 
     // The notice describes *this* document's position, so it must not outlive it:
@@ -720,13 +674,7 @@
     el.className = 'gm-progress-pill';
     var label = document.createElement('span');
     label.textContent = text;
-    var button = document.createElement('button');
-    button.type = 'button';
-    button.setAttribute('data-gm-restart', '');
-    button.textContent = 'start over';
-    button.addEventListener('click', restart);
     el.appendChild(label);
-    el.appendChild(button);
     document.body.appendChild(el);
 
     // Fades out on its own: it is an explanation, not a control panel, and once

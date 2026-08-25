@@ -555,6 +555,21 @@ describe('GuidesView', () => {
       );
     });
 
+    it('reloads the open guide, so the frame stops showing the position too', async () => {
+      await renderGuides();
+      openViewer('Beta Deck');
+      const before = document.querySelector('iframe.guide-viewer-frame');
+      act(() => { resetButton().click(); });
+      act(() => { resetButton().click(); });
+      await waitFor(() => {
+        // A different element, not the same one re-rendered: remounting is what
+        // reloads the guide, and a guide with no stored position opens at its own
+        // beginning. Without it the reset leaves card twelve on screen — the very
+        // position the server has just forgotten.
+        expect(document.querySelector('iframe.guide-viewer-frame')).not.toBe(before);
+      });
+    });
+
     it('refetches the board, so the card stops claiming a position the server forgot', async () => {
       const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
       openViewer('Beta Deck');

@@ -87,8 +87,6 @@ const deckCtx = (cardIndex: number | null) => ({
 });
 
 const pill = (): HTMLElement | null => document.querySelector('.gm-progress-pill');
-const startOver = (): HTMLElement | null =>
-  document.querySelector('.gm-progress-pill [data-gm-restart]');
 const fetchMock = (): jest.Mock => window.fetch as unknown as jest.Mock;
 
 describe('progress reporter — the pill', () => {
@@ -117,25 +115,15 @@ describe('progress reporter — the pill', () => {
     expect(pill()?.textContent).toMatch(/resumed/i);
   });
 
-  it('offers a way back to the start', () => {
+  it('states what happened and offers no control of its own', () => {
     load(DECK, deckCtx(2));
-    expect(startOver()?.textContent).toMatch(/start over/i);
-  });
-
-  it('start over returns the guide to card one, forgets the position and dismisses itself', () => {
-    const api = load(DECK, deckCtx(2));
     fetchMock().mockClear();
-    (startOver() as HTMLElement).click();
-
-    expect(api.activeIndex()).toBe(0);
-    // The DELETE is the same endpoint the viewer's reset button uses: one way to
-    // forget a guide, not two that could disagree.
-    const deletes = fetchMock().mock.calls.filter(
-      (c) => (c[1] as { method: string }).method === 'DELETE'
-    );
-    expect(deletes).toHaveLength(1);
-    expect(deletes[0][0]).toBe('/api/progress?guidePath=' + encodeURIComponent('/g/deck.html'));
-    expect(pill()).toBeNull();
+    // The fallback is for a guide with no shell around it — typically one opened
+    // straight off disk, where there is no server to answer a DELETE anyway. A
+    // "start over" here was a second button for the app header's one job, and a
+    // dead one in the only case this surface exists for.
+    expect(pill()?.querySelector('button')).toBeNull();
+    expect(fetchMock().mock.calls.some((c) => (c[1] as { method: string }).method === 'DELETE')).toBe(false);
   });
 
   it('fades itself out rather than sitting on the guide', () => {

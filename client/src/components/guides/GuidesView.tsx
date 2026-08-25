@@ -124,6 +124,18 @@ export default function GuidesView() {
   */
   const [resetArmed, setResetArmed] = useState(false);
   /*
+    Bumped by a reset, and part of the frame's key, so the guide is remounted and
+    reloads.
+
+    Without it a reset is only half done: the row is gone and the board is
+    repainted, but the frame on screen is still showing card twelve — the position
+    the server has just forgotten. Reloading is also all that is needed to
+    restart the guide, since a guide with no stored position opens at its own
+    beginning; the reporter needs no instruction and there is nothing to keep in
+    step.
+  */
+  const [resetNonce, setResetNonce] = useState(0);
+  /*
     Per device, not per account: which projects you keep folded on the phone has
     nothing to do with what you want folded on the desktop board, and the phone is
     the whole reason this exists. Must sit above the early return with the other
@@ -189,7 +201,13 @@ export default function GuidesView() {
   */
   const resetGuide = (path: string) => {
     fetch(`/api/progress?guidePath=${encodeURIComponent(path)}`, { method: 'DELETE' })
-      .then(() => refetch())
+      .then(() => {
+        refetch();
+        // Only after the DELETE lands. Reloading first would race it: the frame
+        // would come back, report the position it still had, and re-create the
+        // row the reset was meant to remove.
+        setResetNonce((n) => n + 1);
+      })
       // Swallowed on purpose: the reader is looking at the guide, not at a
       // bookkeeping call, and the board they return to will simply still show
       // the old number.
@@ -235,7 +253,16 @@ export default function GuidesView() {
             untrusted content here to isolate, so do not add a `sandbox` back
             without re-testing the pager, the quiz, and bionic reading against it.
           */}
+          {/*
+            Keyed by the guide *and* the reset counter. React would otherwise
+            reuse this element across a reset — same type, same props — and the
+            frame would keep showing the position the server has just forgotten.
+            Changing the key remounts it, which reloads the guide, which is the
+            whole of "start over": a guide with no stored position opens at its
+            own beginning.
+          */}
           <iframe
+            key={`${viewer.href}#${resetNonce}`}
             className="guide-viewer-frame"
             src={viewer.href}
             title={viewer.title}

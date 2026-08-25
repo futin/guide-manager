@@ -129,8 +129,6 @@ function wireDeck(doc: Document): void {
 }
 
 const note = (): HTMLElement | null => document.querySelector('.gm-progress-note');
-const noteButton = (): HTMLElement | null =>
-  document.querySelector('.gm-progress-note [data-gm-restart]');
 
 describe('progress reporter — the resume notice in the header', () => {
   afterEach(() => {
@@ -189,21 +187,15 @@ describe('progress reporter — the resume notice in the header', () => {
     expect(document.querySelector('style[data-gm-progress-note-style]')).not.toBeNull();
   });
 
-  it('start over still works from the header, with no message channel', () => {
-    const { api, frameWindow } = frameGuide();
-    frameWindow.fetch.mockClear();
-
-    (noteButton() as HTMLElement).click();
-
-    // The button is parented in the shell but its handler is a closure from the
-    // frame, so it drives the frame's own deck and posts from the frame.
-    expect(api.activeIndex()).toBe(0);
-    const deletes = frameWindow.fetch.mock.calls.filter(
-      (c) => (c[1] as { method: string }).method === 'DELETE'
-    );
-    expect(deletes).toHaveLength(1);
-    expect(deletes[0][0]).toBe('/api/progress?guidePath=' + encodeURIComponent('/g/deck.html'));
-    expect(note()).toBeNull();
+  it('states what happened and offers no control of its own', () => {
+    const { frameWindow } = frameGuide();
+    // Starting a guide over is the app viewer header's single job. The notice
+    // carried a "start over" link of its own for one revision, which meant two
+    // buttons for one function — and two implementations that would have to agree
+    // forever about what starting over means.
+    expect(note()?.querySelector('button')).toBeNull();
+    expect(note()?.querySelector('[data-gm-restart]')).toBeNull();
+    expect(frameWindow.fetch.mock.calls.some((c) => (c[1] as { method: string }).method === 'DELETE')).toBe(false);
   });
 
   it('stays in the header rather than fading', () => {

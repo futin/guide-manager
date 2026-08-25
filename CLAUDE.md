@@ -95,16 +95,26 @@ stack they are fixed. This machine currently maps the client to `5176`.
   injected only for a file the registry knows as a guide; `guideMeta`'s missing
   `type` is what tells a sibling HTML file apart from a guide.
 - **The resume notice lives in the shell's header, reached across the frame
-  boundary.** `GET /guide`'s topbar is one document up from the reporter, and
-  the two are same-origin on purpose — the shell already reaches the other way
-  to `focus()` the frame — so `progress.js` appends the notice to the parent's
-  `.crumbs` and its "start over" keeps working because the handler is a closure
-  from the framed document, no message channel involved. It goes on the
-  breadcrumb line, not the title line: `.topbar-inner` is capped at 44rem and
-  `.crumb-title` ellipsizes, so a notice on the title row truncates the guide's
-  own name. The floating pill is only the fallback for a guide with no shell
-  around it (opened straight off disk), which is why it is the one that fades:
-  it occludes the guide, and the header does not.
+  boundary, and says only what happened.** `GET /guide`'s topbar is one document
+  up from the reporter, and the two are same-origin on purpose — the shell
+  already reaches the other way to `focus()` the frame — so `progress.js`
+  appends the notice to the parent's `.crumbs` directly, no message channel. It
+  goes on the breadcrumb line, not the title line: `.topbar-inner` is capped at
+  44rem and `.crumb-title` ellipsizes, so a notice on the title row truncates
+  the guide's own name. The floating pill is only the fallback for a guide with
+  no shell around it (opened straight off disk), which is why it is the one that
+  fades: it occludes the guide, and the header does not.
+- **Starting a guide over has exactly one control**, the viewer header's `↺
+  reset` in `GuidesView`. It deletes the row, refetches the board, *and* bumps
+  the key on `.guide-viewer-frame` so the guide reloads — a guide with no stored
+  position opens at its own beginning, so a reload is the whole of starting
+  over and the reporter needs no instruction. The reload happens after the
+  `DELETE` resolves, never beside it: a frame that came back first would report
+  the position it still had and re-create the row. The notice inside the guide
+  deliberately carries no second button — two controls for one job are two
+  implementations that have to agree forever, and in the pill's one exclusive
+  case (a guide opened off disk) there is no server to answer a `DELETE`
+  anyway.
 - **A deck is resumed by clicking its own `Next`, never by setting `.active`.**
   The deck owns `currentCardIndex`, the score tally, the progress bar and the
   disabled state of `Next`; a hand-set card leaves all four describing a screen
