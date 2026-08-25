@@ -207,4 +207,40 @@ describe('progress reporter — the pill', () => {
     expect(document.querySelectorAll('.gm-progress-pill')).toHaveLength(1);
     expect(pill()?.textContent).toMatch(/second/);
   });
+  /*
+    Where the pill sits is a correctness question, not a taste one.
+
+    A tutor deck's own Back/Next pair is a sticky bar across the bottom of the
+    frame, and a study build's contents rail runs down the left — so the pill's
+    first home, bottom-left, put it inside the deck's own nav: level with the
+    buttons, reading as a stray link wedged into the deck's chrome, and
+    overlapping the Back button outright once the frame got narrower. The top
+    edge is the one band both guide types leave clear.
+  */
+  describe('where it sits', () => {
+    const styleText = (): string => {
+      load(DECK, deckCtx(2));
+      return document.querySelector('style[data-gm-progress-style]')?.textContent ?? '';
+    };
+
+    it('anchors to the top of the frame, never the bottom', () => {
+      const css = styleText();
+      expect(css).toMatch(/\.gm-progress-pill\{[^}]*\btop:/);
+      // The deck's own pager lives at the bottom of the frame. Anything docked
+      // there is competing with the control the reader needs most.
+      expect(css).not.toMatch(/\.gm-progress-pill\{[^}]*\bbottom:/);
+    });
+
+    it('stays inside the frame on a narrow screen', () => {
+      // The phone is the device this whole app exists for, and a fixed element
+      // wider than the viewport is one that cannot be dismissed.
+      expect(styleText()).toMatch(/max-width:\s*calc\(100vw/);
+    });
+
+    it('borrows the guide\'s own typeface rather than imposing one', () => {
+      // A monospace box on a deck set in system-ui reads as something broken
+      // that leaked in, which is the opposite of what an explanation should do.
+      expect(styleText()).toMatch(/font-family:\s*inherit/);
+    });
+  });
 });

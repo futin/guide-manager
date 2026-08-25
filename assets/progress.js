@@ -504,26 +504,44 @@
   var pillTimer = null;
 
   /*
+    Docked to the top, centred, and never to the bottom.
+
+    The bottom edge is where a tutor deck keeps its own Back/Next pair — a sticky
+    bar across the full width of the frame — so a pill anchored there lands
+    *inside* the deck's own nav: level with the buttons, reading as a stray link
+    wedged into the deck's chrome rather than as a message about the guide, and
+    overlapping the Back button outright once the frame narrows. A study build
+    leaves the bottom clear but runs its contents rail down the left, so the
+    bottom-left corner is the one place both types have something to say. The top
+    band is clear in both: a deck carries only a hairline progress bar and a card
+    counter there, and a build its own heading.
+
     Styled from the page's own theme tokens with literal fallbacks, because a
     guide is also a file someone can open straight off disk over file:// — where
-    /theme.css was never linked and every var() would resolve to nothing.
+    /theme.css was never linked and every var() would resolve to nothing. The
+    typeface is inherited rather than declared: a monospace box on a deck set in
+    system-ui reads as something broken that leaked in.
 
     The z-index is deliberately near the top of the range: a deck's own sticky
     nav sits above its cards, and a pill buried under it is a pill nobody reads.
   */
   var PILL_CSS = [
     '.gm-progress-pill{',
-    'position:fixed;bottom:12px;left:12px;z-index:2147483000;',
-    'display:flex;align-items:center;gap:8px;',
-    'padding:7px 11px;border-radius:3px;',
-    'font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;',
+    'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483000;',
+    'display:flex;align-items:center;gap:10px;',
+    'max-width:calc(100vw - 24px);box-sizing:border-box;',
+    'padding:8px 13px;border-radius:999px;',
+    'font-family:inherit;font-size:13px;line-height:1.3;',
     'color:var(--fg,#e6e6e6);background:var(--panel,#1b1b1b);',
-    'border:1px solid var(--line,#333);box-shadow:0 2px 10px rgba(0,0,0,.35);',
+    'border:1px solid var(--line,#333);box-shadow:0 4px 16px rgba(0,0,0,.4);',
     'opacity:1;transition:opacity .25s}',
     '.gm-progress-pill[data-leaving]{opacity:0}',
+    '.gm-progress-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     '.gm-progress-pill button{',
-    'font:inherit;color:var(--accent,#4db6c4);background:none;',
-    'border:0;padding:0;cursor:pointer;text-decoration:underline}'
+    'flex:none;font:inherit;color:var(--accent,#4db6c4);background:none;',
+    // A real tap target rather than a bare text run: this is reached from a
+    // phone, where an 11px line of text is a coin toss.
+    'border:0;padding:2px 0;min-height:24px;cursor:pointer;text-decoration:underline}'
   ].join('');
 
   function ensurePillStyles() {
