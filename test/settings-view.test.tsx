@@ -88,7 +88,7 @@ describe('SettingsView', () => {
     const select = screen.getByLabelText('Opens on') as HTMLSelectElement;
     expect([...select.options].map((o) => o.value)).toEqual(['last', 'guides', 'settings']);
     expect([...select.options].map((o) => o.textContent)).toEqual([
-      'Where I left off', 'Guides', 'Settings'
+      'Last used', 'Guides', 'Settings'
     ]);
   });
 

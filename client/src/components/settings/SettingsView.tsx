@@ -22,12 +22,12 @@ const DENSITIES = [
 ];
 
 /**
- * The landing choices, with copy rather than section ids. "Where I left off" is
+ * The landing choices, with copy rather than section ids. "Last used" is
  * first because it is the default and reads as the absence of a choice; the two
  * named sections below it are the override.
  */
 const LANDINGS: { value: Landing; label: string }[] = [
-  { value: 'last', label: 'Where I left off' },
+  { value: 'last', label: 'Last used' },
   { value: 'guides', label: 'Guides' },
   { value: 'settings', label: 'Settings' }
 ];

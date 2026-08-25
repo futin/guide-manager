@@ -36,7 +36,7 @@ the bionic contract are untouched. Independent of the board tasks.
      padding, grid gap, bay gaps.
 5. `client/src/components/settings/SettingsView.tsx`, Display group: Density
    segmented (Comfortable / Compact), Text size segmented (90/100/110/120%),
-   Opens on native select — "Where I left off" / "Guides" / "Settings" — with
+   Opens on native select — "Last used" / "Guides" / "Settings" — with
    hints adapted from the dashboard's wording.
 6. `client/src/App.tsx`: when `settings.landing !== 'last'`, the landing value
    overrides the *initial* section only; the persisted
