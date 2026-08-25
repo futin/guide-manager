@@ -331,4 +331,71 @@ describe('progress reporter — deck mode', () => {
     expect(api.activeIndex()).toBe(0);
     expect(api.restoreDeck()).toBe(false);
   });
+  /*
+    Both decks registered on this machine when the reporter was written label
+    their navigation differently from each other, and one of them labels it in
+    German: `<button id="nav-back">Back</button>` / `<button id="nav-next">Next</button>`
+    in one, `<button id="btn-back">Zurück</button>` / `<button id="btn-next">Weiter</button>`
+    in the other. deck.md guarantees the pair exists (§2) but spells neither, so
+    matching on the visible word alone finds the English deck and silently
+    declines to resume the German one. The id is the part that stays English in a
+    generated deck, which is why it is matched first.
+  */
+  describe('finding the deck\'s own controls', () => {
+    const NAV = (backAttr: string, nextAttr: string, backText: string, nextText: string) => `
+      <div class="card active">one</div>
+      <div class="card">two</div>
+      <div class="card">three</div>
+      <nav><button ${backAttr} disabled>${backText}</button><button ${nextAttr}>${nextText}</button></nav>
+    `;
+
+    const wire = () => {
+      const cards = Array.from(document.querySelectorAll<HTMLElement>('.card'));
+      const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('nav button'));
+      let current = 0;
+      const show = (i: number) => {
+        cards[current].classList.remove('active');
+        current = Math.min(Math.max(i, 0), cards.length - 1);
+        // The mechanism both real decks use: classList.toggle('active', ...) at
+        // runtime, which is why the static HTML of one of them never contains
+        // the string "card active" at all.
+        cards[current].classList.add('active');
+        buttons[0].disabled = current === 0;
+      };
+      buttons[0].addEventListener('click', () => { if (!buttons[0].disabled) show(current - 1); });
+      buttons[1].addEventListener('click', () => show(current + 1));
+    };
+
+    const resumeTo2 = (html: string): number => {
+      const previous = (window as unknown as { __gmProgress?: ReporterApi }).__gmProgress;
+      if (previous) previous.stop();
+      document.body.innerHTML = html;
+      const blob = document.createElement('script');
+      blob.type = 'application/json';
+      blob.id = 'gm-progress';
+      blob.textContent = JSON.stringify(ctx(stored({ kind: 'deck', cardIndex: 2 })));
+      document.body.appendChild(blob);
+      wire();
+      window.eval(SRC);
+      return (window as unknown as { __gmProgress: ReporterApi }).__gmProgress.activeIndex();
+    };
+
+    it('resumes a deck whose controls are id\'d nav-next / nav-back', () => {
+      expect(resumeTo2(NAV('id="nav-back"', 'id="nav-next"', 'Back', 'Next'))).toBe(2);
+    });
+
+    it('resumes a deck whose controls are id\'d btn-next and labelled in German', () => {
+      expect(resumeTo2(NAV('id="btn-back"', 'id="btn-next"', 'Zurück', 'Weiter'))).toBe(2);
+    });
+
+    it('resumes a deck that labels its controls in English with no useful id', () => {
+      expect(resumeTo2(NAV('class="pager-prev"', 'class="pager-fwd"', 'Back', 'Next ›'))).toBe(2);
+    });
+
+    it('declines to resume when no control can be identified', () => {
+      // Better to open at card one than to click something that is not the
+      // pager. Reporting still works — only the resume declines.
+      expect(resumeTo2(NAV('id="x"', 'id="y"', 'Zurück', 'Weiter'))).toBe(0);
+    });
+  });
 });

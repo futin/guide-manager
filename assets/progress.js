@@ -359,21 +359,48 @@
   }
 
   /**
-   * The deck's `Next` control.
+   * Find one of the deck's two navigation controls.
    *
-   * Guaranteed to exist by deck.md §2 — one persistent Next/Back pair, never
-   * duplicated per card — but not to be spelled any particular way, so it is
-   * matched several ways and the reporter simply declines to restore if none of
-   * them hits. Anything else would be guessing at another program's markup.
+   * deck.md §2 guarantees the pair exists — one persistent Next/Back, never
+   * duplicated per card — but spells neither, and the decks in the wild prove how
+   * far that goes: one carries `<button id="nav-next">Next</button>`, another
+   * `<button id="btn-next">Weiter</button>`. So the *id or class* is tried first
+   * and the visible label second. The id is the half that stays English in a
+   * generated deck even when its content is not, which makes matching on the word
+   * "Next" alone a resume that works in English and silently declines in German.
+   *
+   * Three passes, narrowest first, and a null when none of them hits: opening at
+   * card one is a worse outcome than resuming, but clicking something that is not
+   * the pager is worse than both.
    */
-  function nextControl() {
-    var explicit = document.querySelector('[data-next], [rel="next"], #next, .next');
+  function control(kind) {
+    var hook = kind === 'next'
+      ? '[data-next], [rel="next"]'
+      : '[data-prev], [data-back], [rel="prev"]';
+    var explicit = document.querySelector(hook);
     if (explicit) return explicit;
-    var buttons = document.querySelectorAll('button, a');
-    for (var i = 0; i < buttons.length; i += 1) {
-      if (/^\s*next\s*[›→>]?\s*$/i.test(buttons[i].textContent || '')) return buttons[i];
+
+    // `nav-next`, `btn-next`, `next`, `pager-next` — the word as its own segment,
+    // so `nextChapter` or a `.context` class cannot be mistaken for the pager.
+    var ident = kind === 'next'
+      ? /(?:^|[-_\s])(?:next|fwd|forward)(?:$|[-_\s])/i
+      : /(?:^|[-_\s])(?:back|prev|previous)(?:$|[-_\s])/i;
+    var label = kind === 'next'
+      ? /^\s*[‹«]?\s*next\s*[›»→>]?\s*$/i
+      : /^\s*[‹«←<]?\s*back\s*[›»]?\s*$/i;
+
+    var candidates = document.querySelectorAll('button, a, [role="button"]');
+    var byLabel = null;
+    for (var i = 0; i < candidates.length; i += 1) {
+      var el = candidates[i];
+      if (ident.test(el.id || '') || ident.test(el.className || '')) return el;
+      if (byLabel === null && label.test(el.textContent || '')) byLabel = el;
     }
-    return null;
+    return byLabel;
+  }
+
+  function nextControl() {
+    return control('next');
   }
 
   var gated = function (control) {
@@ -393,14 +420,14 @@
    * forever inside someone's guide.
    */
   function advance() {
-    var control = nextControl();
-    if (!control || pending < 0) return;
+    var next = nextControl();
+    if (!next || pending < 0) return;
     var guard = deckCards(document).length + 1;
     while (guard > 0) {
       var at = activeIndex();
       if (at < 0 || at >= pending) break;
-      if (gated(control)) break;
-      control.click();
+      if (gated(next)) break;
+      next.click();
       if (activeIndex() === at) break;
       guard -= 1;
     }
@@ -530,12 +557,12 @@
       // Back, repeatedly, for the same reason the resume uses Next: the deck's
       // own control keeps the deck's own index honest. Bounded by the card count,
       // and stops early if a click does not move anything.
-      var control = document.querySelector('[data-prev], [rel="prev"], #back, .back') || backByText();
+      var back = control('back');
       var guard = cards.length + 1;
-      while (control && guard > 0 && activeIndex() > 0) {
+      while (back && guard > 0 && activeIndex() > 0) {
         var at = activeIndex();
-        if (gated(control)) break;
-        control.click();
+        if (gated(back)) break;
+        back.click();
         if (activeIndex() === at) break;
         guard -= 1;
       }
@@ -544,14 +571,6 @@
     }
     reset();
     dismissPill();
-  }
-
-  function backByText() {
-    var buttons = document.querySelectorAll('button, a');
-    for (var i = 0; i < buttons.length; i += 1) {
-      if (/^\s*[‹←<]?\s*back\s*$/i.test(buttons[i].textContent || '')) return buttons[i];
-    }
-    return null;
   }
 
   function showPill(text) {
