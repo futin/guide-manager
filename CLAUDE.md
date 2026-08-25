@@ -27,9 +27,10 @@ stack they are fixed. This machine currently maps the client to `5176`.
 ## Layout
 
 - `server/src/` — Nest. `guides/` (`GET /api/guides`), `progress/`
-  (`GET`/`POST /api/progress`), `render/` (`GET /guide`, `GET /asset`, plus
-  `style.css`, `theme.css`, `bionic.css`, `bionic.js`), `registry/` (read-only
-  view of the registry file), `static.ts` (serves `client/dist` when built).
+  (`GET`/`POST`/`DELETE /api/progress`), `render/` (`GET /guide`, `GET /asset`,
+  plus `style.css`, `theme.css`, `bionic.css`, `bionic.js`, `progress.js`),
+  `registry/` (read-only view of the registry file), `static.ts` (serves
+  `client/dist` when built).
 - `client/src/` — React SPA: side rail (a plain section switch), Guides view
   (every registered project listed as a foldable bay, each guide framed in an
   iframe), Settings view. The Guides toolbar — search, project, type, sort — is
@@ -38,7 +39,8 @@ stack they are fixed. This machine currently maps the client to `5176`.
   `guide-manager.project` / `.filterType` / `.sort`; the query deliberately does
   not persist.
 - `shared/` — `types.ts` (registry + API shapes), `theme.css` (tokens).
-- `assets/` — the bionic reading aid, spliced into every guide the app frames.
+- `assets/` — the bionic reading aid and the progress reporter, both spliced into
+  every guide the app frames.
 - `skills/study/`, `skills/tutor/` — the skills this repo publishes.
 - `bin/register.js` — the only writer of the registry; the skills call it.
 - `backlog/` — file-based backlog, one Markdown file per item (`backlog/README.md`).
@@ -85,6 +87,25 @@ stack they are fixed. This machine currently maps the client to `5176`.
   never retype. v3 runs with or without the control panel — a guide with no
   vendored panel is driven by the Settings page alone — and listens for
   `storage`, so a framed guide repaints when that page changes a value.
+- **The progress reporter is served, not vendored**, and follows the reading
+  aid's rules exactly: `assets/progress.js` carries a `progress v1` header,
+  `injectProgressReporter` refuses any document that already holds a
+  `progress vN`, and `GET /asset` splices it in — so a build generated before
+  the reporter existed reports and resumes without being regenerated. It is
+  injected only for a file the registry knows as a guide; `guideMeta`'s missing
+  `type` is what tells a sibling HTML file apart from a guide.
+- **A deck is resumed by clicking its own `Next`, never by setting `.active`.**
+  The deck owns `currentCardIndex`, the score tally, the progress bar and the
+  disabled state of `Next`; a hand-set card leaves all four describing a screen
+  that is not there, and the reader's next `Back` tap jumps to card one. An
+  unanswered quiz card legitimately stops the walk — quiz answers are not
+  stored, so resuming past a gate would be a claim the reader never earned. The
+  target stays pending and the walk resumes when the gate clears.
+- **`openCount` increments only on a write carrying `opened: true`**, and
+  `furthestPercent` only ever climbs (`$max`). The first keeps a session counter
+  from becoming a scroll-event counter now that the reporter writes on every
+  move; the second is what the board renders, because a card showing the current
+  position would walk backwards whenever the reader glanced at chapter one.
 - **pnpm is the only package manager here**, pinned by `packageManager` in
   `package.json` and enforced in the image through corepack. `npm install` would
   write a `package-lock.json` nobody reads and a flat `node_modules` that
