@@ -92,12 +92,75 @@ body {
    board of bays, or — once a card is tapped — the viewer pane, a same-origin
    iframe in .guide-viewer-body pointed at the entry's own /guide href. */
 .guides { display: flex; flex-direction: column; gap: 14px }
-.guides-bar { display: flex; align-items: baseline; gap: 10px }
+/* `row-gap` separately from the flex `gap`, because once the toolbar wraps below
+   the title the two lines need less air between them than the 10px that reads
+   right between controls sitting side by side. */
+.guides-bar { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; row-gap: 8px }
 .guides-title {
   font-family: var(--display); font-size: 14px; font-weight: 600;
   text-transform: uppercase; letter-spacing: .07em; color: var(--ink);
 }
+/* The toolbar: search, then project / type / sort. Pushed to the far end of the
+   bar because it states the board's state, so it belongs beside the board rather
+   than next to the section title. Its own wrap is what saves a narrow tablet: the
+   four controls break onto a second line before they start squeezing each other
+   into unreadable widths. `align-items:stretch` rather than `center` because an
+   input and a select do not resolve the same height from the same padding and
+   font — rendered, the search box came out 2px shorter than the selects beside
+   it, which on a 23px control row reads as one misaligned instrument. Stretch
+   levels each flex line to its tallest member and keeps doing so if the padding
+   is ever changed. */
+.guides-tools { margin-left: auto; display: flex; align-items: stretch; flex-wrap: wrap; gap: 6px }
+/* One recessed-well look for all four, inherited from the removed .guides-scope
+   button: --steel against the --strip cards, a hairline rule, and 10px mono, so
+   the row reads as instrument panel rather than as a form. One block rather than
+   four, because the four controls only read as one instrument while their
+   padding, border and type are literally the same declarations. */
+.guides-search, .guides-select {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .04em;
+  color: var(--ink2); background: var(--steel);
+  border: 1px solid var(--hairline); border-radius: 2px;
+  padding: 4px 8px; transition: color .15s, border-color .15s;
+}
+/* Fixed rather than content-sized: a text field that grows as you type shoves the
+   three selects along the bar with every keystroke. `min-width:0` so the flex
+   line can still shrink it rather than overflowing the bar. */
+.guides-search { width: 150px; min-width: 0 }
+.guides-search::placeholder { color: var(--ink3) }
+/* A select sizes itself to its widest option, so the project one is as wide as
+   the longest project name in the registry — and a project directory named after
+   a long branch would otherwise push the whole toolbar off the bar. The cap makes
+   the UA truncate that one option instead; the full name is still readable in the
+   open dropdown, and on the board's own bay header. */
+.guides-select { cursor: pointer; max-width: 190px; text-overflow: ellipsis }
+.guides-search:hover, .guides-select:hover { color: var(--ink); border-color: var(--hairline2) }
+/* Focus is the cyan rule, matching .set-control's fields in Settings — the UA
+   outline is dropped only because something visible replaces it. */
+.guides-search:focus, .guides-select:focus { outline: none; color: var(--ink); border-color: var(--cyan) }
 .guides-empty { font-size: 11px; color: var(--ink3); padding: 20px 2px; text-align: center }
+
+/* Phones: the toolbar gets its own full-width line under the title (the bar wraps
+   it there anyway; `margin-left:auto` is dropped so it starts at the left edge
+   rather than sitting oddly right-aligned on a line of its own). The search takes
+   a whole row and the three selects share the next, each free to shrink — at
+   375px the four cannot share one line without every label truncating. */
+@media (max-width: 700px) {
+  .guides-tools { margin-left: 0; width: 100% }
+  .guides-search { flex: 1 1 100%; width: auto }
+  /* Thirds of the row, and the cap is off: a select given `max-width` as well as
+     a flex basis stops growing before it has used the room the row gave it.
+
+     At 375px a third is 105px and the UA's dropdown arrow takes 18 of them, so
+     the longest labels ("All projects", "Newest first") lose their last two or
+     three characters to an ellipsis. Left that way on purpose: buying those
+     characters back costs either a third row of controls on the screen with the
+     least vertical room to spare, or labels shortened until "All projects" reads
+     as the category rather than as the current value. A truncated label on a
+     native select is a phone convention — the full text is one tap away in the
+     open dropdown — and the selects only truncate at all while showing the value
+     that filters nothing. */
+  .guides-select { flex: 1 1 0; min-width: 0; max-width: none }
+}
 
 /* A bay is one project: its header, then its own card grid. The gap is smaller
    than the .guides gap between bays, so a header binds visually to the cards
