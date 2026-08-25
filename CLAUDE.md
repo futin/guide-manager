@@ -104,6 +104,18 @@ stack they are fixed. This machine currently maps the client to `5176`.
   the guide's own name. The floating pill is only the fallback for a guide with
   no shell around it (opened straight off disk), which is why it is the one that
   fades: it occludes the guide, and the header does not.
+- **A framed guide announces every write, and the board refetches on it.**
+  `GET /api/guides` is fetched when the Guides view mounts, so nothing a guide
+  writes while it is being read reaches the board on its own — the card kept
+  claiming the percent it held when the tab loaded, correct only after a page
+  refresh. `assets/progress.js` posts `{source:'guide-manager',kind:'progress'}`
+  to `window.top` at *send* time (not on the response: the last write of a
+  session is flushed as the frame is torn down), `useGuides` listens and
+  refetches coalesced at 300ms, and `GuidesView` refetches once more on the way
+  back from the viewer — that last one covers the write that lands after the
+  message has already been handled. The message carries no numbers on purpose:
+  any script in any frame can post to the top window, so a message that named a
+  percent would be one that could lie about it.
 - **Starting a guide over has exactly one control**, the viewer header's `↺
   reset` in `GuidesView`. It deletes the row, refetches the board, *and* bumps
   the key on `.guide-viewer-frame` so the guide reloads — a guide with no stored

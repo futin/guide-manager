@@ -80,6 +80,32 @@
       // bookkeeping, and the reading session is the point.
       if (p && typeof p.catch === 'function') p.catch(function () {});
     } catch (e) {}
+    announce();
+  }
+
+  /**
+   * Tell the app a guide's stored progress just changed.
+   *
+   * The board is a different document, fetched once when the Guides tab mounted.
+   * Nothing about a write in here reaches it on its own, so the reader came back
+   * from a guide to a card still showing the percent it held when the tab first
+   * loaded — correct only after a page refresh.
+   *
+   * Announced at *send* time rather than on the response, and this is the point:
+   * the last write of a session is the one flushed as the frame is torn down, and
+   * waiting for its response would mean announcing after the document that was
+   * supposed to do the announcing had gone.
+   *
+   * `window.top` rather than `parent`, because the shell sits between this
+   * document and the app. A courtesy, not a contract — a guide framed by
+   * something else, or opened off disk, simply has nobody listening, and losing
+   * the announcement must never take the write with it.
+   */
+  function announce() {
+    try {
+      if (typeof window === 'undefined' || !window.top) return;
+      window.top.postMessage({ source: 'guide-manager', kind: 'progress' }, '*');
+    } catch (e) {}
   }
 
   function report(patch) {

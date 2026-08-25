@@ -295,4 +295,50 @@ describe('progress reporter — doc mode', () => {
     expect(() => api.init()).not.toThrow();
     expect(bodyOf(fetchMock().mock.calls[0]).position).toEqual({ kind: 'doc' });
   });
+  /*
+    The board is a different document, fetched once when the Guides tab mounted.
+    Nothing about a write inside a framed guide reaches it — so the reader would
+    come back from a guide to a card still showing the percent it had when the tab
+    first loaded, and only a page refresh would correct it.
+
+    So every write announces itself to the top window, and the board refetches on
+    that. Announced at send time rather than on the response, so the last write of
+    a session — the one flushed as the frame is torn down — is announced before the
+    teardown finishes.
+  */
+  describe('announcing a write to the board', () => {
+    it('posts to the top window on every write', () => {
+      const spy = jest.spyOn(window.top as Window, 'postMessage');
+      const api = load(DOC, ctx());
+      spy.mockClear();
+
+      api.report({ percent: 30 });
+
+      expect(spy).toHaveBeenCalled();
+      const [message] = spy.mock.calls[0];
+      expect(message).toEqual({ source: 'guide-manager', kind: 'progress' });
+      spy.mockRestore();
+    });
+
+    it('announces the reset as well, since that changes the board too', () => {
+      const spy = jest.spyOn(window.top as Window, 'postMessage');
+      const api = load(DOC, ctx());
+      spy.mockClear();
+      api.reset();
+      expect(spy).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('survives a top window that refuses the message', () => {
+      // A guide framed by something that is not our app, or opened off disk: the
+      // announcement is a courtesy, and losing it must not take the write with it.
+      const spy = jest
+        .spyOn(window.top as Window, 'postMessage')
+        .mockImplementation(() => { throw new Error('cross-origin'); });
+      const api = load(DOC, ctx());
+      expect(() => api.report({ percent: 10 })).not.toThrow();
+      expect(fetchMock()).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+  });
 });

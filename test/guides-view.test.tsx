@@ -592,4 +592,89 @@ describe('GuidesView', () => {
       expect(resetButton().textContent).toMatch(/reset/i);
     });
   });
+  /*
+    The board is fetched once when this view mounts, so anything a guide writes
+    while it is being read is invisible here until the page is reloaded — the
+    reader came back from a guide to a card still claiming the percent it had when
+    the tab first loaded.
+
+    Two refetch triggers, because they cover different gaps: leaving the viewer
+    covers the whole session at once, and the reporter's own announcement covers
+    the write that lands after the reader has already tapped back.
+  */
+  describe('keeping the board current', () => {
+    const openViewer = (title: string) => {
+      act(() => {
+        screen.getByText(title).closest('.guides-card')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+    };
+
+    it('refetches when the reader comes back from a guide', async () => {
+      const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
+      openViewer('Beta Deck');
+      fetchMock.mockClear();
+
+      act(() => { screen.getByRole('button', { name: /Guides/ }).click(); });
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/guides'));
+    });
+
+    it('fetches the board once on mount, not twice', async () => {
+      const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
+      // The refetch belongs to *coming back* from a guide. Firing it on mount as
+      // well would ask for the same board the hook has just fetched.
+      expect(fetchMock.mock.calls.filter((c) => c[0] === '/api/guides')).toHaveLength(1);
+    });
+
+    it('refetches when a framed guide announces a write', async () => {
+      const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
+      fetchMock.mockClear();
+
+      act(() => {
+        window.dispatchEvent(new MessageEvent('message', {
+          data: { source: 'guide-manager', kind: 'progress' }
+        }));
+      });
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/guides'));
+    });
+
+    it('ignores messages from anything else on the page', async () => {
+      const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
+      fetchMock.mockClear();
+
+      act(() => {
+        // Any script in any frame can post to the top window. A refetch per
+        // stray message would make the board a polling loop driven by strangers.
+        window.dispatchEvent(new MessageEvent('message', { data: 'hello' }));
+        window.dispatchEvent(new MessageEvent('message', { data: { source: 'something-else' } }));
+      });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('coalesces a burst of announcements into one refetch', async () => {
+      jest.useFakeTimers();
+      try {
+        const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
+        fetchMock.mockClear();
+        const message = () => new MessageEvent('message', {
+          data: { source: 'guide-manager', kind: 'progress' }
+        });
+
+        act(() => {
+          window.dispatchEvent(message());
+          window.dispatchEvent(message());
+          window.dispatchEvent(message());
+          jest.advanceTimersByTime(400);
+        });
+
+        // Walking a deck writes on every card. One fetch of the whole index per
+        // card is a board nobody is looking at costing a round trip per tap.
+        expect(fetchMock.mock.calls.filter((c) => c[0] === '/api/guides')).toHaveLength(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
 });

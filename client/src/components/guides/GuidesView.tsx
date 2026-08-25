@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useGuides } from '../../hooks/useGuides';
 import { usePersistedState } from '../../hooks/usePersistedState';
@@ -190,6 +190,33 @@ export default function GuidesView() {
   useEffect(() => {
     setResetArmed(false);
   }, [viewer?.path]);
+
+  /*
+    Coming back to the board refetches it.
+
+    A guide reports its position as it is read, so by the time the reader taps
+    back the index this view is holding is out of date — and the card they land
+    on is the one that says so. The reporter's own announcement covers this too,
+    but not the write it makes *as* the frame is torn down, which can land after
+    that message has been handled; asking once more on the way out costs one
+    request per guide read and closes the gap.
+
+    Keyed on leaving rather than on `viewer` changing, so opening a guide does not
+    fetch an index that was just fetched.
+  */
+  const hadViewer = useRef(false);
+  useEffect(() => {
+    if (viewing) {
+      hadViewer.current = true;
+      return;
+    }
+    // Only on the way *back*. Without the ref this also fires on mount, where
+    // `viewing` is already false and the hook has just fetched the index — two
+    // requests for the same board every time the tab is opened.
+    if (!hadViewer.current) return;
+    hadViewer.current = false;
+    refetch();
+  }, [viewing, refetch]);
 
   /*
     Reset one guide, then ask for the board again.
