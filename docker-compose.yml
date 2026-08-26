@@ -79,6 +79,20 @@ services:
     volumes:
       - .:/app
       - guide-manager-node-modules:/app/node_modules
+      # Masks the path pnpm puts its store at, for the same reason node_modules
+      # is masked above. pnpm keeps one content-addressable store and hardlinks
+      # node_modules into it, so the store has to sit on the same filesystem as
+      # node_modules or the links cannot be made; in here the container's own
+      # default store path is on a different device from this bind mount, so
+      # pnpm relocates the store next to the project — `/app/.pnpm-store`, which
+      # *is* the repo directory on the host. That is how 201M of container-only
+      # package cache appeared in git (83843fd7 swept it in). A named volume
+      # gives the store a real home that survives rebuilds and is invisible to
+      # the host tree. Setting store-dir instead would not work: pnpm 11 ignores
+      # NPM_CONFIG_STORE_DIR, PNPM_STORE_DIR and npm_config_store_dir alike
+      # (checked), and an .npmrc committed for the container's benefit would
+      # redirect host-side `pnpm install` to a path that does not exist here.
+      - guide-manager-pnpm-store:/app/.pnpm-store
       # The registry names guides by absolute host path, so those paths have to
       # mean the same thing inside the container — hence each mount landing on
       # its own path rather than somewhere tidy like /guides. Without them every
@@ -138,7 +152,22 @@ services:
     volumes:
       - .:/app
       - guide-manager-node-modules:/app/node_modules
+      # Masks the path pnpm puts its store at, for the same reason node_modules
+      # is masked above. pnpm keeps one content-addressable store and hardlinks
+      # node_modules into it, so the store has to sit on the same filesystem as
+      # node_modules or the links cannot be made; in here the container's own
+      # default store path is on a different device from this bind mount, so
+      # pnpm relocates the store next to the project — `/app/.pnpm-store`, which
+      # *is* the repo directory on the host. That is how 201M of container-only
+      # package cache appeared in git (83843fd7 swept it in). A named volume
+      # gives the store a real home that survives rebuilds and is invisible to
+      # the host tree. Setting store-dir instead would not work: pnpm 11 ignores
+      # NPM_CONFIG_STORE_DIR, PNPM_STORE_DIR and npm_config_store_dir alike
+      # (checked), and an .npmrc committed for the container's benefit would
+      # redirect host-side `pnpm install` to a path that does not exist here.
+      - guide-manager-pnpm-store:/app/.pnpm-store
 
 volumes:
   guide-manager-mongo:
   guide-manager-node-modules:
+  guide-manager-pnpm-store:
