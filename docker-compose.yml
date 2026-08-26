@@ -18,8 +18,14 @@ services:
   mongo:
     image: mongo:7
     restart: unless-stopped
+    # Loopback only. This mongod runs with no authentication — it never needed
+    # any, because the only client was ever the server container reaching it by
+    # service name over the compose network. The published port exists purely so
+    # a host-side `pnpm run dev` and mongosh can reach it, and both are on this
+    # machine. A wildcard bind offered an open database to every network the
+    # laptop joins.
     ports:
-      - '${GM_MONGO_PORT:-27017}:27017'
+      - '127.0.0.1:${GM_MONGO_PORT:-27017}:27017'
     volumes:
       - guide-manager-mongo:/data/db
     # The server bounds its connection attempts and exits when they run out, so
@@ -57,8 +63,19 @@ services:
       # ~/.guide-manager/registry.json off homedir() — which on Linux is $HOME.
       # Pointing it at the same path the mount below uses keeps both honest.
       HOME: ${HOME}
+    # Loopback only, like the other two. This port answers the API, the guide
+    # render routes and — once `pnpm run build` has run — the built client
+    # bundle, so a wildcard bind here re-exposes the entire board even with the
+    # Vite port shut, and there is no auth anywhere in front of it. The client
+    # container does not use this mapping at all: it reaches the API by service
+    # name over the compose network (API_HOST below), so the publish is for
+    # host-side curl and nothing else.
+    #
+    # To read the production bundle from the phone rather than the Vite dev
+    # server, put a serve in front of this port too — the same shape
+    # bin/tailnet.js uses, with GM_API_PORT.
     ports:
-      - '${GM_API_PORT:-4321}:4321'
+      - '127.0.0.1:${GM_API_PORT:-4321}:4321'
     volumes:
       - .:/app
       - guide-manager-node-modules:/app/node_modules
@@ -107,8 +124,17 @@ services:
       # chokidar can miss edits outright; polling costs a little CPU and always
       # notices.
       CHOKIDAR_USEPOLLING: 'true'
+    # Loopback on the host side, unlike the API and Mongo publishes above. The
+    # board renders guides read out of this filesystem and has nothing in front
+    # of it asking who you are, so a wildcard bind offered it to every network
+    # this laptop joins — a hotel wifi included. The tailnet reaches it through
+    # `pnpm run tailnet`, which registers a tailscale serve on this same port
+    # number; see bin/tailnet.js for why that number is read from .env rather
+    # than typed. Note this is the host side only: WEB_PORT above still leaves
+    # Vite on host:true inside the container, because bound to
+    # container-localhost it would refuse the forwarded connection.
     ports:
-      - '${GM_WEB_PORT:-5175}:5175'
+      - '127.0.0.1:${GM_WEB_PORT:-5175}:5175'
     volumes:
       - .:/app
       - guide-manager-node-modules:/app/node_modules
