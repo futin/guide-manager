@@ -15,6 +15,7 @@ over Tailscale while this Mac is awake.
 | Tests | `pnpm test` (jest, `--runInBand`) |
 | Types | `pnpm run typecheck` |
 | Production build | `pnpm run build` |
+| Publish the web port to the tailnet | `pnpm run tailnet` (`up` \| `status` \| `down`) |
 
 Mongo is a hard boot requirement: no database, no server. `app.module.ts` bounds
 the connection retries and lets the process exit non-zero rather than idle with a
@@ -22,7 +23,10 @@ dead database.
 
 Ports: API `4321`, Vite `5175`, Mongo `27017`. Only the host side moves, via
 `GM_API_PORT` / `GM_WEB_PORT` / `GM_MONGO_PORT` in `.env` — inside the compose
-stack they are fixed. This machine currently maps the client to `5176`.
+stack they are fixed. All three publish on `127.0.0.1` alone — nothing here has
+auth in front of it, and a laptop joins untrusted networks. This machine maps
+the client to `5176`, and `pnpm run tailnet` is what puts that one port on the
+tailnet, at that same number.
 
 ## Layout
 
@@ -43,6 +47,8 @@ stack they are fixed. This machine currently maps the client to `5176`.
   every guide the app frames.
 - `skills/study/`, `skills/tutor/` — the skills this repo publishes.
 - `bin/register.js` — the only writer of the registry; the skills call it.
+- `bin/tailnet.js` — registers a `tailscale serve` from the tailnet to the
+  loopback web port, reading `GM_WEB_PORT` so the two sides cannot disagree.
 - `backlog/` — file-based backlog, one Markdown file per item (`backlog/README.md`).
 - `docs/superpowers/` — design specs and implementation plans.
 
@@ -139,6 +145,26 @@ stack they are fixed. This machine currently maps the client to `5176`.
   from becoming a scroll-event counter now that the reporter writes on every
   move; the second is what the board renders, because a card showing the current
   position would walk backwards whenever the reader glanced at chapter one.
+- **The web port's number lives in `.env` and nowhere else, and the host side of
+  it is loopback.** `docker-compose.yml` publishes
+  `127.0.0.1:${GM_WEB_PORT:-5175}:5175`, and `bin/tailnet.js` reads the same
+  variable to register `tailscale serve --http=$PORT http://127.0.0.1:$PORT` —
+  identical numbers on two different addresses, so they never contend for one
+  socket. The wildcard bind this replaced put the board, and through it a
+  read-only window onto this filesystem, on every network the laptop joins;
+  there is no auth in front of it, so the tailnet *is* the access control. A
+  serve command typed by hand instead would store a second copy of the port
+  inside tailscaled, outside git and untested, and the drift surfaces as a 502
+  on the phone that reads like a Tailscale fault.
+
+  The same loopback rule covers the other two publishes, and the suite asserts
+  the general form — *no* published port is wildcard-bound — rather than three
+  named ones, so a service added later cannot quietly reopen the hole. The API
+  port matters as much as the web port: it answers the render routes and the
+  built bundle, so exposing it re-exposes the whole board with the Vite port
+  shut. Mongo runs unauthenticated and is only ever reached by service name over
+  the compose network; its publish is a convenience for host-side `pnpm run dev`
+  and mongosh. `test/tailnet-script.test.ts` asserts all of it.
 - **pnpm is the only package manager here**, pinned by `packageManager` in
   `package.json` and enforced in the image through corepack. `npm install` would
   write a `package-lock.json` nobody reads and a flat `node_modules` that
