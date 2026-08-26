@@ -1,5 +1,13 @@
 registry.json
 node_modules/
+
+# pnpm's content-addressable store. Landed in git by accident in 83843fd7 — a
+# `git add -A` alongside a two-file docker fix swept in 18,358 files — and
+# nothing reads it from here: no .npmrc, no store-dir setting, no compose mount
+# point at it. It is regenerable local cache, so it is ignored rather than
+# vendored.
+.pnpm-store/
+
 *.log
 .DS_Store
 .idea/
