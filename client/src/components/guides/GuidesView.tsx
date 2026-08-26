@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useGuides } from '../../hooks/useGuides';
 import { usePersistedState } from '../../hooks/usePersistedState';
-import { partitionSeries } from '../../lib/series';
+import { partitionSeries, seriesLabel } from '../../lib/series';
 import type { SeriesLesson } from '../../lib/series';
 import type { GuideEntry, GuideType, ProjectEntry } from '../../../../shared/types';
 
@@ -589,7 +589,7 @@ export default function GuidesView() {
                           onClick={() => toggleShelf(s.key)}
                         >
                           <span className="shelf-tag">series</span>
-                          <span className="shelf-name">{s.name}</span>
+                          <span className="shelf-name">{seriesLabel(s.name)}</span>
                           {/* Counts what the grid below holds, like .bay-count. */}
                           <span className="shelf-count">
                             {s.shown.length} {s.shown.length === 1 ? 'lesson' : 'lessons'}

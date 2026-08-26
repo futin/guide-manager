@@ -34,8 +34,9 @@ export interface SeriesLesson<T> {
 /**
  * One series as the board groups it. `key` is the series directory's absolute
  * path — unique even when two projects (or two subtrees of one project) both
- * hold a series named `basics` — and `name` is that directory's basename, which
- * is what the shelf header prints.
+ * hold a series named `basics` — and `name` is that directory's basename, the
+ * same string the derivation matches filenames against. The header prints
+ * `seriesLabel(name)`, not `name` itself (see below).
  */
 export interface SeriesGroup<T> {
   key: string;
@@ -107,4 +108,31 @@ export function partitionSeries<T extends { path: string }>(
     );
   }
   return { shelves, loose };
+}
+
+/**
+ * The shelf header's display form of a series name: `write-paths` → `Write
+ * paths`.
+ *
+ * Kept separate from `SeriesGroup.name` rather than replacing it, because the
+ * two are not the same value wearing different clothes. `name` is derived from
+ * the directory and is what the derivation matches the filename prefix
+ * against — prettifying it in place would mean the rule that decides
+ * membership and the string a reader sees could drift apart, and the first
+ * symptom would be a series that silently stops grouping. So the raw basename
+ * stays the identity and this is a pure render-time transform, called at the
+ * one place the name is printed.
+ *
+ * Sentence case, not Title Case: a series slug is a phrase, not a heading, and
+ * `Write Paths` reads like a product name while `Write paths` reads like the
+ * subject it is. Only the first character is touched for the same reason —
+ * upper-casing every word would turn `pending-vs-plans` into `Pending Vs
+ * Plans`, capitalising a word no English sentence capitalises. Interior
+ * capitals a slug already carries are left exactly as they are: a directory
+ * named `spawn-ts` is the author's spelling of it, and this function is not the
+ * place to have opinions about the rest.
+ */
+export function seriesLabel(name: string): string {
+  const words = name.replace(/[-_]+/g, ' ').trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : name;
 }

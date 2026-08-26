@@ -125,7 +125,9 @@ describe('GuidesView series shelves', () => {
   it('groups series lessons into one shelf, in series order, above the loose grid', async () => {
     await renderGuides();
     expect(document.querySelectorAll('.shelf')).toHaveLength(1);
-    expect(shelf()!.querySelector('.shelf-name')!.textContent).toBe('mongo-internals');
+    // The header prints the label, not the directory slug the derivation keys
+    // on — see seriesLabel in client/src/lib/series.ts.
+    expect(shelf()!.querySelector('.shelf-name')!.textContent).toBe('Mongo internals');
     // Series order 1..3, NOT the default created-desc order (2, 3, 1).
     expect(shelfCardTitles()).toEqual(['Storage engine', 'Indexes', 'Replication']);
     expect(looseCardTitles()).toEqual(['Vite proxy layer', 'Render pipeline']);

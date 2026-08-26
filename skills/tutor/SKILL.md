@@ -194,6 +194,15 @@ guide-manager viewer lists it:
       --type tutor \
       --title "<the deck's topic title>"
 
+`--title` is the lesson's own subject, and for a deck that belongs to a series
+that is *all* it is: not the series name, and not its position. The board
+already prints both around the card — the shelf header carries the series, the
+card's step badge carries `N/total` — so a title like
+`The write paths (lesson 1 of 2)` says the same two things a third time and
+leaves no room for the one thing only the title can say. Prefer the lesson's own
+claim: `The answer, the verdict, the reply`. A standalone deck has no shelf and
+no badge, so its title carries the topic itself, as before.
+
 If the command prints a warning, mention it to the user and move on —
 registration must never block or fail the wrap-up. This registration is the
 single exception to guardrail 1's "the only file a session may ever write is

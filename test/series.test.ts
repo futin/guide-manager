@@ -1,4 +1,4 @@
-import { partitionSeries, seriesOf } from '../client/src/lib/series';
+import { partitionSeries, seriesLabel, seriesOf } from '../client/src/lib/series';
 
 /*
   The derivation is the whole contract between the tutor skill's naming
@@ -99,5 +99,41 @@ describe('partitionSeries', () => {
       g('/p/s/s-3-c.html'),
     ]);
     expect(shelves[0].lessons.map((l) => l.order)).toEqual([1, 3, 4]);
+  });
+});
+
+/*
+  The label is render-only: it must never be what membership is decided on, so
+  these cases are about reading, not grouping.
+*/
+describe('seriesLabel', () => {
+  it('turns a kebab slug into a sentence-cased phrase', () => {
+    expect(seriesLabel('write-paths')).toBe('Write paths');
+  });
+
+  it('capitalises a single-word slug', () => {
+    expect(seriesLabel('basics')).toBe('Basics');
+  });
+
+  /* Title Case would capitalise `Vs`, which no English sentence does — only the
+     first character is ever touched. */
+  it('leaves interior words alone', () => {
+    expect(seriesLabel('pending-vs-plans')).toBe('Pending vs plans');
+  });
+
+  it('keeps digits and existing capitals as written', () => {
+    expect(seriesLabel('phase-2-mongo')).toBe('Phase 2 mongo');
+    expect(seriesLabel('spawn-TS')).toBe('Spawn TS');
+  });
+
+  it('collapses underscores and repeated separators', () => {
+    expect(seriesLabel('write__paths')).toBe('Write paths');
+    expect(seriesLabel('write--paths')).toBe('Write paths');
+  });
+
+  /* A slug that is nothing but separators has no label to make; returning it
+     unchanged keeps the header printing *something* rather than an empty span. */
+  it('returns a separator-only name unchanged', () => {
+    expect(seriesLabel('--')).toBe('--');
   });
 });
