@@ -73,8 +73,10 @@ of a lesson that was taught interactively, never a substitute for teaching it.
    - **Size** — quick (~3 sections) / standard (~5 sections). Five sections is a hard
      cap (see Pedagogy); a scope that needs more becomes a proposed lesson series (see
      Lesson series), never a bigger lesson.
-   - **Deck location** — default `docs/guides/tutor/<topic>-deck.html`; the user may
-     give any path. That default shares the convention `/study` writes under
+   - **Deck location** — default `docs/guides/tutor/<topic>-deck.html` for a standalone
+     lesson; a lesson that belongs to a series defaults into that series' own directory
+     instead, `docs/guides/tutor/<series>/<series>-N-<desc>.html` (see Lesson series).
+     The user may give any path. That default shares the convention `/study` writes under
      (`docs/guides/study/` for guides, `docs/guides/tutor/` for decks), so a project
      keeps one guide tree instead of a fresh deck directory per session that invented
      one. Asked in the same call regardless of mode; if the mode answer that
@@ -82,9 +84,10 @@ of a lesson that was taught interactively, never a substitute for teaching it.
      the directories that lead to the deck, when the chosen path names ones that don't
      exist yet, is part of writing the deck — the single carve-out from guardrail 1's
      "never write anything else to disk". On a project that has never held a guide the
-     default path needs both `docs/guides/` and `docs/guides/tutor/`, so this is
-     `mkdir -p` on the deck's parent chain, not exactly one directory; nothing outside
-     that chain and the deck file is ever created.
+     default path needs both `docs/guides/` and `docs/guides/tutor/` — and a series
+     lesson adds the series directory on top — so this is `mkdir -p` on the deck's
+     parent chain, not exactly one directory; nothing outside that chain and the deck
+     file is ever created.
 4. **Explore, read-only.**
    - If a deck mode (deck or both) was chosen, check for an existing deck at the target
      path first. If one exists, this session is an incremental update, not a new
@@ -141,11 +144,19 @@ of a lesson that was taught interactively, never a substitute for teaching it.
 
 A scope that needs more than 5 sections is not one oversized lesson — it is a **series**.
 At the syllabus step, refuse the oversized single lesson and instead propose an ordered
-list of lessons, each sized within the 5-section cap, each with its own slug
-(`<topic>-1-<sub>`, `<topic>-2-<sub>`, …), sequenced front to back. The series is a
-naming-and-ordering convention only — there is no progress state, nothing remembered
-about which lessons have already run, and no requirement to take them in order. Present
-the split and let the user pick exactly one lesson to run now; that lesson then goes
+list of lessons, each sized within the 5-section cap, sequenced front to back. A series
+owns a directory, not just a filename prefix: every deck in it lives at
+
+    docs/guides/tutor/<series>/<series>-N-<desc>.html
+
+where `<series>` is the series' kebab-case slug, `N` the lesson's position, and `<desc>`
+a kebab-case slug of that lesson's own subject. The directory is what makes the set read
+as a set — siblings in one place, nothing interleaved between them — and the repeated
+`<series>-` prefix inside it is deliberate redundancy: a deck file opened, linked, or
+registered on its own still says which series it belongs to. `N` is a suggested reading
+order and nothing more — there is no progress state, nothing remembered about which
+lessons have already run, and no gate that enforces taking them in order. Present the
+split and let the user pick exactly one lesson to run now; that lesson then goes
 through the full session flow (mode ask, explore, syllabus check, teach, wrap) on its
 own. Each lesson in a series gets its own deck and its own provenance stamp when a deck
 is produced.

@@ -328,9 +328,9 @@ independently — it can be both part of a series and covered by an existing gui
 **Is this lesson part of a series (SKILL.md's Lesson series)?**
 
 - **Yes, and the next lesson's deck has already been generated** → the recap card
-  links it: same directory as the current deck, same location pattern, next slug in
-  the series (`<topic>-2-<sub>` follows `<topic>-1-<sub>`, and so on) — check that the
-  path exists before linking to it.
+  links it: same series directory as the current deck, same naming pattern, next
+  number in the series (`<series>-2-<desc>.html` follows `<series>-1-<desc>.html`,
+  and so on) — check that the path exists before linking to it.
 - **Yes, but the next lesson's deck doesn't exist yet** → the recap card names it (its
   slug or title) as not yet built, with no link. Nothing here writes that deck; only
   running that lesson's own session does.

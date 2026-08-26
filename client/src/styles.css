@@ -317,6 +317,56 @@ body {
 .guides-card-read { color: var(--green) }
 .guides-card-part { color: var(--ink2) }
 
+/* ── Series shelf ──────────────────────────────────────────────────────────────
+   A series (lessons living together in one docs/guides/tutor/<series>/ directory
+   — see client/src/lib/series.ts for the derivation) renders as its own foldable
+   sub-group inside the bay. The magenta left spine is the grouping mark: it
+   borrows the tutor pill's colour on purpose, because a shelf only ever holds
+   tutor decks, and it is a border on the wrapper rather than on the header so
+   that it runs the shelf's whole height and visibly *contains* the cards. The
+   header stays lighter than .bay-h in every register — smaller, not uppercase,
+   dashed rule instead of solid — so the two fold levels read as levels instead
+   of as two competing section headers. */
+.shelf { border-left: 2px solid var(--magenta); padding-left: 12px; display: flex; flex-direction: column; gap: var(--bay-gap) }
+/* A folded shelf dims its spine like a folded bay dims its tick, and for the
+   same reason: full-strength accent on a row with nothing under it reads as a
+   grid that failed to render, not as a closed drawer. */
+.shelf.folded { border-left-color: var(--hairline2) }
+/* Button reset first, exactly as .bay-h: the whole header is the disclosure. */
+.shelf-h {
+  appearance: none; width: 100%; margin: 0;
+  background: none; border: 0; font: inherit; color: inherit;
+  text-align: left; cursor: pointer;
+
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 0 0 4px; border-bottom: 1px dashed var(--hairline);
+}
+.shelf-tag {
+  flex: none; align-self: center;
+  font-family: var(--mono); font-size: 8.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .09em;
+  color: var(--magenta); border: 1px solid var(--magenta);
+  padding: 0 5px; border-radius: 2px;
+}
+.shelf-name { font-size: 12.5px; font-weight: 600; color: var(--ink) }
+.shelf-count { font-family: var(--mono); font-size: 9.5px; color: var(--ink3) }
+/* One cell per lesson, filled to that lesson's furthest — the series' progress
+   at a glance, in the header, where it survives the shelf being folded. The
+   cells are centred like the bay's tick (an empty inline box baseline-aligns on
+   its bottom margin edge and would hang under the name). */
+.shelf-segs { display: inline-flex; gap: 2px; align-self: center }
+.shelf-seg { width: 14px; height: 4px; background: var(--steel); border-radius: 1px; overflow: hidden }
+.shelf-seg-fill { display: block; height: 100%; background: var(--green) }
+.shelf-caret {
+  flex: none; align-self: center; margin-left: auto;
+  font-size: 10px; color: var(--ink3); transition: transform .15s, color .15s;
+}
+.shelf-h:hover .shelf-caret { color: var(--ink2) }
+.shelf-h[aria-expanded="false"] .shelf-caret { transform: rotate(-90deg) }
+/* The lesson's place in its series, leading the card footer. Mono and muted:
+   it is an index, not a title, and it must not outweigh the pill beside it. */
+.guides-card-step { flex: none; font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: .06em; color: var(--ink3) }
+
 /* Viewer pane — .guide-viewer-head is kept as its own element deliberately: it
    is the exact class name a later companion panel would mount into, so its
    shape stays stable. */
