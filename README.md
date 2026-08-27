@@ -59,16 +59,30 @@ board silently — widen the mount if you write guides elsewhere.
 
 ## Install the skills
 
-The repo is its own plugin marketplace:
+The repo is its own plugin marketplace, published from GitHub with a sparse
+checkout so an install carries the skills and the two directories they reach
+for — not the whole working tree:
 
 ```bash
-claude plugin marketplace add /path/to/guide-manager
+claude plugin marketplace add futin/guide-manager --sparse .claude-plugin skills bin assets
 claude plugin install guide-manager@guide-manager-marketplace
 ```
 
 That gives every project `/study` and `/tutor`. Both skills call
 `bin/register.js` at the end of a run, so a new guide appears on the board
 without a restart.
+
+An install is a copy, not a link, and the installer reads git rather than the
+working tree — so edits under `skills/`, `bin/` or `assets/` reach a running
+Claude Code only once they are committed, pushed, and:
+
+```bash
+pnpm run plugin:sync
+```
+
+That refuses a dirty or unpushed tree instead of installing stale code,
+reinstalls from the pushed HEAD, prunes older cached copies, and tells you to
+restart Claude Code. It never commits or pushes for you.
 
 Registering by hand:
 
