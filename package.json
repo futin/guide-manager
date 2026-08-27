@@ -18,7 +18,8 @@
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down",
     "docker:sync": "pnpm run docker:down && docker volume rm -f guide-manager_guide-manager-node-modules && pnpm run docker:up",
-    "tailnet": "node bin/tailnet.js"
+    "tailnet": "node bin/tailnet.js",
+    "plugin:sync": "node bin/plugin-sync.js"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.3.0",

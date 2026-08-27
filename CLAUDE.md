@@ -16,6 +16,7 @@ over Tailscale while this Mac is awake.
 | Types | `pnpm run typecheck` |
 | Production build | `pnpm run build` |
 | Publish the web port to the tailnet | `pnpm run tailnet` (`up` \| `status` \| `down`) |
+| Reinstall the plugin from the pushed HEAD | `pnpm run plugin:sync` |
 
 Mongo is a hard boot requirement: no database, no server. `app.module.ts` bounds
 the connection retries and lets the process exit non-zero rather than idle with a
@@ -49,6 +50,8 @@ tailnet, at that same number.
 - `bin/register.js` — the only writer of the registry; the skills call it.
 - `bin/tailnet.js` — registers a `tailscale serve` from the tailnet to the
   loopback web port, reading `GM_WEB_PORT` so the two sides cannot disagree.
+- `bin/plugin-sync.js` — reinstalls the plugin from the pushed HEAD; the one
+  way edits under `skills/`, `bin/` or `assets/` reach the running Claude Code.
 - `backlog/` — file-based backlog, one Markdown file per item (`backlog/README.md`).
 - `docs/superpowers/` — design specs and implementation plans.
 
@@ -58,6 +61,43 @@ tailnet, at that same number.
   this repo as `guide-manager@guide-manager-marketplace`, and a plugin's skills
   load from `<root>/skills`. Do not move them under `.claude/skills` — a copy
   there loads the same skills twice and drifts.
+- **Editing `skills/`, `bin/` or `assets/` changes nothing until it is
+  committed, pushed, and `pnpm run plugin:sync` runs.** A plugin install is a
+  copy, not a link: Claude Code loads
+  `~/.claude/plugins/cache/guide-manager-marketplace/guide-manager/<version>/`,
+  never the working tree, so an edited skill keeps teaching the old steps with
+  nothing anywhere saying so. The marketplace source is the GitHub repo
+  `futin/guide-manager`, sparse-checked-out to `.claude-plugin skills bin
+  assets`, which is why an install is a few hundred KB instead of the 689MB a
+  `directory` source copied — `node_modules` (473M) and the deliberately
+  vendored `.pnpm-store` (201M) rode along, because the CLI honours no ignore
+  file at all (checked against 2.1.246: no `.claudeignore`, no `.pluginignore`,
+  no allowlist field in either manifest; and it rejects a `file://` source, so
+  a local-only git source is not on the table). Git is therefore the publishing
+  boundary: the installer sees pushed commits and nothing else, so
+  `plugin:sync` refuses a dirty payload, an unpushed HEAD, or a HEAD behind
+  `origin/main` rather than installing stale code and reporting success. It
+  never commits or pushes for you. It also uninstalls and reinstalls rather
+  than calling `claude plugin update`: that command compares the version in
+  `plugin.json` and stops at "already at the latest version" however far the
+  commit behind it has moved, and the cache directory is keyed by version, so
+  the alternative would be a patch bump — another commit, another push — on
+  every skills edit. A reinstall from a sparse source is cheap enough that the
+  bump buys nothing, which is why `plugin.json`'s version is no longer touched
+  per change. It no-ops when the installed copy already matches HEAD, verifies
+  the landed payload by hash, and prunes older version copies — skipping any
+  marked `.in_use`, which a running session still has open. New skills load on
+  the next Claude Code restart, not in the session that ran the sync.
+- **The sparse-checkout list and the skills are checked against each other.**
+  Every `${CLAUDE_PLUGIN_ROOT}/…` path a skill names must sit under one of
+  `bin/plugin-sync.js`'s `PUBLISHED_PATHS`; a reference outside them resolves
+  in this repo and is missing on an installed copy — a failure that only ever
+  shows up on a machine that installed rather than cloned. `bin/` is published
+  for `register.js` and carries `bin/package.json` with it, the
+  `{"type":"module"}` that makes the `bin/` scripts ESM while the rest of the
+  repo is CommonJS; `assets/` is published because `study`'s visuals reference
+  copies `bionic.js`/`.css`/`.html` out of it.
+  `test/plugin-sync.test.ts` asserts the list against `skills/`.
 - **`~/.guide-manager/registry.json` has exactly one writer**: `bin/register.js`,
   on the host. `RegistryService` re-reads it per request and never writes or
   caches it, so a guide registered mid-session shows up without a restart.
