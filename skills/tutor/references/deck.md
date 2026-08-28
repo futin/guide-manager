@@ -376,6 +376,14 @@ Field by field:
   `id` on that section's wrapper element in the file, §1), the section's `title`, and
   the subset of `sources` that section's cards and quizzes actually draw from.
 
+**A general-subject deck (SKILL.md's Subject kind) stamps `commit: null` and empty
+`sources` lists — deliberately, not as a degenerate case.** Its claims ground in
+domain knowledge rather than files, so there is nothing for §7's diff to walk;
+recording the repo's `HEAD` anyway would tie the deck's freshness to commits that
+never touched its material, and a first "update" would then diff against a base that
+proves nothing. The `generated` date and the `sections` list still carry their full
+weight — they are what the recap card and an update conversation anchor to.
+
 **The relationship between the two `sources` lists is a subset relationship, and it's
 load-bearing:** every path inside any `sections[].sources` array must also appear in
 the top-level `sources` array — that's exactly what §8's second checklist item
@@ -398,8 +406,10 @@ a later re-run of this same diff.
 tools to read the JSON. When `commit` is `null` (no commit recorded), there is no SHA
 to shorten — the line instead reads
 "Generated `<generated-date>` (not tracked in git)", reusing the stamp's own
-`generated` value. Never leave the line blank or half-written (e.g. "built at ``")
-just because there's no commit to fill it with.
+`generated` value. A general-subject deck drops the parenthetical and reads just
+"Generated `<generated-date>`" — "(not tracked in git)" explains a SHA a code deck is
+missing, and a general deck isn't missing anything. Never leave the line blank or
+half-written (e.g. "built at ``") just because there's no commit to fill it with.
 
 ## 7. Update flow
 
@@ -418,7 +428,11 @@ condition instead, reached from inside the happy path, at step 3):
 2. Does the `id="provenance"` script tag exist **and** parse as JSON? If **no** →
    legacy path (third row); stop.
 3. Is the parsed stamp's `commit` present and non-`null`? If **no** → confirmed full
-   rebuild (first row); stop.
+   rebuild (first row); stop. For a general-subject deck this exit is the designed
+   refresh path, not an error: its stamp says `commit: null` on purpose (§6), there is
+   no source diff to make a section-level update safe, so no happy path exists for
+   it — the user says what changed or what to extend, and the deck is rebuilt per
+   §1–§6 with that in hand, behind the same confirmation as any full rebuild.
 4. Does `git cat-file -e <sha>^{commit}` succeed for that commit? If **no** → warn,
    then confirmed full rebuild (second row); stop.
 5. Otherwise → the happy path.

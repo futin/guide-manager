@@ -1,24 +1,50 @@
 ---
 name: tutor
 description: >
-  Use when the user wants to learn a codebase, directory, or mechanism of the
-  current project interactively — taught in small chunks with comprehension
-  questions — or asks to be quizzed on how existing code works, or invokes
-  /tutor. Also use to refresh a previously generated lesson deck after the
-  underlying code changed. Not for producing passive reference documentation.
+  Use when the user wants to learn something interactively — a codebase,
+  directory, or mechanism of the current project, or a general subject such as
+  a natural language, a theory, or an exam topic — taught in small chunks with
+  comprehension questions — or asks to be quizzed on how existing code works or
+  on a subject they are studying, or invokes /tutor. Also use to refresh a
+  previously generated lesson deck after the underlying code or material
+  changed. Not for producing passive reference documentation.
 trigger: /tutor
 ---
 
-# tutor — interactive codebase lessons
+# tutor — interactive lessons
 
-`tutor` teaches a directory, file, or mechanism of the current project the way a live
-tutor does: explain one small piece, check comprehension with a question, adapt when the
-answer is wrong, then move to the next piece. That loop — teach, check, adapt — is the
+`tutor` teaches the way a live tutor does: explain one small piece, check comprehension
+with a question, adapt when the answer is wrong, then move to the next piece. The
+subject can be a directory, file, or mechanism of the current project, or a general
+one — a natural language, a theorem, any body of knowledge that doesn't live in this
+repo's files; the loop is identical either way (see Subject kind below for what does
+change). That loop — teach, check, adapt — is the
 entire value of this skill. Producing passive reference documentation that the learner
 reads end-to-end with no feedback loop is a different job with a different artifact — if
 that's what's wanted, this is the wrong tool. `tutor` can optionally end a session by
 writing a self-contained HTML deck for later self-paced review, but the deck is a record
 of a lesson that was taught interactively, never a substitute for teaching it.
+
+## Subject kind
+
+Every session is one of two kinds, decided at the Scope step (Session flow, step 2)
+and fixed for the whole session:
+
+- **code** — the topic names, or resolves to, files, directories, or mechanisms of the
+  current project. The working directory is the project root; every exploration and
+  every grounded claim stays inside it.
+- **general** — anything else: a natural language, a theory, a standard, an exam
+  syllabus — any subject whose material is knowledge rather than this repo's files.
+
+The predicate is observable: if the topic can be pointed at in the working tree, the
+session is code; if it can't, it is general. When an invocation genuinely supports
+both readings (a topic word that is also a directory name here), add one question to
+the step-3 mode ask rather than guessing — same `AskUserQuestion` call, no extra round
+trip. A general session is neither a misuse of the skill nor a looser version of it:
+everything below that says "code subject" or "general subject" branches on this
+decision, and everything that doesn't say so — the teach/check/adapt loop, the chunk
+and cadence bounds, the answer-leak ban, the wrong-answer protocol, the deck
+contract — applies identically to both kinds.
 
 ## Hard guardrails
 
@@ -27,9 +53,18 @@ of a lesson that was taught interactively, never a substitute for teaching it.
    deck, and nothing else — Session flow, step 3). Never edit, create, or delete source code,
    and never write anything else to disk.
 2. **No refactoring advice.** A real flaw in the code is framed as the trade-off its
-   authors accepted, never as a suggestion to change it.
-3. **Grounded.** Every claim ties to a real `file:line` in the current project. No
-   invented examples, nothing imported from another project.
+   authors accepted, never as a suggestion to change it. The general-subject
+   counterpart: teach the standard, and mark disputed or regional variation as
+   variation — never prescribe one side of a live dispute as the single right answer.
+3. **Grounded.** Code subject: every claim ties to a real `file:line` in the current
+   project — no invented examples, nothing imported from another project. General
+   subject: every claim is established, verifiable knowledge of the domain — no
+   invented facts, no fabricated citations or sources; examples are constructed by the
+   tutor and labeled as constructed (Pedagogy, Excerpts), and a language lesson's
+   example sentences must be idiomatic and carry a gloss the learner can check them
+   against. Both halves are one rule — nothing reaches the learner that the tutor
+   cannot stand behind — only the thing claims ground *in* changes with the subject
+   kind.
 4. **Teach, don't dump.** A chunk stays inside the size given in Pedagogy below and is
    followed by a question within the required cadence. A wall of prose or code with no
    comprehension check in between is a failure of this skill, regardless of how accurate
@@ -65,9 +100,10 @@ of a lesson that was taught interactively, never a substitute for teaching it.
 1. **Prose on.** If a terse or compressed output mode is active for this session,
    disable it before teaching — full prose is required to teach.
 2. **Scope.** Parse the invocation's arguments: topic, directory, file, or question. If
-   missing, ask what to learn and where. Derive a kebab-case `<topic>` slug from it. The
-   current working directory is the project root; every exploration and every grounded
-   claim stays inside it.
+   missing, ask what to learn and where. Decide the subject kind (see Subject kind
+   above) and derive a kebab-case `<topic>` slug. For a code subject the current
+   working directory is the project root; every exploration and every grounded claim
+   stays inside it.
 3. **Mode ask.** One `AskUserQuestion` call, asking all three together:
    - **Mode** — in-chat (default) / deck / both.
    - **Size** — quick (~3 sections) / standard (~5 sections). Five sections is a hard
@@ -98,10 +134,12 @@ of a lesson that was taught interactively, never a substitute for teaching it.
      exactly that point, overwrite in place included. An in-chat-only session skips
      this check: it writes nothing, so there is no deck of its own to update, and Mode
      dispatch bars it from opening `references/deck.md` at all.
-   - Otherwise map only the files in scope — a subagent for a broad scope, direct reads
-     for a narrow one — and reuse context that already exists (project
-     `CLAUDE.md`/`AGENTS.md`, README, any written guide already covering the topic)
-     instead of re-deriving it.
+   - Otherwise, for a code subject, map only the files in scope — a subagent for a
+     broad scope, direct reads for a narrow one — and reuse context that already exists
+     (project `CLAUDE.md`/`AGENTS.md`, README, any written guide already covering the
+     topic) instead of re-deriving it. A general subject has no files to map: skip the
+     mapping and go straight to the syllabus (the deck-existence check above still ran
+     first when a deck mode was chosen).
 5. **Syllabus check.** Show a one-line-per-section outline and get confirmation via
    `AskUserQuestion` before teaching a single chunk.
 6. **Teach.** Per Pedagogy below, and whichever reference the chosen mode requires (see
@@ -115,9 +153,11 @@ of a lesson that was taught interactively, never a substitute for teaching it.
 
 ## Pedagogy
 
-- **Chunk** — one mechanism, 150–250 words, always: what it does, why it exists, the bad
-  alternative a beginner would reach for, and the trade-offs of the approach actually
-  taken.
+- **Chunk** — one mechanism or concept, 150–250 words, always: what it does, why it
+  exists, the bad alternative a beginner would reach for (in a general subject: the
+  common misconception or typical learner error), and the trade-offs of the approach
+  actually taken (in a general subject: the rule's limits — where it stops applying,
+  and its real exceptions).
 - **Section** — 2–4 chunks followed by 1–2 quiz questions. Never more than 3 chunks
   without a question. The lesson's *first* question is tighter than that cap: it comes
   after the first chunk, never later. The 3-chunk allowance governs the rest of the
@@ -136,9 +176,14 @@ of a lesson that was taught interactively, never a substitute for teaching it.
   recap card instead links every section, per `references/deck.md`.
 - **Excerpts** — every code excerpt is short, labeled on the fence's first line with its
   exact source range (e.g. `// scan.ts:44-52`), with `(compacted here)` appended when the
-  excerpt is abridged from that range.
-- Define project/framework jargon on first use. Every claim grounds in a real
-  `file:line` in the current project, never an example carried over from another one.
+  excerpt is abridged from that range. A general subject's set-off examples follow the
+  same shape with the only label the subject can support: marked as constructed (e.g.
+  `// example (constructed)`), and in a language lesson paired with a gloss.
+- Define jargon on first use — a project's, a framework's, or the subject's own (a
+  grammar term needs defining as much as a framework term). Every claim grounds per
+  Hard guardrail 3's rule for the session's subject kind: a real `file:line` in the
+  current project for a code subject, established domain knowledge for a general one —
+  never an example carried over from another project, never an invented fact.
 
 ## Lesson series
 
@@ -186,7 +231,9 @@ mechanism poses the question.
 
 After a deck is written or refreshed (deck or both mode only — an in-chat
 session writes nothing and registers nothing), register it so the
-guide-manager viewer lists it:
+guide-manager viewer lists it. A general-subject deck registers exactly the
+same way — `--project` is simply the repo the session ran in, which is where
+its deck was written:
 
     node "${CLAUDE_PLUGIN_ROOT}/bin/register.js" \
       --project "<absolute path to the project root>" \

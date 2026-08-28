@@ -71,9 +71,10 @@ strictly correct given what the chunk (or the excerpt shown) already established
 a matter of taste, and never dependent on something not covered yet.
 
 The worked examples below are invented, generic scaffolding — no file from any real
-project — chosen only to show the shape. A live lesson's own questions ground in real
-`file:line` references from the project actually being taught, per SKILL.md's
-guardrails; these are format demonstrations only. Any parenthetical marking an option
+project — chosen only to show the shape. A live lesson's own questions ground per
+SKILL.md's Hard guardrail 3 for the session's subject kind — real `file:line`
+references for a code subject, established domain knowledge for a general one; these
+are format demonstrations only. Any parenthetical marking an option
 "correct" is for this document's reader — it is never part of what actually gets sent to
 the learner.
 
@@ -101,11 +102,20 @@ disk?"
 - "Because the data this cache stores is considered too sensitive to ever write to
   disk." — distractor
 
-### 2. Predict behavior (on shown code)
+### 2. Predict behavior / apply the rule
 
 Shows a short excerpt, labeled like any lesson excerpt, and asks what it does for a
 specific input — checks whether the learner can trace the mechanism, not just recite an
 explanation of it.
+
+The general-subject form of the same question is **apply the rule**: the chunk taught
+a rule, the question presents a fresh instance the chunk did not show, and the options
+are candidate applications — after a chunk on German dative prepositions, "Which
+completion is correct: *Ich fahre mit ___ Bus*?" with the dative *dem* as the one
+idiomatic answer and distractors a half-understanding would genuinely produce (*den*,
+the accusative a learner overapplies; *der*, the wrong-gender guess). Same discipline
+as the code form: exactly one strictly correct option, and everything needed to pick
+it already taught.
 
 **Example.**
 
@@ -131,7 +141,8 @@ Question: "What does `clamp(15, 0, 10)` return?"
 
 Checks whether the learner understood the trade-off, by asking why the code does *not*
 take some other, tempting approach — the direct test of the chunk's "bad alternative"
-half.
+half. In a general subject this is the misconception test: why the tempting form — the
+false friend, the over-generalized rule — is not what the standard says.
 
 **Example.** Say the chunk just taught that a background worker's job queue is capped
 at a fixed maximum size, and a producer that tries to add past the cap gets a hard error
