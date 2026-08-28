@@ -110,12 +110,12 @@ explanation of it.
 
 The general-subject form of the same question is **apply the rule**: the chunk taught
 a rule, the question presents a fresh instance the chunk did not show, and the options
-are candidate applications — after a chunk on German dative prepositions, "Which
-completion is correct: *Ich fahre mit ___ Bus*?" with the dative *dem* as the one
-idiomatic answer and distractors a half-understanding would genuinely produce (*den*,
-the accusative a learner overapplies; *der*, the wrong-gender guess). Same discipline
-as the code form: exactly one strictly correct option, and everything needed to pick
-it already taught.
+are candidate applications. In a language lesson that is a sentence with a blank whose
+one idiomatic completion the taught rule picks out, with distractors a
+half-understanding would genuinely produce (the default form a learner over-applies,
+the plausible wrong guess); in a theory lesson, a new case to classify under the
+just-taught definition. Same discipline as the code form: exactly one strictly correct
+option, and everything needed to pick it already taught.
 
 **Example.**
 
