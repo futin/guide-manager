@@ -354,8 +354,10 @@ grid reads in an order nobody chose.
 **The card** (`.fav-card`):
 
 - *Head row:* a drag handle (shown only under `pointer: fine`) · the **title**
-  — click to edit inline, `Enter`/blur → `PATCH` — · the type pill (`study` /
-  `tutor`) · pinned right: `↑` `↓` `⤒` `✕`. `✕` is two-tap, the label becoming
+  — click to edit inline, `Enter`/blur → `PATCH` — · the type pill (`tutor`
+  for a `deck` anchor, `study` for a `doc` one, none when the anchor is
+  `null` — the row carries no guide type of its own, and the anchor's kind
+  is that fact already) · pinned right: `↑` `↓` `⤒` `✕`. `✕` is two-tap, the label becoming
   `sure?`, exactly as the viewer's reset: one destructive control per card in
   a dense list must not fire on a mis-tap.
 - *Crumb line*, monospace, muted: `guideTitle › crumb[0] › crumb[1]`, the
@@ -418,7 +420,7 @@ and `GuideProgress` are unchanged. `ProgressContext` (server-side only) gains
 | `server/src/app.module.ts` | import `FavoritesModule` |
 | `server/src/app.setup.ts` | new — `configureApp`: `bodyParser: false` + 1 MB JSON parser |
 | `server/src/main.ts` | use `configureApp` |
-| `server/src/render/render.util.ts` | `FavoritesContext`, `injectFavoritesCapture`; `ProgressContext.jumpTo` |
+| `server/src/render/render.util.ts` | `FavoritesContext`, `injectFavoritesCapture`; `ProgressContext.jumpTo`; `parseJump(at)` — `JSON.parse` then `parsePosition`, `null` on any failure |
 | `server/src/render/render.controller.ts` | `guide()` forwards `at`; `asset()` parses `at` → `jumpTo`, calls `injectFavoritesCapture` |
 | `server/src/render/assets.controller.ts` | `GET /favorites.js` |
 | `server/src/static.ts` | `/favorites.js` in the fallback exclusion |
@@ -428,6 +430,7 @@ and `GuideProgress` are unchanged. `ProgressContext` (server-side only) gains
 | `client/src/components/SideRail.tsx` | third section |
 | `client/src/App.tsx` | lazy `FavoritesView`; the section guard |
 | `client/src/components/settings/SettingsView.tsx` | `LANDINGS` row |
+| `client/src/lib/settings.ts` | the runtime `LANDINGS` list gains `'favorites'` — `Section` is a type with no members to iterate, so `clampSettings` would otherwise drop the new landing as unknown |
 | `client/src/hooks/useFavorites.ts` | new |
 | `client/src/lib/sanitize.ts` | new |
 | `client/src/components/favorites/FavoritesView.tsx` | new — bar, bays, list |
@@ -452,7 +455,8 @@ docblock for anything with a DOM.
   `favorites vN`; composes with the reading-aid and reporter splices without
   clobbering either; not injected for an unregistered sibling; `/guide?at=`
   reaches the frame src verbatim; `/asset?at=` valid → `jumpTo` in the
-  progress blob, malformed → `null`.
+  progress blob, malformed → absent. `assets.e2e.test.ts` gains the
+  `GET /favorites.js` byte-equality case its siblings have.
 - **`favorites-capture.test.ts`** — jsdom, against a fixture deck (sections,
   cards with eyebrow/h2/table/quiz, Back/Next in a `<nav>`) and a fixture
   build (id'd h2/h3, `nav.toc`): innermost-block candidate; `wider` stops at
@@ -465,13 +469,15 @@ docblock for anything with a DOM.
 - **`progress-reporter-jump.test.ts`** — `jumpTo` beats the stored position,
   deck and doc; absent `jumpTo` → the resume as before; notice wording; the
   open report carries the jumped position.
+- **`sanitize.test.ts`** — jsdom, the sanitiser alone: drops `script`,
+  `on*`, `srcdoc`, `javascript:`; keeps `<style>` inside `<svg>`, drops it
+  outside; `<a>` handling; non-`http(s)` `src` removed.
 - **`favorites-view.test.tsx`** — bays in project order, cards in `order`;
   search over all four fields; `↑` `↓` `⤒` send the bay's full id list and
   reorder on screen before the response; two-tap delete; inline title and
-  note edits → `PATCH` bodies; sanitiser drops `script`, `on*`,
-  `javascript:`, keeps `<style>` inside `<svg>`, drops it outside; `<a>`
-  handling; quiz option reveal; link href carries `p` and `at`; empty and
-  error states; a failed `PUT` refetches.
+  note edits → `PATCH` bodies; a sanitised body renders without its script
+  and handlers; quiz option reveal; link href carries `p` and `at`; empty
+  and error states; a failed `PUT` refetches.
 - **`side-rail.test.tsx`**, **`app-landing.test.tsx`**,
   **`settings-view.test.tsx`** — three tabs; the guard maps `favorites`; the
   landing select offers it.
