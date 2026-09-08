@@ -30,13 +30,13 @@ Spec: `docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` · Plan: `docs/superp
      Drop the groups you didn't touch. Or use a `| Piece | Role |` table for a
      new subsystem. -->
 
-**Server** <!-- server/src: guides, progress, registry, render, static -->
+**Server** <!-- server/src: guides, progress, favorites, registry, render, static -->
 -
 
-**Client** <!-- client/src: rail, Guides view, Settings view, hooks -->
+**Client** <!-- client/src: rail, Guides view, Favorites view, Settings view, hooks -->
 -
 
-**Served assets** <!-- assets/: bionic.*, progress.js — spliced by GET /asset, never vendored -->
+**Served assets** <!-- assets/: bionic.*, progress.js, favorites.js — spliced by GET /asset, never vendored -->
 -
 
 **Skills / registry** <!-- skills/study, skills/tutor, bin/register.js -->

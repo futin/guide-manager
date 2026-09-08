@@ -336,10 +336,12 @@ export default function GuidesView() {
             `display:none` and only `.card.active` shows one, so Back/Next, the
             arrow-key shortcuts and the quiz's click-to-reveal are entirely
             script-driven; block scripts and the deck freezes on its first card
-            forever. The same is true of the reading aid and the progress reporter
-            the server injects into a rendered markdown guide. There is no
-            untrusted content here to isolate, so do not add a `sandbox` back
-            without re-testing the pager, the quiz, and bionic reading against it.
+            forever. The same is true of the three scripts the server injects
+            into a registered guide — the reading aid, the progress reporter and
+            the favorites capture script, whose star mounts into this shell's
+            own crumbs line. There is no untrusted content here to isolate, so
+            do not add a `sandbox` back without re-testing the pager, the quiz,
+            bionic reading and the favorites star against it.
           */}
           {/*
             Keyed by the guide *and* the reset counter. React would otherwise

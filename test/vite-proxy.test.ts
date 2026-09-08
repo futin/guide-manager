@@ -6,13 +6,14 @@ import { AssetsController } from '../server/src/render/assets.controller';
  * The dev server and the production server must serve the same set of paths.
  *
  * In production Nest owns everything: AssetsController answers /style.css,
- * /theme.css, /bionic.css and /bionic.js, and static.ts explicitly excludes
- * those from the SPA fallback. In dev the client is served by Vite on another
- * port, so every one of those paths needs a proxy entry — and a missing one does
- * not 404. Vite's own SPA fallback answers it with index.html as text/html, the
- * browser parses zero CSS rules out of it, and the guide page silently renders
- * unstyled: a framed tutor deck collapses to an iframe's intrinsic 300x150, and
- * the guide body loses its background so the shell shows through it.
+ * /theme.css, /bionic.css, /bionic.js, /progress.js and /favorites.js, and
+ * static.ts explicitly excludes those from the SPA fallback. In dev the
+ * client is served by Vite on another port, so every one of those paths needs
+ * a proxy entry — and a missing one does not 404. Vite's own SPA fallback
+ * answers it with index.html as text/html, the browser parses zero CSS rules
+ * out of it, and the guide page silently renders unstyled: a framed tutor
+ * deck collapses to an iframe's intrinsic 300x150, and the guide body loses
+ * its background so the shell shows through it.
  *
  * That failure is invisible to every server-side suite, which is why it is
  * asserted here against the controller's own route metadata rather than a
@@ -37,6 +38,7 @@ describe('vite dev proxy', () => {
     expect(assetRoutes().sort()).toEqual([
       '/bionic.css',
       '/bionic.js',
+      '/favorites.js',
       '/progress.js',
       '/style.css',
       '/theme.css'

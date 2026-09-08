@@ -72,6 +72,19 @@ export class AssetsController {
     this.sendFile(res, join('assets', 'progress.js'), MIME['.js']);
   }
 
+  /**
+   * The favorites capture script, spliced into every framed guide by GET
+   * /asset (registered guides only — see the `meta.type` gate there).
+   *
+   * Served rather than vendored for the same reason as the reporter above:
+   * one implementation governs every guide the app frames, however old the
+   * build is, and a fix reaches all of them without regenerating anything.
+   */
+  @Get('favorites.js')
+  favoritesJs(@Res() res: Response): void {
+    this.sendFile(res, join('assets', 'favorites.js'), MIME['.js']);
+  }
+
   private sendFile(res: Response, relPath: string, type: string): void {
     res.type(type).send(readFileSync(join(REPO_ROOT, relPath), 'utf8'));
   }

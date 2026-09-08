@@ -520,3 +520,47 @@ docblock for anything with a DOM.
 - **Export** to Markdown or Anki.
 - **A Default bay.** Every registered guide belongs to a project.
 - **Cross-device conflicts.** Last write wins, as everywhere in this app.
+
+## Implementation divergences (2026-09-08, task 9)
+
+Recorded during the run, each a deliberate call at the point the code on disk
+disagreed with this spec.
+
+- **`favorites.schema.ts`'s `project` is `default: ''` without
+  `required: true`.** Mongoose's `String` `required` check rejects `''` as
+  well as absence, so the spec's "required, default `''`" is
+  self-contradictory: pairing the two would fail the field's own default on
+  every unattributed favorite. Dropped `required` and kept the default.
+- **`snapshot().text` joins with block-boundary separators, not raw
+  `textContent`.** The plan's own expected value is unreachable from its
+  fixture by joining `textContent` alone — adjacent `<th>`s carry no
+  inter-tag whitespace and would fuse into one word. Inline elements are
+  deliberately left unsplit so the reading aid's `<b>` prefixes do not break
+  words.
+- **The doc crumb walks `h1[id]`–`h4[id]`**, the same heading set
+  `assets/progress.js`'s `docAnchor` scrolls against, so a crumb and the
+  anchor it opens can never disagree about which heading the block sits
+  under.
+- **`sanitizeSnapshot` enforces more than this spec's rule list.** It also
+  drops `noscript`/`noembed`/`noframes`, recurses into `<template>` content,
+  re-runs the parse-and-strip pass until the output is stable (returning
+  `''` if it never converges), matches the `<style>` carve-out on the SVG
+  namespace rather than `closest('svg')`, and drops the SMIL
+  `animate`/`set`/`animateTransform` family. Each closes a demonstrated
+  mutation-XSS or app-blanking route this spec's rule list did not name;
+  `client/src/lib/sanitize.ts` is the boundary where the HTML actually
+  executes, so the list being silent on a route did not settle whether it was
+  safe.
+- **The picker's hover preview does not replace a candidate the current one
+  already contains**, so clicking `wider` and then moving the pointer toward
+  the toolbar no longer snaps the selection back to the narrow block it was
+  widened from.
+- **The outline hides when the candidate's rects are empty**, and `Save`
+  refuses a candidate detached from the document (no honest card index or
+  document order) — a merely hidden but still-connected candidate (a deck
+  card the reader paged away from) saves normally.
+- **The save flow tracks three facts, not one** — a request in the air, a
+  landed write on its way out, and a counter naming the current run — so
+  `Back` inside the success window can never strand the picker refusing every
+  further Save, or let an abandoned reply speak for a newer one still in
+  flight.
