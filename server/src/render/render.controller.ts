@@ -7,8 +7,10 @@ import { MIME } from './mime';
 import {
   breadcrumbBar,
   deckFrame,
+  injectFavoritesCapture,
   injectProgressReporter,
   injectReadingAid,
+  parseJump,
   wrapPage
 } from './render.util';
 import { resolveAllowed } from './paths.util';
@@ -36,12 +38,25 @@ export class RenderController {
    * registered as a guide is a mistake upstream, and 404 says so.
    */
   @Get('guide')
-  guide(@Query('p') requested: string, @Res() res: Response): void {
+  guide(
+    @Query('p') requested: string,
+    @Query('at') at: string | undefined,
+    @Res() res: Response
+  ): void {
     const real = this.resolve(requested);
     const ext = extname(real).toLowerCase();
     if (ext !== '.html' && ext !== '.htm') throw new NotFoundException('not a guide');
     const meta = this.registry.guideMeta(real);
-    const src = `/asset?p=${encodeURIComponent(real)}`;
+    /*
+      `at` is forwarded onto the frame's own src rather than interpreted here:
+      this shell has no progress reporter of its own — that lives inside the
+      framed document, spliced in by /asset — so this route has nothing to act
+      on the anchor with. Re-encoding rather than passing the query string
+      through verbatim keeps this a request built the same way the `p` param
+      already is, regardless of what Express's own query decoding did to it on
+      the way in.
+    */
+    const src = `/asset?p=${encodeURIComponent(real)}` + (at ? `&at=${encodeURIComponent(at)}` : '');
     res.type(MIME['.html']).send(
       wrapPage(meta.title, deckFrame(src, meta.title), breadcrumbBar(meta), { bodyClass: 'deck-host' })
     );
@@ -59,7 +74,11 @@ export class RenderController {
    * page writes, since the frame is same-origin and localStorage is shared.
    */
   @Get('asset')
-  async asset(@Query('p') requested: string, @Res() res: Response): Promise<void> {
+  async asset(
+    @Query('p') requested: string,
+    @Query('at') at: string | undefined,
+    @Res() res: Response
+  ): Promise<void> {
     const real = this.resolve(requested);
     const ext = extname(real).toLowerCase();
     if (ext === '.html' || ext === '.htm') {
@@ -79,12 +98,27 @@ export class RenderController {
         the guide jumping after it has already painted.
       */
       if (meta.type) {
+        const kind = meta.type === 'tutor' ? 'deck' : 'doc';
         const stored = await this.progress.find([real]);
         html = injectProgressReporter(html, {
           guidePath: real,
           project: meta.project ?? '',
-          kind: meta.type === 'tutor' ? 'deck' : 'doc',
-          progress: stored.get(real) ?? null
+          kind,
+          progress: stored.get(real) ?? null,
+          // A malformed or absent `at` degrades to null here, which
+          // injectProgressReporter then drops from the blob entirely — a
+          // favorite whose anchor somehow failed to parse falls back to the
+          // reader's ordinary stored position rather than 400ing the request.
+          jumpTo: parseJump(at)
+        });
+        // Same gate as the reporter above, for the same reason: a sibling
+        // file with no registry entry has no title and no type to save a
+        // favorite's crumb against, so there is nothing to capture from it.
+        html = injectFavoritesCapture(html, {
+          guidePath: real,
+          project: meta.project ?? '',
+          guideTitle: meta.title,
+          kind
         });
       }
       res.type(MIME['.html']).send(html);

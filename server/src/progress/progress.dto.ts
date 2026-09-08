@@ -50,7 +50,7 @@ const index = (v: unknown): number | null => {
  * reporting a shape this server has never heard of should degrade to a percent,
  * not 400 the reader's session.
  */
-function parsePosition(v: unknown): GuidePosition | null {
+export function parsePosition(v: unknown): GuidePosition | null {
   if (!v || typeof v !== 'object') return null;
   const p = v as Record<string, unknown>;
 

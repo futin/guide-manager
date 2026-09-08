@@ -28,14 +28,18 @@ machine maps the client to `5176`.
 ## Layout
 
 - `server/src/` — Nest: `guides/` (`GET /api/guides`), `progress/`
-  (`GET`/`POST`/`DELETE /api/progress`), `render/` (`GET /guide`, `GET /asset`,
-  served styles/scripts), `registry/` (read-only), `static.ts`.
-- `client/src/` — React SPA: side rail, Guides view (iframe per guide),
-  Settings. The Guides toolbar filters client-side over the fetched index — no
-  route, no proxy entry. Its selects persist to `guide-manager.*` keys; the
-  search query deliberately does not.
-- `shared/` — registry/API types + theme tokens. `assets/` — reading aid +
-  progress reporter, spliced into every framed guide.
+  (`GET`/`POST`/`DELETE /api/progress`), `favorites/`
+  (`GET`/`POST`/`PATCH`/`PUT order`/`DELETE /api/favorites`), `render/`
+  (`GET /guide`, `GET /asset`, served styles/scripts), `registry/`
+  (read-only), `static.ts`.
+- `client/src/` — React SPA: side rail, Guides view (iframe per guide), a
+  Favorites view (saved blocks grouped into per-project bays), Settings. The
+  Guides toolbar filters client-side over the fetched index — no route, no
+  proxy entry. Its selects persist to `guide-manager.*` keys; the search
+  query deliberately does not.
+- `shared/` — registry/API types + theme tokens. `assets/` — reading aid,
+  progress reporter and favorites capture script, spliced into every framed
+  guide.
 - `skills/study/`, `skills/tutor/` — the published skills.
 - `bin/register.js` — the registry's only writer. `bin/tailnet.js`,
   `bin/plugin-sync.js`.
@@ -109,6 +113,24 @@ machine maps the client to `5176`.
 - **`openCount` increments only on a write carrying `opened: true`;
   `furthestPercent` only climbs (`$max`)** — the board renders furthest, not
   current, so a card never walks backwards.
+- **The favorites capture script is served, not vendored**: `assets/
+  favorites.js` carries a `favorites v1` header, `injectFavoritesCapture`
+  refuses a document already holding `favorites vN`, and it is injected only
+  for registered guides — the same gate as the progress reporter.
+- **A favorite is a snapshot with an address.** Its `html` is what the reader
+  saw and is never re-derived from the guide; its `anchor` is a
+  `GuidePosition`, so opening it in the guide is progress restore with
+  `jumpTo` (`GET /guide?...&at=`), never a second navigation mechanism.
+- **Sanitisation happens where the HTML executes**: `client/src/lib/
+  sanitize.ts`, at render. The server stores what it is sent, capped at
+  512 KB; the capture script's own `<script>` strip is hygiene, not the
+  boundary that matters.
+- **Order is per project and rewritten whole** through `PUT
+  /api/favorites/order`; a new favorite takes the top. Nothing else writes
+  `order`, and a favorite never changes project.
+- **`/favorites.js` is one more route in three places** — `AssetsController`,
+  `vite.config.ts`, `static.ts` — guarded by `test/vite-proxy.test.ts`, the
+  same shape as `/progress.js` and `/bionic.js`.
 - **Port numbers live in `.env` and nowhere else, and no published port is
   wildcard-bound.** `bin/tailnet.js` reads `GM_WEB_PORT`, the same variable
   compose reads, so the two sides cannot drift. The API port is as sensitive

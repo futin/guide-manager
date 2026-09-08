@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 
+import { FavoritesModule } from './favorites/favorites.module';
 import { GuidesModule } from './guides/guides.module';
 import { HealthController } from './health/health.controller';
 import { ProgressModule } from './progress/progress.module';
@@ -31,6 +32,7 @@ export const DEFAULT_MONGO_URL = 'mongodb://localhost:27017/guide-manager';
         serverSelectionTimeoutMS: 5000
       })
     }),
+    FavoritesModule,
     GuidesModule,
     ProgressModule,
     RenderModule,

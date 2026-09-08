@@ -114,7 +114,7 @@ const DENSITIES = ['comfortable', 'compact'] as const;
  * is a type and has no runtime members to iterate — so a section added to the
  * rail has to be added here too, or it stays unpickable.
  */
-const LANDINGS = ['last', 'guides', 'settings'] as const;
+const LANDINGS = ['last', 'guides', 'favorites', 'settings'] as const;
 
 /**
  * Coerce anything — a stored blob from an older release, a hand-edited

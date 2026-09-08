@@ -432,6 +432,134 @@ body {
   html.guide-locked, html.guide-locked body { overflow: hidden; overscroll-behavior: none }
 }
 
+/* ---------------------------------------------- Favorites section
+   One project bay per distinct Favorite.project, exactly like a Guides bay —
+   .bay/.bay-h/.bay-name/.bay-count are shared unchanged, since a favorites
+   bay header states the same thing a guides bay header does (which project,
+   how many). What differs is the list under it: a favorite reads best as a
+   full-width block (the Task 7 snapshot body will be a table or a diagram,
+   not a title-sized tile), so .fav-list is a single column rather than
+   .guides-grid's auto-fill card grid. */
+.fav-list { display: flex; flex-direction: column; gap: var(--card-gap); max-width: 760px }
+/* Same surface as .guides-card — strip background, hairline border, the
+   inset top edge — but never the pointer cursor: a guides card is a single
+   whole-card button (tapping anywhere opens the guide), while a favorite
+   card's own controls (Task 8's edit fields, move buttons, ✕) are what is
+   clickable, not the card shell around them. A pointer cursor over the whole
+   article would promise a click the card itself does nothing with. */
+.fav-card {
+  display: flex; flex-direction: column; gap: var(--card-inner-gap);
+  background: var(--strip); border: 1px solid var(--hairline); border-radius: 2px;
+  padding: var(--card-pad); box-shadow: inset 0 1px 0 var(--edge);
+}
+.fav-head { display: flex; align-items: baseline; gap: 8px }
+.fav-title { font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer }
+/* Same box as .set-control's own text fields (Settings) — background,
+   hairline border, cyan focus ring — because an inline edit field is
+   otherwise indistinguishable from the plain text it replaces, and the
+   reader needs the same "this is now a field" cue Settings already trained
+   them on rather than a second, differently-styled one invented just for
+   this card. */
+.fav-title-input, .fav-note-input {
+  font-family: var(--font); color: var(--ink); width: 100%;
+  background: var(--steel); border: 1px solid var(--hairline); border-radius: 2px;
+  padding: 4px 6px;
+}
+.fav-title-input:focus, .fav-note-input:focus { outline: none; border-color: var(--cyan) }
+.fav-title-input { font-size: 13px; font-weight: 600 }
+.fav-note-input { font-size: 12.5px; font-style: italic; resize: vertical; min-height: 40px }
+/* .fav-ctls is the handle-plus-buttons toolbar, pinned to the head's far end
+   by its own margin-left:auto (the title is free to run any length without
+   pushing these off the row, the same trick .guide-viewer-reset's own
+   margin-left:auto plays against the back button). */
+.fav-ctls { display: flex; align-items: center; gap: 4px; margin-left: auto }
+/* Grip glyph, not a real drag library — global-constraints.md's "no drag
+   library" rule means this is plain HTML5 drag events end to end, and a
+   glyph costs nothing further to wire up. Hidden by default and only shown
+   under a fine-pointer media query below: a touch screen has no
+   hover-then-drag gesture to invoke it with, so painting it there would be
+   a control that visibly does nothing when tapped. */
+.fav-handle { display: none; cursor: grab; color: var(--ink3); font-size: 13px; user-select: none }
+@media (pointer: fine) {
+  .fav-handle { display: inline-flex; align-items: center }
+}
+/* Quiet by default, like .guide-viewer-reset before it is armed — a
+   destructive control that is loud all the time trains the eye to ignore
+   it, which defeats the point of the second tap .fav-remove.armed exists
+   for. */
+.fav-ctl {
+  font-family: var(--font); font-size: 11px; color: var(--ink2);
+  background: var(--steel); border: 1px solid var(--hairline); border-radius: 2px;
+  padding: 3px 7px; cursor: pointer; transition: color .15s, border-color .15s;
+}
+.fav-ctl:hover:not(:disabled) { color: var(--ink); border-color: var(--hairline2) }
+.fav-ctl:disabled { cursor: default; opacity: .4 }
+.fav-remove.armed { color: var(--bad, #c0392b); border-color: var(--bad, #c0392b) }
+/* Italic like a margin annotation, muted further still when there is
+   nothing written yet ('add a note' is a placeholder, not the reader's own
+   words, and should read as visibly less important than a real answer to
+   "why keep this?" once one exists). */
+.fav-note { font-size: 12.5px; font-style: italic; color: var(--ink2); cursor: pointer }
+.fav-note.empty { color: var(--ink3) }
+/* Mono and muted like .guides-card-meta, not the display face .fav-title
+   uses: the crumb trail is metadata about *where* the block came from, and
+   the underline-on-hover is the one hint that it is also a live link, since
+   nothing else about it looks like the rest of the app's buttons. */
+.fav-crumb {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink3);
+  text-decoration: none;
+}
+.fav-crumb:hover { text-decoration: underline }
+
+/* The snapshot body — task 7. `contain:paint` is the whole fix for a stray
+   `position:fixed`/`absolute` inside a captured block: without it, an
+   element positioned against the viewport (a mermaid overlay, a sticky
+   table header the source guide relied on) escapes the card entirely and
+   paints over the rest of the board, because a plain block box is not a
+   containing block for fixed-position descendants. `contain:paint` makes
+   .fav-body one, so anything positioned inside a snapshot is clipped to the
+   card it came from — the same job sanitize.ts does at the attribute level,
+   done once here for a layout property no attribute-level rule could catch.
+   `overflow:auto` is the second half: a wide table or a long `pre` gets its
+   own scrollbar rather than blowing out the card's width. Sizing (font-size,
+   line-height, color) matches the app's own body copy rather than whatever
+   the source guide declared, because a snapshot rendered at the *guide's*
+   scale would read as a foreign object dropped into this board. */
+.fav-body {
+  contain: paint;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.fav-body table { border-collapse: collapse; width: 100% }
+.fav-body th, .fav-body td { border: 1px solid var(--hairline); padding: 4px 8px; text-align: left }
+.fav-body th { color: var(--ink2) }
+.fav-body pre {
+  overflow: auto; font-family: var(--mono); font-size: 11.5px;
+  background: var(--steel); padding: 8px; border-radius: 2px;
+}
+.fav-body blockquote {
+  border-left: 2px solid var(--hairline2); margin: 0; padding-left: 10px; color: var(--ink2);
+}
+.fav-body svg, .fav-body img { max-width: 100%; height: auto }
+.fav-body details summary { cursor: pointer }
+.fav-body .eyebrow {
+  font-family: var(--mono); font-size: 9.5px; text-transform: uppercase;
+  letter-spacing: .09em; color: var(--ink3);
+}
+/* A captured quiz card ships collapsed and stays answerable: `.quiz-feedback`
+   is hidden until FavoriteCard's delegated click adds `revealed` to its own
+   `.quiz-option`, so re-opening a favorite shows the bare prompt again rather
+   than the answer the reader already saw once — the same "unanswered gates
+   nothing, but nothing is spoiled either" feel the live deck has, minus the
+   deck's own progress state, which a snapshot has no way to carry. */
+.fav-body .quiz-feedback { display: none }
+.fav-body .quiz-option.revealed .quiz-feedback { display: block }
+.fav-body .quiz-option-btn { font: inherit; cursor: pointer }
+
+.fav-foot { font-size: 10.5px; color: var(--ink3); font-family: var(--mono) }
+
 /* ---------------------------------------------- Settings section */
 .mdetail-label {
   display: flex; align-items: center; gap: 8px;

@@ -37,10 +37,20 @@ const INDEX: GuidesIndex = {
   ]
 };
 
+/*
+  URL-aware, because AppShell now has two data-fetching sections instead of
+  one: GuidesView asks for /api/guides, FavoritesView for /api/favorites, and
+  only ever the one matching the section actually mounted. A single
+  `mockResolvedValue` answering every call with INDEX would hand FavoritesView
+  a GuidesIndex it cannot read as a Favorite[] the moment a test lands on that
+  section — so route by the URL the same way the two real endpoints do.
+*/
 function renderApp() {
-  (globalThis as { fetch?: unknown }).fetch = jest.fn().mockResolvedValue({
-    ok: true,
-    json: () => Promise.resolve(INDEX)
+  (globalThis as { fetch?: unknown }).fetch = jest.fn((url: string) => {
+    if (url.startsWith('/api/favorites')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+    }
+    return Promise.resolve({ ok: true, json: () => Promise.resolve(INDEX) });
   });
   return render(<App />);
 }
@@ -82,6 +92,16 @@ describe('App — which section the page opens on', () => {
     renderApp();
     await waitFor(() => expect(screen.getByText('Theme')).toBeTruthy());
     expect(activeTab()).toBe('Settings');
+  });
+
+  it('opens on Favorites when the landing override says so', async () => {
+    setSection('guides');
+    setLanding('favorites');
+    renderApp();
+    await waitFor(() =>
+      expect(document.querySelector('.guides-title')?.textContent).toBe('Favorites')
+    );
+    expect(activeTab()).toBe('Favorites');
   });
 
   it('keeps recording the section under an override, so switching back is honest', async () => {

@@ -3,6 +3,10 @@ id: task-13
 title: Favorites: keep a piece of a guide
 created: 2026-09-08
 tags: product, client, server, assets
+updated: 2026-09-08T20:03:02Z
+started: 2026-09-08T11:11:28Z
+execute-elapsed: 31894
+execute-tokens: 5471782
 ---
 
 ## Goal
@@ -95,3 +99,72 @@ The plan lists the exact cases per task. The ones that gate the feature:
   third served script and the Favorites tab.
 - The branch is integrated via `superpowers:finishing-a-development-branch`,
   and this file moves to `tasks/done/`.
+
+## Outcome
+
+2026-09-08 — Built, on `backlog/task-13`, uncommitted (the orchestrator run owns
+the commit). All nine plan tasks executed with
+`superpowers:subagent-driven-development`: one fresh implementer per task, a
+task-scoped review after each, six fix rounds across Tasks 5, 6, 7, 8 and 9, then
+a whole-branch review on the most capable model and one fix wave. The feature is
+what the goal asked for: `☆` in the framed guide's crumbs line, a block picker
+with `wider`/`narrower`, a save panel with a note, a `favorites` collection
+behind `GET`/`POST`/`PATCH`/`PUT order`/`DELETE /api/favorites`, a Favorites rail
+section with project bays, search, inline edits, `↑ ↓ ⤒` and drag reorder,
+two-tap delete, and `/guide?p=…&at=<anchor>` opening the deck on the exact card
+with `opened at your favorite` in the header.
+
+**Verification — `pnpm test`, `pnpm run typecheck`, `pnpm run build`:**
+
+```
+Test Suites: 41 passed, 41 total
+Tests:       547 passed, 547 total
+Snapshots:   0 total
+Time:        40.014 s, estimated 48 s
+Ran all test suites.
+=== TYPECHECK ===
+$ tsc --noEmit
+=== BUILD ===
+dist/assets/index-eqTpCzEG.css                       25.90 kB │ gzip:   5.19 kB
+dist/assets/SettingsView-D09zIlpB.js                 10.59 kB │ gzip:   1.84 kB
+dist/assets/FavoritesView-DBDqY7WQ.js                15.54 kB │ gzip:   3.83 kB
+dist/assets/GuidesView-BzByoS8q.js                   18.03 kB │ gzip:   3.30 kB
+dist/assets/index-6uRsrf0l.js                       336.15 kB │ gzip: 102.09 kB
+✓ built in 1.17s
+```
+
+Contract sweep: 8 sites updated (CLAUDE.md Layout + five new Invariants,
+README.md architecture diagram, its three architecture bullets and repo-layout
+table, .github/pull_request_template.md's three example hints,
+test/vite-proxy.test.ts's docblock route list, and GuidesView.tsx's no-sandbox
+comment, which enumerated the two injected scripts and now names three). Left
+standing on purpose: `backlog/*/done/` items and `docs/superpowers/plans|specs/`
+entries for earlier features — historical records of what was true when written,
+not live contracts; and `client/src/hooks/useGuides.ts`'s reference to
+`assets/progress.js`, which is about the progress message and remains accurate.
+
+Red proof: 7 tests went red with the change reverted — 5 in
+`test/use-favorites.test.ts` with the hook's `res.ok` guards neutralised, and 2
+in `test/render.e2e.test.ts` with the `injectFavoritesCapture` splice bypassed
+(`test/favorites-inject.test.ts` correctly stayed green: it tests the splice
+function directly, not the controller's call to it). Each of the nine tasks
+additionally recorded its own RED-before-GREEN evidence, and every fix round
+carried a revert-based red proof, including the `<noscript>` mutation-XSS
+payload and the `Back`-inside-the-success-window stranding.
+
+**The by-hand browser walk in *Done when* was not performed.** This ran
+unattended with no operator and no browser, and starting the stack would have
+proved little without one. `pnpm test`, `pnpm run typecheck` and `pnpm run build`
+were substituted. What remains unproven is therefore visual and pointer-driven:
+drag-and-drop reorder, the outline's geometry (jsdom reports every rect as zero),
+`contain: paint` on `.fav-body`, the `margin-left:auto` negotiation between the
+star and the resume notice on one crumbs line, and the `@media (pointer: fine)`
+drag handle. Worth one pass by hand before this is trusted in daily use.
+
+Notable during the work: the sanitiser needed four rules the design's own list
+did not name — `<noscript>` re-parsing into live markup through the
+parse-and-serialise round trip was a demonstrated mutation XSS at the app's only
+`dangerouslySetInnerHTML`, and `<area href="javascript:…">` was a second. Both
+are fixed and pinned. `.gitignore`'s `node_modules/` was directory-only while
+this worktree's `node_modules` is a symlink, so `git add -A` would have committed
+it; that entry is now slash-less.

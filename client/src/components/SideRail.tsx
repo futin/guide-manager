@@ -1,7 +1,8 @@
-export type Section = 'guides' | 'settings';
+export type Section = 'guides' | 'favorites' | 'settings';
 
 const TABS: { id: Section; label: string }[] = [
   { id: 'guides', label: 'Guides' },
+  { id: 'favorites', label: 'Favorites' },
   { id: 'settings', label: 'Settings' }
 ];
 
@@ -11,11 +12,12 @@ interface Props {
 }
 
 /**
- * Top-level section switch: the guide list · settings. A rail down the left edge
- * on desktop, a horizontal scroll strip below 700px.
+ * Top-level section switch: the guide list · favorites · settings. A rail down
+ * the left edge on desktop, a horizontal scroll strip below 700px.
  *
  * Ported from ../claude-agents-dashboard/client/src/components/SideRail.tsx with
- * its five tabs cut to two — the dashboard's Sessions, Management and Analytics
+ * its five tabs cut to two, and a third — Favorites — added back in task-6 of
+ * the favorites feature. The dashboard's Sessions, Management and Analytics
  * have no counterpart here. The class names are unchanged because the ported
  * stylesheet keys off them.
  *

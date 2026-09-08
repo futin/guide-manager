@@ -29,6 +29,7 @@ const DENSITIES = [
 const LANDINGS: { value: Landing; label: string }[] = [
   { value: 'last', label: 'Last used' },
   { value: 'guides', label: 'Guides' },
+  { value: 'favorites', label: 'Favorites' },
   { value: 'settings', label: 'Settings' }
 ];
 

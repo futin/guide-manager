@@ -92,7 +92,7 @@ describe('clampSettings', () => {
   it("offers a landing for every section the rail has, plus 'last'", () => {
     // A section the rail can reach but `landing` cannot name is a section you
     // can never choose to open on.
-    for (const landing of ['last', 'guides', 'settings']) {
+    for (const landing of ['last', 'guides', 'favorites', 'settings']) {
       expect(clampSettings({ landing }).landing).toBe(landing);
     }
   });

@@ -38,7 +38,8 @@ export default defineConfig({
       '/theme.css': { target: API_TARGET },
       '/bionic.css': { target: API_TARGET },
       '/bionic.js': { target: API_TARGET },
-      '/progress.js': { target: API_TARGET }
+      '/progress.js': { target: API_TARGET },
+      '/favorites.js': { target: API_TARGET }
     }
   },
   build: { outDir: 'dist', emptyOutDir: true }

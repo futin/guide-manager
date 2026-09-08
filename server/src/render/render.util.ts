@@ -1,4 +1,5 @@
-import type { GuideMeta, GuideProgress } from '../../../shared/types';
+import type { GuideMeta, GuidePosition, GuideProgress } from '../../../shared/types';
+import { parsePosition } from '../progress/progress.dto';
 
 export function escapeHtml(s: unknown): string {
   return String(s).replace(/[&<>"']/g, (c) => (
@@ -150,9 +151,41 @@ export interface ProgressContext {
   kind: 'deck' | 'doc';
   /** What is already stored, so the reporter can restore on its first frame. */
   progress: GuideProgress | null;
+  /**
+   * A favorite's saved anchor, from `GET /guide?...&at=<json>` /
+   * `GET /asset?...&at=<json>` — "open in guide" rides the same restore the
+   * reporter already runs rather than being a second navigation mechanism.
+   * Optional so every context built before this field existed (and every test
+   * fixture written against the old shape) is still valid; `null` rather than
+   * absent when there is no anchor to jump to, and `injectProgressReporter`
+   * drops the key entirely in that case — see its own comment for why.
+   */
+  jumpTo?: GuidePosition | null;
 }
 
 const REPORTER_JS = '<script src="/progress.js"></script>';
+
+/**
+ * `GET /guide` / `GET /asset`'s `at` query param, turned into a `GuidePosition`
+ * or `null` for anything that is not one.
+ *
+ * Built on `parsePosition` rather than duplicating its validation: a deck
+ * position or a doc position means the same shape whether it arrived in a
+ * progress POST body or in this query string, and a future change to what
+ * counts as a valid position only has one place to make it. `JSON.parse`
+ * failing, or `at` being absent, both fall into the same `null` — the caller
+ * (the /asset route) already treats "no jumpTo" as "nothing to jump to", so a
+ * malformed anchor degrades to an ordinary session resume rather than 400ing
+ * a request the reader did not type by hand.
+ */
+export function parseJump(at: string | undefined): GuidePosition | null {
+  if (typeof at !== 'string') return null;
+  try {
+    return parsePosition(JSON.parse(at));
+  } catch (e) {
+    return null;
+  }
+}
 
 /**
  * Encode a context for an inline `application/json` block.
@@ -185,7 +218,17 @@ function jsonForScript(value: unknown): string {
  */
 export function injectProgressReporter(html: string, ctx: ProgressContext): string {
   if (/progress v\d+/i.test(html)) return html;
-  const blob = `<script type="application/json" id="gm-progress">${jsonForScript(ctx)}</script>`;
+  /*
+    jumpTo rides on the blob only when there is something to jump to. Almost
+    every context built has none, and JSON.stringify would otherwise write a
+    literal "jumpTo":null into every one of them — noise with no reader, since
+    the frame already treats a missing key exactly like a null one. Spreading
+    around the field rather than deleting it after the fact keeps the object
+    that gets stringified free of an own `undefined` property either way.
+  */
+  const { jumpTo, ...rest } = ctx;
+  const payload = jumpTo != null ? { ...rest, jumpTo } : rest;
+  const blob = `<script type="application/json" id="gm-progress">${jsonForScript(payload)}</script>`;
   return splice(html, /<\/body\s*>/i, blob + REPORTER_JS, false);
 }
 
@@ -199,4 +242,50 @@ function splice(html: string, at: RegExp, what: string, atStartIfMissing: boolea
   const m = at.exec(html);
   if (!m) return atStartIfMissing ? what + html : html + what;
   return html.slice(0, m.index) + what + html.slice(m.index);
+}
+
+/**
+ * What the injected capture script needs to know about the guide it is
+ * running in, so a tap on its star can save a favorite against the right row.
+ *
+ * Deliberately narrower than ProgressContext: capture has no stored progress
+ * to seed and no favorite anchor of its own to jump to (that is what the
+ * favorite this script eventually saves supplies to some *other* page's
+ * jumpTo, not this one) — so this is guidePath/project/kind, the same three
+ * identifying fields, plus guideTitle, which the favorite's own crumb and
+ * empty-state entry need at render time and which nothing else spliced into
+ * this document currently carries.
+ */
+export interface FavoritesContext {
+  guidePath: string;
+  project: string;
+  guideTitle: string;
+  /** Same authority and the same reason as ProgressContext.kind: the registry
+   *  entry's type, not sniffed from the markup, because bin/register.js is
+   *  what enforces what a file is. */
+  kind: 'deck' | 'doc';
+}
+
+const FAVORITES_JS = '<script src="/favorites.js"></script>';
+
+/**
+ * Splice the favorites capture script into a generated guide document.
+ *
+ * Same splice point and the same reasoning as injectProgressReporter: a
+ * favorite is captured from inside the framed document, where the table, the
+ * diagram or the paragraph the reader wants to keep actually lives — a script
+ * on the page shell around the iframe cannot reach it. Served rather than
+ * vendored for the same reason as the reading aid and the reporter: one
+ * implementation governs every guide the app frames, and a fix reaches all of
+ * them without regenerating anything.
+ *
+ * Skipped outright for a document that already carries a `favorites vN`
+ * header. Two copies would each mount a star in the header and each listen
+ * for taps — one toggling behind the other's back, and every capture
+ * answered twice.
+ */
+export function injectFavoritesCapture(html: string, ctx: FavoritesContext): string {
+  if (/favorites v\d+/i.test(html)) return html;
+  const blob = `<script type="application/json" id="gm-favorites">${jsonForScript(ctx)}</script>`;
+  return splice(html, /<\/body\s*>/i, blob + FAVORITES_JS, false);
 }

@@ -86,9 +86,9 @@ describe('SettingsView', () => {
   it('offers a landing option per rail section, plus the default', () => {
     renderSettings();
     const select = screen.getByLabelText('Opens on') as HTMLSelectElement;
-    expect([...select.options].map((o) => o.value)).toEqual(['last', 'guides', 'settings']);
+    expect([...select.options].map((o) => o.value)).toEqual(['last', 'guides', 'favorites', 'settings']);
     expect([...select.options].map((o) => o.textContent)).toEqual([
-      'Last used', 'Guides', 'Settings'
+      'Last used', 'Guides', 'Favorites', 'Settings'
     ]);
   });
 
