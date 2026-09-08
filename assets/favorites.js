@@ -818,8 +818,15 @@
    * `script` is stripped out of them. The favorites view renders this html
    * back into the *app's* document — a generated guide's card can legitimately
    * carry a script, and a snapshot that carried it along would be running the
-   * guide's code in a page that never framed it. The server sanitises the
-   * stored html too; this is the first of the two, not the only one.
+   * guide's code in a page that never framed it.
+   *
+   * This strip is hygiene, not the boundary. The server stores what it is
+   * sent, capped at 512 KB and otherwise verbatim — a favorite is a snapshot
+   * of what the reader saw, and rewriting those bytes in transit would make it
+   * something else; there is no HTML parser on the server to rewrite them
+   * with, by design. The one boundary is `client/src/lib/sanitize.ts`, at
+   * render, where the html actually executes. Do not read the strip below as
+   * a guarantee that anything downstream can lean on.
    *
    * The text comes off the same cleaned clones rather than off the originals,
    * so a stripped script's source cannot turn up in search results describing

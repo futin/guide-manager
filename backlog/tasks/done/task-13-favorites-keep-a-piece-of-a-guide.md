@@ -168,3 +168,45 @@ parse-and-serialise round trip was a demonstrated mutation XSS at the app's only
 are fixed and pinned. `.gitignore`'s `node_modules/` was directory-only while
 this worktree's `node_modules` is a symlink, so `git add -A` would have committed
 it; that entry is now slash-less.
+
+### Amendment — 2026-09-08, post-review
+
+The whole-branch review found one Important issue: `assets/favorites.js`'s
+`snapshot()` docblock claimed "The server sanitises the stored html too; this is
+the first of the two, not the only one". It does not —
+`favorites.dto.ts:57-58` caps `html` at 512 KB and `favorites.service.ts` writes
+it through verbatim — and the claim contradicted the invariant this same branch
+records in `CLAUDE.md`, that `client/src/lib/sanitize.ts` at render is the
+boundary guarding the app's only `dangerouslySetInnerHTML`.
+
+Resolved by correcting the docblock, not by adding a server-side sanitise. The
+design is deliberate on both counts the sentence got wrong: a favorite is a
+snapshot of what the reader saw, so rewriting those bytes in transit would make
+it something else, and the plan's Global Constraints forbid an HTML parser on
+the server. The docblock now says the in-frame `<script>` strip is hygiene, that
+the server stores capped-but-verbatim bytes on purpose, and that `sanitize.ts`
+at render is the one boundary — ending with a line telling a later reader not to
+lean on the strip as a guarantee. `CLAUDE.md` already stated this correctly and
+is unchanged. A sweep for the same false claim elsewhere
+(`server (also )?sanitis`, `sanitised (on|by) the server`, `first of the two`)
+found no other site.
+
+Comment-only change; no behaviour, no test touched. Re-verified:
+
+```
+Test Suites: 41 passed, 41 total
+Tests:       547 passed, 547 total
+Time:        45.121 s
+$ tsc --noEmit          (clean)
+✓ built in 1.14s
+```
+
+One caveat, recorded rather than hidden: of six full `pnpm test` runs made while
+verifying this amendment, the first reported `1 failed, 546 passed` and the five
+after it were clean at 547/547. The failing test's identity was lost — the
+command's output was tailed past the failure detail — so it could not be
+re-examined directly, and five consecutive clean runs could not reproduce it.
+Nothing in this amendment touches test code or behaviour, so it is a flake in
+the existing suite rather than a regression from it; the timing-sensitive
+candidates are the `mongodb-memory-server` e2e suites and the `waitFor`-based
+client suites. Worth a repeat-run if it shows up again in CI.
