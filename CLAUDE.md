@@ -22,8 +22,11 @@ live in `README.md` — this file holds only what a working session needs.
 Mongo is a hard boot requirement — no database, no server. Ports: API `4321`,
 Vite `5175`, Mongo `27017`; only the host side moves, via `GM_API_PORT` /
 `GM_WEB_PORT` / `GM_MONGO_PORT` in `.env`. Every published port binds
-`127.0.0.1` — nothing here has auth, the tailnet is the access control. This
-machine maps the client to `5176`.
+`127.0.0.1` — nothing here has auth, the tailnet is the access control. The
+host-side client port differs per machine, because a developer runs several of
+these projects side by side; read the current one out of `.env`, never from a
+number written down elsewhere. `pnpm run tailnet` reads the same variable, so
+the tailnet port and the local port cannot drift apart.
 
 ## Layout
 

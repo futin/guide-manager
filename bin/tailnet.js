@@ -39,15 +39,25 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * Where the tailscale CLI lives on a Mac. The Homebrew paths are the obvious
- * ones; the third is the CLI embedded in the GUI app, which is what you have if
- * Tailscale came from the App Store — there the binary is never on PATH, and
- * `which tailscale` finding nothing is not the same as Tailscale being absent.
+ * Where the tailscale CLI lives. The first two are Homebrew on a Mac; the third
+ * is the CLI embedded in the GUI app, which is what you have if Tailscale came
+ * from the App Store — there the binary is never on PATH, and `which tailscale`
+ * finding nothing is not the same as Tailscale being absent. The last two are
+ * the package-manager locations on Linux, which is also where WSL lands: the
+ * repo is developed on both, and a Mac-only list made `pnpm run tailnet` exit
+ * 2 with "CLI not found" on a machine where tailscaled was up and serving.
+ *
+ * An absolute list rather than a PATH lookup because the App Store case has no
+ * PATH entry to find, and because this script hands the result to spawnSync to
+ * reconfigure the machine's network — an absolute path cannot be shadowed by
+ * something earlier in a PATH this process did not set.
  */
 const CLI_CANDIDATES = [
   '/opt/homebrew/bin/tailscale',
   '/usr/local/bin/tailscale',
-  '/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+  '/Applications/Tailscale.app/Contents/MacOS/Tailscale',
+  '/usr/bin/tailscale',
+  '/usr/local/sbin/tailscale'
 ];
 
 /**
