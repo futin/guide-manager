@@ -19,11 +19,12 @@ function renderRail(overrides: Partial<Parameters<typeof SideRail>[0]> = {}) {
 }
 
 describe('SideRail', () => {
-  it('offers exactly the two sections this app has', () => {
+  it('offers exactly the three sections this app has', () => {
     renderRail();
     expect(screen.getByRole('button', { name: 'Guides' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Favorites' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
-    expect(screen.getAllByRole('button')).toHaveLength(2);
+    expect(screen.getAllByRole('button')).toHaveLength(3);
   });
 
   it('marks the active section for assistive tech, not just visually', () => {

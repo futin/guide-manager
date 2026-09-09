@@ -1,4 +1,4 @@
-import { injectProgressReporter, injectReadingAid } from '../server/src/render/render.util';
+import { injectProgressReporter, injectReadingAid, parseJump } from '../server/src/render/render.util';
 import type { ProgressContext } from '../server/src/render/render.util';
 
 const ctx: ProgressContext = {
@@ -105,5 +105,57 @@ describe('injectProgressReporter', () => {
     const out = injectProgressReporter('<html><body><p>hi</p>', ctx);
     expect(out).toContain('/progress.js');
     expect(out).toContain('gm-progress');
+  });
+
+  it('round-trips a favorite\'s anchor as jumpTo', () => {
+    const out = injectProgressReporter(page(), { ...ctx, jumpTo: { kind: 'doc', anchorId: 'x' } });
+    expect(JSON.parse(contextJson(out)).jumpTo).toEqual({ kind: 'doc', anchorId: 'x' });
+  });
+
+  it('omits jumpTo from the blob rather than writing a null', () => {
+    // A context with no favorite anchor is the common case, and the reporter
+    // already reads a missing key as "nothing to jump to" the same way it
+    // reads a missing `kind` — writing `"jumpTo":null` into every context that
+    // carries no anchor would be noise with no reader.
+    const out = injectProgressReporter(page(), { ...ctx, jumpTo: null });
+    expect(JSON.parse(contextJson(out))).not.toHaveProperty('jumpTo');
+  });
+});
+
+/**
+ * The server-side half of a favorite's "open in guide": turning the `at` query
+ * string on `GET /guide` / `GET /asset` into a `GuidePosition`, or `null` for
+ * anything that is not one.
+ *
+ * Built on `parsePosition` (exported from progress.dto for exactly this) rather
+ * than duplicating its validation — a deck position or a doc position means the
+ * same thing whether it arrived in a POST body or in this query string.
+ */
+describe('parseJump', () => {
+  it('returns null when there is no at param at all', () => {
+    expect(parseJump(undefined)).toBeNull();
+  });
+
+  it('returns null for a value that is not JSON', () => {
+    expect(parseJump('not json')).toBeNull();
+  });
+
+  it('returns null for JSON that parsePosition rejects', () => {
+    // cardIndex has to be a non-negative integer; a string fails the same way
+    // it would coming from a POST body.
+    expect(parseJump(JSON.stringify({ kind: 'deck', cardIndex: 'x' }))).toBeNull();
+  });
+
+  it('parses a valid deck position', () => {
+    expect(
+      parseJump(JSON.stringify({ kind: 'deck', cardIndex: 3, sectionId: 's2', cardOffset: 1 }))
+    ).toEqual({ kind: 'deck', cardIndex: 3, sectionId: 's2', cardOffset: 1 });
+  });
+
+  it('parses a valid doc position', () => {
+    expect(parseJump(JSON.stringify({ kind: 'doc', anchorId: 'x' }))).toEqual({
+      kind: 'doc',
+      anchorId: 'x'
+    });
   });
 });

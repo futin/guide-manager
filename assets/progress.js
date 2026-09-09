@@ -1,4 +1,13 @@
 /* progress v1 — served by guide-manager; injected into framed guides by GET /asset */
+/*
+  The header stays v1 even though this file now also drives a favorite's
+  "open in guide" jump. The version exists to stop a served copy racing a
+  vendored one — see injectProgressReporter's own comment — and this feature
+  adds no second reporter and vendors nothing: it is the same one copy,
+  reading one more optional field off the same context blob. A version bump
+  is for when two copies of this file could disagree about the document,
+  which a new field on an existing shape does not create.
+*/
 (function () {
   'use strict';
 
@@ -47,7 +56,14 @@
     // DOMContentLoaded branch below and a direct call — and the open it posts is
     // the one write that increments openCount, so a second run would count a
     // visit that never happened and bind a second set of listeners to report it.
-    started: false
+    started: false,
+    // True once a favorite's jumpTo has actually been used to move the reader —
+    // set by restoreDeck/restoreDoc themselves, only on the branch that used it,
+    // never merely because a jumpTo was present on the context. pillText reads
+    // this to tell "opened at your favorite" apart from an ordinary "resumed",
+    // and that wording is only honest once something has actually moved because
+    // of the favorite rather than because of the session's own stored position.
+    jumped: false
   };
 
   function readContext() {
@@ -205,6 +221,26 @@
    *  exactly that signal, and a "resumed" pill over a guide sitting at its first
    *  line is a claim the reader can see is false. */
   function restoreDoc() {
+    /*
+      A favorite's anchor is tried first, and independently of whatever the
+      session has stored: opening a saved paragraph from Favorites is a
+      deliberate destination, not a resume, and it must win over a position
+      that may well be older than the favorite itself. Falling through to the
+      ordinary restore below when the anchor is missing — rather than giving
+      up outright — is what keeps a renamed chapter (a heading id is derived
+      from a slug, and slugs are not permanent the way a deck's section ids
+      are) from losing the reader's place entirely; `jumped` stays false on
+      that path, so the pill still reads as a resume rather than claiming a
+      jump that did not happen.
+    */
+    var jump = ctx && ctx.jumpTo && ctx.jumpTo.kind === 'doc' ? ctx.jumpTo : null;
+    var jumpTarget = jump && jump.anchorId ? document.getElementById(jump.anchorId) : null;
+    if (jumpTarget && typeof jumpTarget.scrollIntoView === 'function') {
+      jumpTarget.scrollIntoView();
+      state.jumped = true;
+      return true;
+    }
+
     var stored = ctx && ctx.progress;
     if (!stored) return false;
     var anchorId = stored.position && stored.position.kind === 'doc' ? stored.position.anchorId : null;
@@ -266,6 +302,10 @@
     state.timer = null;
     state.dirty = false;
     state.started = false;
+    // A stopped reporter is about to be replaced by a fresh init() (a suite
+    // loading the file again, or in production never at all) — jumped
+    // describes the run that just ended, not the one about to start.
+    state.jumped = false;
   }
 
   function init() {
@@ -286,6 +326,11 @@
       state.position = ctx.progress.position || null;
     }
 
+    // A favorite's jumpTo, when the context carries one, is not handled here —
+    // restoreDeck/restoreDoc each decide for themselves whether it beats the
+    // stored position, so this call already covers both a session resume and
+    // an "open in guide" jump. pillText, below, reads state.jumped to tell the
+    // two apart in what it reports.
     var restored = isDeck ? restoreDeck() : restoreDoc();
 
     // The open, and the only write that increments openCount. Measured after the
@@ -456,14 +501,31 @@
 
   function restoreDeck() {
     var cards = deckCards(document);
+    if (cards.length === 0) return false;
     var storedProgress = ctx && ctx.progress;
-    if (cards.length === 0 || !storedProgress) return false;
-    var target = deckTarget(cards, storedProgress.position);
+    /*
+      A favorite's anchor takes priority over whatever the session has
+      stored: opening a saved card from Favorites is a deliberate destination,
+      and a comparatively stale resume position must not win over it. Beyond
+      that one priority, a jumpTo position is walked exactly the way a stored
+      one always has been — through deckTarget and the deck's own Next, quiz
+      gate included — because a favorite has no more right to skip a question
+      than an ordinary resume does.
+    */
+    var jumpPosition = ctx && ctx.jumpTo && ctx.jumpTo.kind === 'deck' ? ctx.jumpTo : null;
+    var position = jumpPosition || (storedProgress ? storedProgress.position : null);
+    if (!position) return false;
+    var target = deckTarget(cards, position);
     // Card one is where a deck already opens, so there is nothing to restore and
     // nothing to announce.
     if (target <= 0 || target <= activeIndex()) return false;
     pending = target;
     state.replaying = true;
+    // Set before advance(), not after: a replay that stalls on the quiz gate
+    // still used the favorite's anchor to get where it got, and pillText has
+    // to see that on the very first paint rather than only once the walk
+    // eventually completes.
+    if (jumpPosition) state.jumped = true;
     advance();
     state.replaying = false;
     return activeIndex() > 0;
@@ -720,10 +782,17 @@
    *
    * A parked replay gets its own wording rather than a bare "resumed": the deck
    * is showing a question, not the card the reader left off on, and naming that
-   * turns a stall into an instruction. Everything else is a plain statement of
-   * what happened.
+   * turns a stall into an instruction. A jump from a saved favorite gets its
+   * own wording too, layered the same way and checked first: `jumped` alone
+   * means the reporter actually moved the reader because of a favorite's
+   * anchor, and `pending >= 0` on top of that means the walk there stalled on
+   * the same quiz gate an ordinary resume can hit — just reached by a
+   * different route, so it earns the same "answer this" instruction. Anything
+   * else is a plain statement of what happened.
    */
   function pillText() {
+    if (state.jumped && pending >= 0) return 'opening your favorite — answer this';
+    if (state.jumped) return 'opened at your favorite';
     if (pending >= 0) return 'resuming — answer this';
     return 'resumed';
   }

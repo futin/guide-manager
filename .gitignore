@@ -1,5 +1,16 @@
 registry.json
-node_modules/
+
+# Slash-less, not `node_modules/`: a directory-only pattern does not match a
+# *symlink* named node_modules, and that is exactly what this path is in a
+# worktree (`node_modules -> ../../node_modules`, so pnpm installs once at
+# the repo root and every worktree shares it). `git status`/`git add -A` saw
+# right through the old pattern and staged the symlink as an untracked file —
+# the same accident class as `.pnpm-store/` below (83843fd7, 18,358 files via
+# one `add -A`), just with a one-entry blast radius instead of thousands: a
+# symlink blob that no clone downstream of this worktree could ever resolve.
+# Dropping the trailing slash matches a real directory (the non-worktree
+# case) and a symlink (the worktree case) with the same line.
+node_modules
 
 # pnpm's content-addressable store. Landed in git by accident in 83843fd7 — a
 # `git add -A` alongside a two-file docker fix swept in 18,358 files — and

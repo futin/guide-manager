@@ -59,6 +59,15 @@ describe('static assets', () => {
     expect(res.text).toBe(readFileSync(join(__dirname, '..', 'assets', 'bionic.js'), 'utf8'));
   });
 
+  it('serves the favorites capture script, not a copy', async () => {
+    // Same reasoning as bionic.js above: served from this one file so a fix
+    // reaches every already-framed guide without regenerating anything, rather
+    // than being vendored into each build.
+    const res = await request(app.getHttpServer()).get('/favorites.js').expect(200);
+    expect(res.headers['content-type']).toMatch(/javascript/);
+    expect(res.text).toBe(readFileSync(join(__dirname, '..', 'assets', 'favorites.js'), 'utf8'));
+  });
+
   it('re-reads from disk per request, so a CSS edit needs no restart', async () => {
     // The old server re-read style.css on every request; keep that property.
     const first = await request(app.getHttpServer()).get('/style.css').expect(200);

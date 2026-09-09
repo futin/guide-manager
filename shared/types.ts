@@ -121,3 +121,49 @@ export interface ProjectEntry {
 export interface GuidesIndex {
   projects: ProjectEntry[];
 }
+
+/**
+ * A block picked out of a guide, snapshotted as HTML, with an address, a
+ * context trail, a title and a note — see
+ * docs/superpowers/specs/2026-09-08-favorites-design.md, "What a favorite is".
+ */
+export interface Favorite {
+  /** Mongo _id, stringified — there is no other stable id for a saved block. */
+  id: string;
+  /** The key the registry, progress and /guide all use. */
+  guidePath: string;
+  /**
+   * Project *name*, denormalised like reading_progress.project — it is what
+   * the capture blob carries and what the bay header prints, so the Favorites
+   * view never has to re-derive it from guidePath.
+   */
+  project: string;
+  /** Registry title at capture time; kept even if the guide is later re-titled. */
+  guideTitle: string;
+  /**
+   * Where the block sits, reusing GuidePosition unchanged — open-in-guide is
+   * therefore progress restore with a different target, not a second
+   * navigation mechanism. Null when nothing addressable was found at capture.
+   */
+  anchor: GuidePosition | null;
+  /** Context headings above the block at capture, outermost first — never one from inside it. */
+  crumb: string[];
+  /** The snapshot itself: what the reader saw, never re-derived from the guide later. */
+  html: string;
+  /** textContent, whitespace collapsed — search, and the fallback title source when html carries none. */
+  text: string;
+  /** Yours. Never empty on the wire: the server defaults it when the client sends none. */
+  title: string;
+  /** Yours. '' is a valid, saved answer to "why keep this?" */
+  note: string;
+  /** Manual order within the project bay. Ascending = top: a freshly saved thing is the one being worked on. */
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** POST body. Everything the server fills in — id, order, timestamps — is absent. */
+export type FavoriteDraft = Pick<
+  Favorite,
+  'guidePath' | 'project' | 'guideTitle' | 'anchor' | 'crumb' | 'html' | 'text' | 'title' | 'note'
+>;

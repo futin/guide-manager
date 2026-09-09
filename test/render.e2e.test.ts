@@ -246,6 +246,31 @@ describe('render routes', () => {
     expect(res.text).toContain('href="/"');
     expect(res.text).toContain('sibling.html');
   });
+
+  /*
+    A favorite's "open in guide" link is /guide?p=...&at=<json>. The shell this
+    route wraps has no progress reporter of its own — that lives inside the
+    framed document, spliced in by /asset — so the anchor is forwarded onto the
+    frame's own src rather than interpreted here, and /asset (below) is what
+    turns it into something the reporter can act on.
+  */
+  it('forwards a favorite\'s anchor onto the framed asset\'s src', async () => {
+    const at = encodeURIComponent(JSON.stringify({ kind: 'deck', cardIndex: 3 }));
+    const res = await request(app.getHttpServer())
+      .get(`/guide?p=${guidePath('proj', 'guides', 'deck.html')}&at=${at}`)
+      .expect(200);
+    // The whole src attribute is HTML-escaped by deckFrame (escapeHtml), so the
+    // "&" joining the two query params comes back as "&amp;" in the response
+    // body — asserting the raw "&at=" here would never match.
+    expect(res.text).toContain(`&amp;at=${at}`);
+  });
+
+  it('carries no at param on the frame src when the request has none', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/guide?p=${guidePath('proj', 'guides', 'deck.html')}`)
+      .expect(200);
+    expect(res.text).not.toContain('at=');
+  });
 });
 
 describe('render routes through a symlinked registry path', () => {
@@ -374,5 +399,79 @@ describe('GET /asset progress reporter', () => {
     const res = await request(app.getHttpServer()).get(assetUrl('proj', 'guides', 'deck.html')).expect(200);
     expect(res.text).toContain('/bionic.js');
     expect(res.text).toContain('/progress.js');
+  });
+
+  it('turns a favorite\'s at param into jumpTo on the context', async () => {
+    const at = encodeURIComponent(JSON.stringify({ kind: 'deck', cardIndex: 3 }));
+    const res = await request(app.getHttpServer())
+      .get(`${assetUrl('proj', 'guides', 'deck.html')}&at=${at}`)
+      .expect(200);
+    expect(contextOf(res.text).jumpTo).toEqual({ kind: 'deck', cardIndex: 3 });
+  });
+
+  it('drops an unparseable at param rather than writing a null jumpTo', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`${assetUrl('proj', 'guides', 'deck.html')}&at=garbage`)
+      .expect(200);
+    expect(contextOf(res.text)).not.toHaveProperty('jumpTo');
+  });
+});
+
+/**
+ * The favorites capture script's half of /asset.
+ *
+ * Same splice point and the same "only a registered guide" gate as the
+ * progress reporter above — a favorite is captured from inside the framed
+ * document, so the script and its context have to reach there the same way.
+ */
+describe('GET /asset favorites capture', () => {
+  let app: INestApplication;
+  let root: string;
+
+  beforeAll(async () => {
+    const f = fixture();
+    root = realpathSync(f.root);
+    app = await makeApp(f.registryFile);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  const assetUrl = (...parts: string[]): string =>
+    `/asset?p=${encodeURIComponent(join(root, ...parts))}`;
+
+  const favoritesContextOf = (html: string): Record<string, unknown> =>
+    JSON.parse(/id="gm-favorites">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? 'null');
+
+  it('injects the capture script and its context into a registered deck', async () => {
+    const res = await request(app.getHttpServer()).get(assetUrl('proj', 'guides', 'deck.html')).expect(200);
+    expect(res.text).toContain('<script src="/favorites.js"></script>');
+    expect(favoritesContextOf(res.text)).toEqual({
+      guidePath: join(root, 'proj', 'guides', 'deck.html'),
+      project: 'proj',
+      guideTitle: 'Deck',
+      kind: 'deck'
+    });
+  });
+
+  it('maps a registered study build to doc mode, titled from the registry', async () => {
+    const res = await request(app.getHttpServer()).get(assetUrl('proj', 'guides', 'index.html')).expect(200);
+    expect(favoritesContextOf(res.text)).toEqual({
+      guidePath: join(root, 'proj', 'guides', 'index.html'),
+      project: 'proj',
+      guideTitle: 'Alpha Guide',
+      kind: 'doc'
+    });
+  });
+
+  it('leaves a sibling HTML file that is not a registered guide alone', async () => {
+    // No registry entry means no type to pick a restore strategy from, and the
+    // same reasoning that keeps the progress reporter off this file keeps the
+    // capture script off it too: there is no card on the board this file could
+    // ever save a favorite against.
+    const res = await request(app.getHttpServer()).get(assetUrl('proj', 'guides', 'sibling.html')).expect(200);
+    expect(res.text).not.toContain('/favorites.js');
+    expect(res.text).not.toContain('gm-favorites');
   });
 });

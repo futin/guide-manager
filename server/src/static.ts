@@ -39,7 +39,8 @@ export function clientDistModules(distDir: string = CLIENT_DIST): DynamicModule[
         '/theme.css',
         '/bionic.css',
         '/bionic.js',
-        '/progress.js'
+        '/progress.js',
+        '/favorites.js'
       ]
     })
   ];

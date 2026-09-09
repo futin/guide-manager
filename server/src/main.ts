@@ -1,12 +1,15 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 
 import { AppModule } from './app.module';
+import { APP_OPTIONS, configureApp } from './app.setup';
 
 const PORT = Number(process.env.PORT) || 4321;
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, APP_OPTIONS);
+  configureApp(app);
   await app.listen(PORT);
   console.log(`guide-manager listening on http://localhost:${PORT}`);
 }

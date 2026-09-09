@@ -172,23 +172,32 @@ skills (study, tutor)  ->  bin/register.js  ->  ~/.guide-manager/registry.json
                                                         v
   React SPA (client/)  <->  Nest API (server/)  ->  guide .html on disk
                                     |
-                                  Mongo (reading progress)
+                            Mongo (reading progress, favorites)
 ```
 
 - `server/src/registry/` — read-only view of the registry, re-read per request so
   a just-registered guide shows up immediately.
 - `server/src/render/` — `GET /guide?p=<abs path>` puts a breadcrumb bar around
   the guide and frames it, so the build's own inline CSS/JS reach the browser
-  untouched; `GET /asset` serves the framed document — with the reading aid
-  spliced in — and everything sitting next to it verbatim. Both resolve through
-  an allowlist built from the registry, so only registered trees are reachable.
+  untouched; `GET /asset` serves the framed document — with the reading aid and
+  the favorites capture script spliced in — and everything sitting next to it
+  verbatim. Both resolve through an allowlist built from the registry, so only
+  registered trees are reachable. `?at=<GuidePosition JSON>` carries a
+  favorite's saved anchor through to the frame, so "open in guide" rides the
+  same restore the reading-progress reporter already runs.
 - `server/src/guides/` — `GET /api/guides`: the board, with progress joined in.
 - `server/src/progress/` — `GET`/`POST /api/progress`, stored in Mongo.
-- `assets/` — the bionic reading aid (bold word-openings), spliced into every
-  guide the app frames; the Settings page and a guide's own panel, where it has
-  one, write the same key, and the guide repaints live.
-- `client/src/` — side rail, Guides board with the guide framed in an iframe, and
-  Settings.
+- `server/src/favorites/` — `GET`/`POST`/`PATCH`/`PUT /order`/
+  `DELETE /api/favorites`: a saved block of a guide (its rendered HTML, an
+  address, a note), stored in Mongo, grouped and manually ordered per project.
+- `assets/` — three scripts spliced into every guide the app frames: the
+  bionic reading aid (bold word-openings; the Settings page and a guide's own
+  panel, where it has one, write the same key, and the guide repaints live),
+  the reading-progress reporter, and the favorites capture script (the ☆ in
+  the header that lets a reader pick, name and save a piece of the guide).
+- `client/src/` — side rail, Guides board with the guide framed in an iframe,
+  a Favorites tab (saved blocks grouped into per-project bays, searchable,
+  reorderable), and Settings.
 
 ## Development
 
@@ -210,7 +219,7 @@ Tests are flat in `test/`. Component suites opt into jsdom with a
 | `server/` | Nest API, render routes, registry reader |
 | `client/` | React SPA |
 | `shared/` | Types and theme tokens shared by both |
-| `assets/` | Reading-aid CSS/JS vendored into guides |
+| `assets/` | Reading-aid, progress-reporter and favorites-capture scripts served into every framed guide |
 | `bin/` | `register.js`, the registry's only writer; `tailnet.js`, the tailscale serve wrapper |
 | `backlog/` | File-based backlog, one Markdown file per item |
 | `docs/superpowers/` | Design specs and implementation plans |

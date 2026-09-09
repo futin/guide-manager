@@ -6,6 +6,7 @@ import { usePersistedState } from './hooks/usePersistedState';
 
 // Lazy: each section's chunk loads only when it is opened.
 const GuidesView = lazy(() => import('./components/guides/GuidesView'));
+const FavoritesView = lazy(() => import('./components/favorites/FavoritesView'));
 const SettingsView = lazy(() => import('./components/settings/SettingsView'));
 
 export function App() {
@@ -42,17 +43,26 @@ function AppShell() {
   };
 
   // Guard a hand-edited or stale stored value — an unknown section would render
-  // nothing at all.
-  const current: Section = section === 'settings' ? 'settings' : 'guides';
+  // nothing at all. 'settings' and 'favorites' map to themselves; anything else
+  // (including a value from a rail this app no longer has) falls back to 'guides'.
+  const current: Section =
+    section === 'settings' || section === 'favorites' ? section : 'guides';
 
   return (
     <div className="shell">
       <SideRail section={current} onChange={change} />
       <main className="main">
-        {/* The guides list and its viewer need the room; settings reads better narrow. */}
+        {/* Only the guide list and its viewer need the extra room — Favorites and
+            Settings both read better narrow, like a column of cards or of rows. */}
         <div className={current === 'guides' ? 'wrap wide' : 'wrap'}>
           <Suspense fallback={<div className="guides-empty">loading…</div>}>
-            {current === 'guides' ? <GuidesView /> : <SettingsView />}
+            {current === 'guides' ? (
+              <GuidesView />
+            ) : current === 'favorites' ? (
+              <FavoritesView />
+            ) : (
+              <SettingsView />
+            )}
           </Suspense>
         </div>
       </main>
