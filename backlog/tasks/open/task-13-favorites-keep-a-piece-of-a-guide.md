@@ -3,6 +3,9 @@ id: task-13
 title: Favorites: keep a piece of a guide
 created: 2026-09-08
 tags: product, client, server, assets
+updated: 2026-09-09T17:42:37Z
+execute-elapsed: 860
+execute-tokens: 263162
 ---
 
 ## Goal
