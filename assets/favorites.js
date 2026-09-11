@@ -118,6 +118,93 @@
     (doc.head || doc.documentElement).appendChild(style);
   }
 
+  /* Where the answer is written, so both the sheet and the teardown name it
+     once. On the root element rather than on the picker's own nodes: the
+     outline, the toolbar and the floating star mount independently, and one
+     stamp above all three cannot leave two of them disagreeing. */
+  var SCHEME_ATTR = 'data-gm-fav-scheme';
+
+  /*
+    The luminance below which white text beats black text on a background.
+
+    Not a taste threshold — it is where the two WCAG contrast ratios cross.
+    White-on-L is 1.05/(L+0.05) and black-on-L is (L+0.05)/0.05, equal at
+    L = sqrt(0.05 * 1.05) - 0.05. So a guide darker than this is one the dark
+    palette is measurably more readable on, and the picker follows the
+    measurement rather than a guess about which palette a generator meant.
+  */
+  var DARK_BELOW = Math.sqrt(0.05 * 1.05) - 0.05;
+
+  /** sRGB relative luminance, WCAG 2.x's definition. */
+  function luminance(r, g, b) {
+    var c = [r / 255, g / 255, b / 255];
+    for (var i = 0; i < 3; i += 1) {
+      c[i] = c[i] <= 0.03928 ? c[i] / 12.92 : Math.pow((c[i] + 0.055) / 1.055, 2.4);
+    }
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+
+  /*
+    A computed colour's luminance, or null for one that paints nothing.
+
+    Null is the load-bearing answer: an element with no background of its own
+    computes to `rgba(0,0,0,0)`, which is transparent black, and reading that
+    as a luminance of 0 would call every unstyled guide dark — exactly the
+    black slab this palette work exists to remove. Only a zero alpha counts as
+    see-through; a colour laid on at 40% is still a colour the reader sees, and
+    guessing at what is behind it would be a second, worse measurement.
+  */
+  function opaqueLuminance(value) {
+    if (!value) return null;
+    var m = /rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)(?:\s*[,/]\s*([\d.]+))?/.exec(value);
+    if (!m) return null;
+    if (m[4] !== undefined && Number(m[4]) === 0) return null;
+    return luminance(Number(m[1]), Number(m[2]), Number(m[3]));
+  }
+
+  /*
+    Which palette this guide wants, measured off what it actually paints.
+
+    The body first, then the root element behind it, because a generated guide
+    may set its page colour on either — and a body that paints nothing is not
+    a dark page, it is a window onto whatever is behind it. When neither paints
+    anything the answer is light: an unstyled page is white in every engine, so
+    white is the only honest assumption, and assuming dark is what put a black
+    toolbar on white paper in the first place.
+
+    Measured rather than asked, which is the whole point. Asking means naming
+    tokens — `--panel`, `--bg` — and a generated guide publishes whatever set
+    its generator happened to write; the picker would be guessing at names
+    again, one layer further down.
+  */
+  function schemeFor(doc) {
+    var view = doc && doc.defaultView;
+    if (!view || typeof view.getComputedStyle !== 'function') return 'light';
+    var els = [doc.body, doc.documentElement];
+    for (var i = 0; i < els.length; i += 1) {
+      if (!els[i]) continue;
+      var lum = opaqueLuminance(view.getComputedStyle(els[i]).backgroundColor);
+      if (lum === null) continue;
+      return lum < DARK_BELOW ? 'dark' : 'light';
+    }
+    return 'light';
+  }
+
+  /*
+    Stamp the answer, and re-stamp it every time the picker mounts anything.
+
+    Re-measuring per mount rather than once at init is what keeps the picker
+    honest about a guide that changes under it: these decks answer
+    `prefers-color-scheme`, and a reader who flips their system theme with the
+    picker disarmed would otherwise re-arm it painted for the palette it first
+    loaded against. The `change` listener in init() covers the flip that
+    happens while it is armed; this covers every other order.
+  */
+  function applyScheme() {
+    if (typeof document === 'undefined' || !document.documentElement) return;
+    document.documentElement.setAttribute(SCHEME_ATTR, schemeFor(document));
+  }
+
   /*
     The star's own look, needed in whichever document it ends up in — the
     shell's header when there is one, this guide's body when there is not — so
@@ -125,18 +212,76 @@
 
     A bare glyph on a transparent button: the header it mounts into is the
     app's chrome, and a bordered control there would read as something the
-    guide brought with it. Colour is the only state signal, taken from the
-    page's own theme tokens with literal fallbacks, because a guide is also a
-    file someone can open straight off disk over file:// where /theme.css was
-    never linked and every var() would resolve to nothing.
+    guide brought with it. Colour is the only state signal.
+
+    Both colours are read through `--gm-*` rather than named directly, because
+    the two documents answer them from different places: the shell's sheet maps
+    them onto the app's own theme tokens, and the frame's sheet onto the
+    picker's palette (see PALETTE_DARK). One fragment, two answers, and neither
+    document is asked for a name it might not have.
   */
   var TOGGLE_CSS = [
     '.gm-fav-toggle{',
     '-webkit-appearance:none;appearance:none;background:none;border:0;',
     'margin:0;padding:0 2px;cursor:pointer;line-height:1;',
-    'font-family:inherit;font-size:1rem;color:var(--muted,#8b8b8b)}',
-    '.gm-fav-toggle[aria-pressed="true"]{color:var(--cyan,#55d0dd)}'
+    'font-family:inherit;font-size:1rem;color:var(--gm-muted)}',
+    '.gm-fav-toggle[aria-pressed="true"]{color:var(--gm-accent)}'
   ].join('');
+
+  /*
+    The picker's own palette, in full, twice — and the reason it is its own
+    rather than the guide's.
+
+    Everything this script draws inside a framed guide used to theme itself
+    from the *guide's* token names with a dark literal behind each one:
+    `var(--panel,#1b1b1b)` for the surface, `var(--fg,#e6e6e6)` for the text on
+    it. That works at both ends — a guide that publishes all of those names
+    gets its own look, a guide that publishes none of them gets the picker's —
+    and fails in the middle, which is where the generated guides actually live.
+    A tutor deck declaring `--bg`, `--fg`, `--muted` and `--line` but no
+    `--panel` took the dark `#1b1b1b` fallback for the toolbar and its own
+    near-black `#1a1c20` for the text on it: a pill whose buttons were legible
+    only as borders, those coming from the deck's own light `--line`. Half of
+    each palette, and no individual declaration wrong.
+
+    So the frame sheet declares every name it reads. Nothing about a guide's
+    stylesheet can reach inside the picker, whatever a future generator decides
+    to publish — the failure above was silent, and this is the property that
+    makes it impossible rather than merely unlikely. What the guide still
+    decides is which of the two palettes applies, and it decides that by being
+    measured (schemeFor) rather than by being asked for names.
+
+    The light accent is the app's own daylight cyan rather than a lightened
+    #55d0dd: the dark accent on white is about 1.7:1, which is not a colour so
+    much as a rumour of one.
+  */
+  var PALETTE_DARK = [
+    '--gm-fg:#e6e6e6;--gm-panel:#1b1b1b;--gm-field:#111;--gm-line:#333;',
+    '--gm-muted:#8b8b8b;--gm-accent:#55d0dd;--gm-wash:rgba(85,208,221,.12);',
+    '--gm-shadow:rgba(0,0,0,.4)'
+  ].join('');
+  var PALETTE_LIGHT = [
+    '--gm-fg:#1a1c20;--gm-panel:#fbfbfc;--gm-field:#fff;--gm-line:#d0d4da;',
+    '--gm-muted:#5b6270;--gm-accent:#136d78;--gm-wash:rgba(19,109,120,.12);',
+    '--gm-shadow:rgba(30,35,45,.18)'
+  ].join('');
+
+  /* Every element the picker draws inside a guide. Listed rather than hung on
+     one wrapper because the three mount in three different places: the toolbar
+     and panel share `.gm-fav-ui`, the outline is a loose box over the block,
+     and the floating star is the no-shell fallback in the opposite corner. */
+  var PICKER_PARTS = ['.gm-fav-ui', '.gm-fav-outline', '.gm-fav-toggle'];
+
+  /* One palette declaration across all three, optionally under a prefix. The
+     prefix has to be pasted onto each part rather than onto the list: a
+     descendant combinator binds to the first selector of a comma list only,
+     so `[x] .a,.b` means `.b` unconditionally — which would have made the
+     light palette win in every document that loaded this sheet. */
+  function paletteRule(prefix, decls) {
+    var parts = [];
+    for (var i = 0; i < PICKER_PARTS.length; i += 1) parts.push(prefix + PICKER_PARTS[i]);
+    return parts.join(',') + '{' + decls + '}';
+  }
 
   /*
     The shell's sheet: the star's look plus where it sits on the breadcrumb
@@ -158,6 +303,11 @@
   */
   var SHELL_CSS = [
     '.topbar .crumbs{display:flex;align-items:center;min-width:0}',
+    // The shell is the app's own chrome and loads /theme.css, so here the two
+    // names the star reads are answered from the app's palette — inheriting is
+    // the point in this document, and the literals are for a guide opened
+    // straight off disk over file://, where no stylesheet was ever linked.
+    '.gm-fav-toggle{--gm-muted:var(--muted,#8b8b8b);--gm-accent:var(--cyan,#55d0dd)}',
     TOGGLE_CSS,
     '.gm-fav-toggle{margin-left:auto}',
     '.gm-progress-note + .gm-fav-toggle{margin-left:12px}',
@@ -188,11 +338,16 @@
     picker closing and something else opening.
   */
   var FRAME_CSS = [
+    // Dark unprefixed, light under the stamp, so a document that somehow never
+    // got measured still reads — the dark pair is the one the picker shipped
+    // with, and it is self-consistent.
+    paletteRule('', PALETTE_DARK),
+    paletteRule('[data-gm-fav-scheme="light"] ', PALETTE_LIGHT),
     TOGGLE_CSS,
     '.gm-fav-toggle.gm-fav-floating{position:fixed;top:12px;right:12px;z-index:2147483000}',
     '.gm-fav-outline{',
     'position:fixed;pointer-events:none;',
-    'border:2px solid var(--cyan,#55d0dd);background:rgba(85,208,221,.12);',
+    'border:2px solid var(--gm-accent);background:var(--gm-wash);',
     'z-index:2147483000;border-radius:3px}',
     '.gm-fav-outline[hidden]{display:none}',
     '.gm-fav-toolbar,.gm-fav-panel{',
@@ -201,8 +356,8 @@
     'max-width:calc(100vw - 24px);box-sizing:border-box;',
     'padding:6px 10px;border-radius:999px;',
     'font-family:inherit;font-size:13px;line-height:1.3;',
-    'color:var(--fg,#e6e6e6);background:var(--panel,#1b1b1b);',
-    'border:1px solid var(--line,#333);box-shadow:0 4px 16px rgba(0,0,0,.4)}',
+    'color:var(--gm-fg);background:var(--gm-panel);',
+    'border:1px solid var(--gm-line);box-shadow:0 4px 16px var(--gm-shadow)}',
     // The panel is given a width instead of shrink-wrapping its contents: an
     // input sized by its value starts one word wide over a block whose title
     // defaulted to nothing, and grows under the reader as they type. The pill
@@ -215,21 +370,21 @@
     'min-width:0;flex:1 1 auto;',
     'font-family:inherit;font-size:13px;line-height:1.35;',
     'padding:4px 8px;border-radius:8px;resize:none;',
-    'color:var(--fg,#e6e6e6);background:var(--bg,#111);',
-    'border:1px solid var(--line,#333)}',
+    'color:var(--gm-fg);background:var(--gm-field);',
+    'border:1px solid var(--gm-line)}',
     // The status is empty until the write answers, and holds no space while it
     // is: a permanent gap beside the buttons would read as a missing control.
-    '.gm-fav-status{white-space:nowrap;color:var(--muted,#8b8b8b)}',
+    '.gm-fav-status{white-space:nowrap;color:var(--gm-muted)}',
     // Keyed off gm-fav-ui, which both the toolbar and the panel carry, so the
     // two rows of buttons cannot drift apart as one of them gains a control.
     '.gm-fav-ui button{',
     '-webkit-appearance:none;appearance:none;cursor:pointer;',
     'font-family:inherit;font-size:12px;line-height:1;white-space:nowrap;',
     'padding:5px 9px;border-radius:999px;',
-    'color:var(--fg,#e6e6e6);background:none;border:1px solid var(--line,#333)}',
+    'color:var(--gm-fg);background:none;border:1px solid var(--gm-line)}',
     '.gm-fav-ui button[disabled]{opacity:.4;cursor:default}',
     // The one accented control in each row is the one that commits.
-    '.gm-fav-save,.gm-fav-confirm{border-color:var(--cyan,#55d0dd);color:var(--cyan,#55d0dd)}'
+    '.gm-fav-save,.gm-fav-confirm{border-color:var(--gm-accent);color:var(--gm-accent)}'
   ].join('');
 
   /**
@@ -276,8 +431,12 @@
     // sitting in a header that can only mean one thing at a time.
     unmountToggle();
 
-    if (target) ensureStyles(doc, 'data-gm-favorites-shell-style', SHELL_CSS);
-    else ensureStyles(document, 'data-gm-favorites-style', FRAME_CSS);
+    if (target) {
+      ensureStyles(doc, 'data-gm-favorites-shell-style', SHELL_CSS);
+    } else {
+      ensureStyles(document, 'data-gm-favorites-style', FRAME_CSS);
+      applyScheme();
+    }
 
     var el = doc.createElement('button');
     // Explicitly not a submit button: a guide is generated markup and may well
@@ -414,6 +573,13 @@
    * the contents rail, or on the picker's own toolbar resolves to nothing, and
    * the click handler passes those straight through to whoever else wanted
    * them — the picker being armed must not make a guide unnavigable.
+   *
+   * A heading resolves to the heading, not to the passage under it. It used to
+   * resolve to the group, which made a tap anywhere near a heading swallow
+   * most of a card — and, back when the pointer picked too, made simply moving
+   * across a guide box one passage after another. A pick is now always the
+   * smallest honest answer; the passage is one `wider` away, which is the
+   * reader asking for it rather than the picker assuming it.
    */
   function candidateAt(target) {
     if (!isElement(target)) return null;
@@ -428,7 +594,7 @@
       // the guide's chrome. isBlock() rejects blocks nested in a nav for the
       // same reason; this stops the walk from climbing out of one.
       if (tagOf(el) === 'nav') return null;
-      if (isBlock(el)) return headingLevel(el) ? groupFor(el) : [el];
+      if (isBlock(el)) return [el];
       el = el.parentElement;
     }
     return null;
@@ -478,6 +644,26 @@
   function widenTarget() {
     if (!current || !current.length) return null;
     var first = current[0];
+
+    /*
+      From a heading alone, the first step out is the passage it introduces.
+      The group is a run of siblings rather than a container, so the climb
+      below cannot reach it — without this branch, `wider` on a heading would
+      jump straight to the card or section holding it, which is the jump this
+      ladder exists to break into steps.
+
+      Guarded on a selection of one, because the group's own first node is
+      that same heading: without the length check, `wider` on a group would
+      re-derive the group and visibly do nothing. The length check also covers
+      the heading that introduces nothing — a divider card's trailing `h2`,
+      whose group is the heading itself — since a one-node group is that same
+      non-step, and both fall through to the climb.
+    */
+    if (current.length === 1 && headingLevel(first)) {
+      var group = groupFor(first);
+      if (group.length > 1) return group;
+    }
+
     if (first.matches(CONTAINERS)) return null;
 
     var body = first.ownerDocument ? first.ownerDocument.body : document.body;
@@ -493,13 +679,20 @@
   /*
     What narrow() would select. The climb stack first — undoing a widen is the
     common case and has to be exact — and only then a step inward, which is
-    what narrowing means when the reader never widened. A heading group has
-    nowhere inward to go: its first node is the heading, which contains
-    nothing, and the prose beside it is a sibling rather than a child.
+    what narrowing means when the reader never widened.
+
+    A heading group is the case the generic step inward gets wrong. Its first
+    node is the heading, which contains nothing, and the prose beside it is a
+    sibling rather than a child — so firstBlockDescendant answers null for a
+    selection that plainly has an inside. Its step inward is the heading that
+    opens it, which is the exact inverse of widenTarget's group rung. Answered
+    here rather than left to the climb stack, because the group is reachable
+    without a climb: setCandidate takes it directly.
   */
   function narrowTarget() {
     if (climb.length) return climb[climb.length - 1];
     if (!current || !current.length) return null;
+    if (current.length > 1 && headingLevel(current[0])) return [current[0]];
     var inner = firstBlockDescendant(current[0]);
     return inner ? [inner] : null;
   }
@@ -558,10 +751,15 @@
     var el = nodes[0];
     var tag = tagOf(el);
 
-    // A heading first node means a heading group — the passage, named after
-    // the heading that introduces it. Checked before anything else because the
-    // group is what the selection is, whatever its first element's tag.
-    if (headingLevel(el)) return 'section' + DOT + textOf(el);
+    // A heading first node means one of the two rungs a heading sits on, and
+    // the count is what tells them apart: a run of siblings is the passage,
+    // named after the heading that introduces it, while the heading alone is
+    // the line itself. Naming that line a section would promise prose the
+    // reader has not taken yet — and since the two are one `wider` apart, this
+    // label is the only place on screen the difference shows. Checked before
+    // anything else because the group is what the selection is, whatever its
+    // first element's tag.
+    if (headingLevel(el)) return (nodes.length > 1 ? 'section' : 'heading') + DOT + textOf(el);
 
     if (tag === 'table') return 'table' + DOT + (el.rows ? el.rows.length : 0) + ' rows';
     if (el.matches('.card')) {
@@ -955,6 +1153,7 @@
 
   function mountUi() {
     ensureStyles(document, 'data-gm-favorites-style', FRAME_CSS);
+    applyScheme();
 
     outline = document.createElement('div');
     outline.className = 'gm-fav-outline';
@@ -1177,8 +1376,16 @@
     mountUi();
     paintToggle();
 
+    /*
+      No pointer listener, deliberately. Hover used to preview the selection,
+      and the cost was that the selection chased the pointer: crossing a guide
+      to reach the toolbar re-picked every block on the way, each heading among
+      them taking a whole passage, so landing on anything meant out-running a
+      target that moved. Selection is a tap now, and a tap is a decision. The
+      modifier-held variant — preview only while a key is down — is the obvious
+      next thing to try, and is deliberately not this change.
+    */
     on(pickBound, document, 'click', onClick, true);
-    on(pickBound, document, 'mousemove', onMove);
     on(pickBound, window, 'keydown', onKey);
     // Passive: these only re-read boxes the browser already has, and a
     // non-passive scroll listener would cost the guide its scrolling
@@ -1237,48 +1444,6 @@
     event.preventDefault();
     event.stopPropagation();
     setCandidate(found);
-  }
-
-  /*
-    Hover previews the selection, but only onto blocks: a pointer crossing the
-    pager or the toolbar on its way somewhere else must not throw away what the
-    reader already picked. That is also why this sets nothing when candidateAt
-    returns null, rather than clearing.
-
-    Nor when it resolves to something the reader is already on. Two cases, and
-    the second is the one that loses work: the identity case is a pointer moving
-    inside one paragraph, where re-picking would be pure churn; the containment
-    case is a pointer moving anywhere inside a selection that was *widened* — a
-    reader who pressed `wider` from a table to its card and then moved towards
-    the toolbar crosses that table on the way, and taking the hover would hand
-    Save the exact block they had just widened away from. A hover onto a
-    genuinely different area still previews, which is what hover is for.
-  */
-  function onMove(event) {
-    if (panelOpen()) return;
-    var found = candidateAt(event.target);
-    if (!found) return;
-    if (same(found, current)) return;
-    if (within(found, current)) return;
-    setCandidate(found);
-  }
-
-  /** Same selection, node for node. */
-  function same(nodes, other) {
-    if (!other || nodes.length !== other.length) return false;
-    for (var i = 0; i < nodes.length; i += 1) {
-      if (nodes[i] !== other[i]) return false;
-    }
-    return true;
-  }
-
-  /** Is every node of `nodes` inside `other`? */
-  function within(nodes, other) {
-    if (!other || !other.length) return false;
-    for (var i = 0; i < nodes.length; i += 1) {
-      if (!holds(other, nodes[i])) return false;
-    }
-    return true;
   }
 
   /*
@@ -1589,7 +1754,28 @@
     ctx = readContext();
     if (!ctx) return;
     document.documentElement.setAttribute('data-gm-favorites', '');
+    applyScheme();
     mountToggle();
+
+    /*
+      A guide that answers `prefers-color-scheme` repaints itself when the
+      reader flips their system theme, and the picker has to go with it — a
+      toolbar left on the old palette is the same dark-on-dark pill, arrived at
+      from the other direction. Bound to `bound` rather than `pickBound`
+      because the floating star is painted from this palette too and is up
+      whether or not the picker is armed.
+
+      Guarded twice: jsdom has no matchMedia at all, and Safari below 14 has
+      the list without addEventListener. Neither is a reason to fail to mount —
+      a picker that does not follow a theme flip is a much smaller failure than
+      no picker.
+    */
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      var mql = window.matchMedia('(prefers-color-scheme: dark)');
+      if (mql && typeof mql.addEventListener === 'function') {
+        on(bound, mql, 'change', applyScheme);
+      }
+    }
     // The star lives in the *parent's* header, which outlives this frame. A
     // frame that navigates away would otherwise leave a control sitting in a
     // header that now belongs to a different guide — the same reasoning as the
@@ -1611,6 +1797,7 @@
     unbind(bound);
     ctx = null;
     document.documentElement.removeAttribute('data-gm-favorites');
+    document.documentElement.removeAttribute(SCHEME_ATTR);
   }
 
   if (typeof document !== 'undefined') {

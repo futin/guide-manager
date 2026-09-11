@@ -476,10 +476,22 @@ describe('favorites capture — what a tap resolves to', () => {
     expect(api.candidateAt(document.getElementById('next') as Element)).toBeNull();
   });
 
-  it('resolves a heading to the heading and everything under it', () => {
+  it('resolves a heading to the heading alone', () => {
+    // The smallest thing a tap can honestly mean. Taking the passage too would
+    // hand the reader most of a card for touching one line of it — and with
+    // the pointer no longer previewing, a tap is the only way to point at
+    // anything, so it has to be the cheap move. The passage is one `wider`
+    // away; see the widening suite.
+    const heading = byText('h2', 'Die Tabelle');
+    sameNodes(api.candidateAt(heading), [heading]);
+  });
+
+  it('still knows the passage a heading introduces', () => {
+    // No longer what a tap produces, but still what the first `wider` from a
+    // heading takes, so the derivation stays and stays tested.
     const heading = byText('h2', 'Die Tabelle');
     const card = heading.closest('.card') as Element;
-    sameNodes(api.candidateAt(heading), [
+    sameNodes(api.groupFor(heading), [
       heading,
       byText('p', 'lead'),
       card.querySelector('table') as Element,
@@ -514,7 +526,7 @@ describe('favorites capture — what a tap resolves to, in a study build', () =>
   });
 
   it('stops a heading group at the next heading of the same level', () => {
-    sameNodes(api.candidateAt(document.getElementById('lifecycle--2-turn') as Element), [
+    sameNodes(api.groupFor(document.getElementById('lifecycle--2-turn') as Element), [
       document.getElementById('lifecycle--2-turn') as Element,
       byText('p', 'turn prose'),
       document.querySelector('table') as Element
@@ -523,7 +535,7 @@ describe('favorites capture — what a tap resolves to, in a study build', () =>
 
   it('carries deeper headings along inside a shallower one\'s group', () => {
     const section = document.querySelectorAll('section')[0];
-    sameNodes(api.candidateAt(document.getElementById('lifecycle') as Element), [
+    sameNodes(api.groupFor(document.getElementById('lifecycle') as Element), [
       document.getElementById('lifecycle') as Element,
       byText('p', 'lifecycle intro'),
       document.getElementById('lifecycle--2-turn') as Element,
@@ -534,9 +546,25 @@ describe('favorites capture — what a tap resolves to, in a study build', () =>
     ]);
   });
 
+  it('widens a heading into its passage, and only then into its section', () => {
+    // Two rungs where there used to be one. The reader who tapped a heading
+    // asked for a line; `wider` offers them the passage it introduces before
+    // it offers them the section, because skipping straight to the section is
+    // the jump this whole change exists to remove.
+    const heading = document.getElementById('lifecycle--2-turn') as Element;
+    api.setCandidate(api.candidateAt(heading));
+    sameNodes(api.candidate(), [heading]);
+
+    expect(api.widen()).toBe(true);
+    sameNodes(api.candidate(), api.groupFor(heading));
+
+    expect(api.widen()).toBe(true);
+    sameNodes(api.candidate(), [document.querySelectorAll('section')[0]]);
+  });
+
   it('takes the whole build when the group starts at the h1', () => {
     const sections = document.querySelectorAll('section');
-    sameNodes(api.candidateAt(byText('h1', 'Hooks guide')), [
+    sameNodes(api.groupFor(byText('h1', 'Hooks guide')), [
       byText('h1', 'Hooks guide'),
       sections[0],
       sections[1]
@@ -556,6 +584,13 @@ describe('favorites capture — what the selection is called', () => {
 
   it('names a card by its heading', () => {
     expect(api.labelFor([cards()[2]])).toBe('card · Die Tabelle');
+  });
+
+  it('names a bare heading a heading', () => {
+    // One line is not a section. Calling it one would promise the passage the
+    // reader has not taken yet — and the two selections are one `wider` apart,
+    // so the toolbar is the only place that difference is visible.
+    expect(api.labelFor([byText('h2', 'Die Tabelle')])).toBe('heading · Die Tabelle');
   });
 
   it('names a heading group a section', () => {
@@ -603,10 +638,27 @@ describe('favorites capture — widening and narrowing', () => {
     sameNodes(api.candidate(), [table]);
   });
 
-  it('cannot narrow a heading group', () => {
-    // A group is a run of siblings, not a container — its first node holds
-    // nothing.
-    api.setCandidate(api.groupFor(byText('h2', 'Die Tabelle')));
+  it('widens straight out of a heading that introduces nothing', () => {
+    // The divider card's h2 is its last child, so the group is the heading
+    // itself and the extra rung would be a `wider` that visibly did nothing.
+    const heading = byText('h2', 'Jetzt: §2');
+    api.setCandidate(api.candidateAt(heading));
+
+    expect(api.widen()).toBe(true);
+    sameNodes(api.candidate(), [heading.closest('.card') as Element]);
+  });
+
+  it('narrows a heading group back to its heading', () => {
+    // A group is a run of siblings, not a container, so its step inward is the
+    // heading that opens it rather than anything inside its first node. Asked
+    // through setCandidate, so it holds without a climb stack to undo.
+    const heading = byText('h2', 'Die Tabelle');
+    api.setCandidate(api.groupFor(heading));
+
+    expect(api.narrow()).toBe(true);
+    sameNodes(api.candidate(), [heading]);
+
+    // And the heading holds nothing: there is nowhere further down.
     expect(api.narrow()).toBe(false);
   });
 
@@ -698,14 +750,19 @@ describe('favorites capture — picking mode', () => {
     expect(api.candidate()).toBeNull();
   });
 
-  it('follows the pointer, and only onto blocks', () => {
+  it('ignores the pointer entirely', () => {
+    // Hover used to pick, and the selection chased the pointer across the
+    // guide — every heading it crossed boxing a whole passage, so landing on
+    // anything meant out-running a target that moved. A tap is now the only
+    // thing that selects.
     api.enter();
     hover(document.querySelector('pre') as Element);
+    expect(api.candidate()).toBeNull();
+
+    click(document.querySelector('pre') as Element);
     sameNodes(api.candidate(), [document.querySelector('pre') as Element]);
 
-    // Sweeping across the pager on the way somewhere else must not throw the
-    // selection away.
-    hover(document.getElementById('next') as Element);
+    hover(byText('p', 'lead'));
     sameNodes(api.candidate(), [document.querySelector('pre') as Element]);
   });
 
@@ -1217,7 +1274,6 @@ describe('favorites capture — the save panel', () => {
 
   it('does not re-pick from the guide while the panel is up', () => {
     openOverTable();
-    hover(document.querySelector('pre') as Element);
     click(byText('p', 'Opener text'));
 
     // The panel is about *this* block: it was prefilled from it and the note
@@ -1279,37 +1335,21 @@ describe('favorites capture — the outline and the pointer', () => {
     api = loadDeck();
   });
 
-  it('keeps a widened selection when the pointer moves back inside it', () => {
+  it('leaves a widened selection and its climb alone while the pointer moves', () => {
     api.enter();
     click(byText('td', 'mich'));
     click(control('wider'));
     sameNodes(api.candidate(), [cards()[2]]);
 
-    // The reader said "the whole card". A pointer crossing the table on its
-    // way to the toolbar resolves to that table — and taking it would hand
-    // Save the exact block they had just widened away from.
+    // The reader said "the whole card", and then moved the pointer — back
+    // across the table they widened away from, and on to a block they never
+    // asked for. Neither is a pick, and neither disturbs the climb.
     hover(byText('td', 'mich'));
+    hover(document.querySelector('pre') as Element);
     sameNodes(api.candidate(), [cards()[2]]);
-  });
 
-  it('keeps the climb when the pointer moves over the candidate itself', () => {
-    api.enter();
-    click(byText('td', 'mich'));
-    click(control('wider'));
-
-    // A hover that resolves to the current selection is not a new pick, and
-    // treating it as one would throw away the climb — `narrower` would then
-    // descend into the card's first block instead of coming back to the table.
-    hover(cards()[2]);
     expect(api.narrow()).toBe(true);
     sameNodes(api.candidate(), [document.querySelector('table') as Element]);
-  });
-
-  it('still follows the pointer onto a genuinely different block', () => {
-    api.enter();
-    click(byText('td', 'mich'));
-    hover(document.querySelector('pre') as Element);
-    sameNodes(api.candidate(), [document.querySelector('pre') as Element]);
   });
 
   it('hides the outline when the deck hides the card the selection is on', () => {
@@ -1343,5 +1383,99 @@ describe('favorites capture — the outline and the pointer', () => {
     window.dispatchEvent(new Event('scroll'));
 
     expect(outline()?.hasAttribute('hidden')).toBe(true);
+  });
+});
+
+/*
+  The picker draws its chrome inside the guide's own document, and a generated
+  guide brings whatever palette its generator wrote. The bug these cover: the
+  in-frame stylesheet used to theme itself from the *guide's* token names with
+  its own dark literals as fallbacks, so a guide publishing some of those names
+  and not others got half of each palette. A tutor deck declaring `--fg:#1a1c20`
+  and no `--panel` drew near-black text on the `#1b1b1b` fallback — a toolbar
+  whose buttons were visible only by their borders, which came from the deck's
+  own light `--line`.
+*/
+describe('favorites capture — the picker\'s own palette', () => {
+  const scheme = (): string | null => document.documentElement.getAttribute('data-gm-fav-scheme');
+
+  it('takes the light palette over a light guide', () => {
+    const api = load(CTX, DECK);
+    document.body.style.backgroundColor = '#ffffff';
+    api.enter();
+
+    expect(scheme()).toBe('light');
+  });
+
+  it('takes the dark palette over a dark guide', () => {
+    const api = load(CTX, DECK);
+    document.body.style.backgroundColor = '#14161a';
+    api.enter();
+
+    expect(scheme()).toBe('dark');
+  });
+
+  it('reads through a body that paints nothing to the page behind it', () => {
+    const api = load(CTX, DECK);
+    document.body.style.backgroundColor = '';
+    document.documentElement.style.backgroundColor = '#14161a';
+    api.enter();
+
+    expect(scheme()).toBe('dark');
+    document.documentElement.style.backgroundColor = '';
+  });
+
+  it('calls a guide that paints nothing at all a light one', () => {
+    // An unstyled page is white in every engine, so white is what the picker
+    // has to assume — guessing dark would put the old black slab back on the
+    // one case that cannot be measured.
+    const api = load(CTX, DECK);
+    document.body.style.backgroundColor = '';
+    api.enter();
+
+    expect(scheme()).toBe('light');
+  });
+
+  it('re-reads the guide each time the picker mounts something', () => {
+    const api = load(CTX, DECK);
+    document.body.style.backgroundColor = '#ffffff';
+    api.enter();
+    expect(scheme()).toBe('light');
+
+    // A deck that flips theme under the reader — these decks answer
+    // prefers-color-scheme — must not leave the picker painted for the palette
+    // it mounted against.
+    api.leave();
+    document.body.style.backgroundColor = '#14161a';
+    api.enter();
+    expect(scheme()).toBe('dark');
+  });
+
+  it('takes the stamp off the guide when the instance stops', () => {
+    const api = load(CTX, DECK);
+    api.enter();
+    expect(scheme()).not.toBeNull();
+
+    api.stop();
+    expect(scheme()).toBeNull();
+  });
+
+  it('reads no custom property the in-frame sheet does not itself define', () => {
+    // The invariant the bug broke, and the one worth keeping: inside the frame
+    // the picker owns its whole palette. Every `var(--x)` it reads must be an
+    // `--x:` it wrote, or the guide gets a say in half a colour pair and the
+    // two halves disagree. The shell's sheet is deliberately not covered — it
+    // mounts into the app's own header, where /theme.css is loaded and
+    // inheriting the app's tokens is the point.
+    const api = load(CTX, DECK);
+    api.enter();
+    const css = document.querySelector('style[data-gm-favorites-style]')?.textContent || '';
+    expect(css).not.toBe('');
+
+    const names = (re: RegExp): string[] => (css.match(re) || []).map((m) => /--[\w-]+/.exec(m)![0]);
+    const declared = new Set(names(/--[\w-]+\s*:/g));
+    const undeclared = names(/var\(\s*--[\w-]+/g).filter((n) => !declared.has(n));
+
+    expect(Array.from(new Set(undeclared))).toEqual([]);
   });
 });

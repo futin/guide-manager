@@ -124,6 +124,22 @@ the tailnet port and the local port cannot drift apart.
   saw and is never re-derived from the guide; its `anchor` is a
   `GuidePosition`, so opening it in the guide is progress restore with
   `jumpTo` (`GET /guide?...&at=`), never a second navigation mechanism.
+- **Inside a framed guide the picker owns its whole palette.** `FRAME_CSS`
+  declares every `--gm-*` it reads; nothing there resolves a token the guide
+  might or might not publish. It used to read the guide's `--fg`/`--panel`
+  with dark literals behind them, which works at both ends and fails in the
+  middle — a tutor deck publishing `--fg` and no `--panel` drew its near-black
+  ink on the `#1b1b1b` fallback. Which of the two palettes applies is
+  *measured* (`schemeFor` reads the rendered background and compares luminance
+  against the white/black contrast crossover), never asked for by token name.
+  `SHELL_CSS` maps the same `--gm-*` names onto the app's tokens, because the
+  shell header does load `/theme.css`. Guarded by the palette suite in
+  `test/favorites-capture.test.ts`.
+- **The favorites picker selects on a tap and on nothing else.** No pointer
+  listener: hover used to preview, and the selection chased the pointer across
+  the guide. A tap resolves to one block — a heading to the heading, not the
+  passage under it — and `wider` climbs a rung at a time, the first rung from a
+  heading being the passage it introduces.
 - **Sanitisation happens where the HTML executes**: `client/src/lib/
   sanitize.ts`, at render. The server stores what it is sent, capped at
   512 KB; the capture script's own `<script>` strip is hygiene, not the
