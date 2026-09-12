@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useGuides } from '../../hooks/useGuides';
 import { usePersistedState } from '../../hooks/usePersistedState';
+import { clearDeeplink, readDeeplink, viewerHref } from '../../lib/deeplink';
 import { partitionSeries, seriesLabel } from '../../lib/series';
 import type { SeriesLesson } from '../../lib/series';
 import type { GuideEntry, GuideType, ProjectEntry } from '../../../../shared/types';
@@ -169,6 +170,18 @@ export default function GuidesView() {
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   const viewing = viewer !== null;
   /*
+    A deep link waiting to be turned into a viewer — see lib/deeplink.ts for what
+    it is and why a favorite's crumb produces one.
+
+    It cannot open the viewer directly, because a ViewerState needs the guide's
+    *title* and the link only carries its path; the title lives in the index,
+    which is still in flight on the render this state is initialised on. So the
+    link is parked here and the effect below opens it the moment the index lands.
+    Read in the initializer rather than in that effect so it is captured exactly
+    once, before anything can clear the query string underneath it.
+  */
+  const [pendingOpen, setPendingOpen] = useState(() => readDeeplink(window.location.search));
+  /*
     Whether the viewer's reset button is armed. Two taps, because it is a
     destructive control sitting beside the back link on a phone: the first tap
     turns it into "sure?", the second fires. Held here rather than inside a
@@ -241,6 +254,41 @@ export default function GuidesView() {
     root.classList.add('guide-locked');
     return () => root.classList.remove('guide-locked');
   }, [viewing]);
+
+  /*
+    Turn a parked deep link into an open viewer, once the index is here to say
+    what the guide is called.
+
+    The lookup is over the *whole* index, never the toolbar's filtered bays: a
+    remembered project select or a leftover type filter has nothing to do with
+    which guide a favorite points at, and a link that silently did nothing
+    because the board happened to be narrowed would be unexplainable from the
+    screen. For the same reason nothing here touches the toolbar — the reader is
+    going straight into a guide, and the board they eventually come back to
+    should be the one they left.
+
+    A path the index does not know is dropped to the board rather than surfaced
+    as an error, matching how a moved guide behaves everywhere else in this app:
+    the registry's allowlist hides it, and the favorite that outlived it is a
+    snapshot, which still reads fine on its card.
+
+    The link is consumed either way — cleared from state *and* from the address
+    bar — so this runs exactly once per arrival and a later reload lands on the
+    board.
+  */
+  useEffect(() => {
+    if (!pendingOpen || !index) return;
+    const entry = index.projects.flatMap((p) => p.guides).find((g) => g.path === pendingOpen.path);
+    setPendingOpen(null);
+    clearDeeplink();
+    if (entry) {
+      setViewer({
+        href: viewerHref(entry.href, pendingOpen.at),
+        title: entry.title,
+        path: entry.path
+      });
+    }
+  }, [pendingOpen, index]);
 
   /*
     Disarm on every change of guide, including on leaving the viewer entirely. An

@@ -3,6 +3,7 @@ import { lazy, Suspense, useState } from 'react';
 import { SideRail, type Section } from './components/SideRail';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
 import { usePersistedState } from './hooks/usePersistedState';
+import { readDeeplink } from './lib/deeplink';
 
 // Lazy: each section's chunk loads only when it is opened.
 const GuidesView = lazy(() => import('./components/guides/GuidesView'));
@@ -32,9 +33,24 @@ function AppShell() {
     the *initial* value, never the stored one: `stored` keeps recording every
     change underneath, so switching the setting back to 'last' finds a real last
     section rather than whatever was current when the override was turned on.
+
+    A deep link (?open=, from a favorite's crumb) outranks both, because it names
+    a guide and only the Guides section has a viewer to open one in — arriving
+    from a favorite onto Settings because that is where you were last would
+    simply lose the click. It is read here *and* in GuidesView rather than
+    threaded down as a prop: this level decides the section, that one decides
+    which guide, and neither needs the other's answer. Only GuidesView clears the
+    param, once it has actually opened the guide, so the two readings cannot race.
+
+    `stored` is deliberately left alone: the link is one arrival, not a change of
+    where you were working.
   */
   const [section, setSection] = useState<Section>(() =>
-    settings.landing === 'last' ? stored : settings.landing
+    readDeeplink(window.location.search)
+      ? 'guides'
+      : settings.landing === 'last'
+        ? stored
+        : settings.landing
   );
 
   const change = (s: Section): void => {

@@ -124,6 +124,15 @@ the tailnet port and the local port cannot drift apart.
   saw and is never re-derived from the guide; its `anchor` is a
   `GuidePosition`, so opening it in the guide is progress restore with
   `jumpTo` (`GET /guide?...&at=`), never a second navigation mechanism.
+- **A favorite's crumb deep-links to the *app*, never to `/guide`**
+  (`client/src/lib/deeplink.ts`: `/?open=<path>&at=<anchor>`). The render
+  shell is built to be framed — `body.deck-host main` drops its `max-width`
+  because the app's `.wrap.wide` around the iframe is what constrains it — so
+  linked at the top level it opened full-bleed with no rail, no `‹ Guides` and
+  no `↺ reset`. `deeplink.ts` is the one place that spells the query out; App
+  picks the section from it, `GuidesView` opens the viewer once the index names
+  the guide, and clears it from the address bar — the link is an arrival, not
+  state. An unknown path drops to the board, like every other moved guide.
 - **Inside a framed guide the picker owns its whole palette.** `FRAME_CSS`
   declares every `--gm-*` it reads; nothing there resolves a token the guide
   might or might not publish. It used to read the guide's `--fg`/`--panel`

@@ -200,6 +200,15 @@ describe('FavoritesView', () => {
     );
   });
 
+  /*
+    The crumb points at the *app* (`/?open=`), not at `GET /guide`. Linking
+    straight at the render route navigated out of the SPA onto the server's
+    inner page shell, which is built to be framed and therefore opens full-bleed
+    with none of the viewer's chrome. Pinned as the exact encoded string because
+    the other end of this link is a different file (lib/deeplink.ts, read by
+    App and GuidesView) and a silent disagreement between them just looks like a
+    board that opened on the board.
+  */
   it("builds f1's crumb link with the exact encoded anchor and joined text", async () => {
     renderView();
     await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
@@ -207,7 +216,7 @@ describe('FavoritesView', () => {
     const link = cardFor('Die Tabelle').querySelector('a.fav-crumb') as HTMLAnchorElement;
     expect(link.textContent).toBe('Personalpronomen › §1 · Die Tabelle › Die Tabelle ↗');
     expect(link.getAttribute('href')).toBe(
-      '/guide?p=%2Fg%2Fpp.html&at=%7B%22kind%22%3A%22deck%22%2C%22cardIndex%22%3A2%2C%22sectionId%22%3A%22s1%22%2C%22cardOffset%22%3A1%7D'
+      '/?open=%2Fg%2Fpp.html&at=%7B%22kind%22%3A%22deck%22%2C%22cardIndex%22%3A2%2C%22sectionId%22%3A%22s1%22%2C%22cardOffset%22%3A1%7D'
     );
     expect(link.target).toBe('_top');
   });
@@ -217,7 +226,7 @@ describe('FavoritesView', () => {
     await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
 
     const link = cardFor('Konnektoren').querySelector('a.fav-crumb') as HTMLAnchorElement;
-    expect(link.getAttribute('href')).toBe('/guide?p=%2Fg%2Fk.html');
+    expect(link.getAttribute('href')).toBe('/?open=%2Fg%2Fk.html');
   });
 
   it("gives each card the pill its anchor's kind implies, or none", async () => {

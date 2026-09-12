@@ -1,25 +1,31 @@
 import { useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent, FocusEvent, KeyboardEvent, MouseEvent } from 'react';
 
+import { deeplinkHref } from '../../lib/deeplink';
 import { sanitizeSnapshot } from '../../lib/sanitize';
 import type { Favorite } from '../../../../shared/types';
 
 /**
- * Where "open in guide" actually goes: the same `GET /guide` route every
- * card in the Guides board links to, plus an `at=` query carrying the
- * favorite's own `anchor` — GuidePosition, reused unchanged, so open-in-guide
- * is progress *restore* aimed at a different target rather than a second
+ * Where "open in guide" actually goes: the app's own deep link, carrying the
+ * favorite's `anchor` — GuidePosition, reused unchanged, so open-in-guide is
+ * progress *restore* aimed at a different target rather than a second
  * navigation mechanism the render side has to learn. `anchor` is omitted
  * entirely (no bare `&at=`) rather than sent as `null`, because `at`'s only
- * job on the render side is "jump here if present" — an explicit null would
- * be one more shape that route has to parse and reject.
+ * job further down is "jump here if present" — an explicit null would be one
+ * more shape to parse and reject.
+ *
+ * This used to link straight at `GET /guide`, which is the *inner* page: the
+ * server shell is written to be framed by the app's viewer, so at the top level
+ * it opened full-bleed with no rail, no back link and no reset — visibly a
+ * different page from the one the board opens for the same guide. The deep link
+ * hands the job to GuidesView's viewer instead, and the encoding lives in
+ * lib/deeplink.ts because the reader of this URL is a different file.
  *
  * Exported (not just used internally) so the view suite can assert the exact
  * encoded string a card produces without re-deriving it by hand.
  */
 export function openHref(f: Favorite): string {
-  const base = `/guide?p=${encodeURIComponent(f.guidePath)}`;
-  return f.anchor ? `${base}&at=${encodeURIComponent(JSON.stringify(f.anchor))}` : base;
+  return deeplinkHref(f.guidePath, f.anchor);
 }
 
 export interface FavoriteCardProps {
