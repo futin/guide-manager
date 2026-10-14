@@ -39,3 +39,7 @@ client/dist/
 # an embedded repo — a gitlink no clone can resolve — rather than as files.
 .claude/worktrees/
 .claude/settings.local.json
+
+# Playwright MCP output: page snapshots, console logs and screenshots. The server
+# refuses to write outside the repo, so a browser check always leaves files here.
+.playwright-mcp/

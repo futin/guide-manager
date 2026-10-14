@@ -379,7 +379,8 @@ name 15/500 over a 13 px hint, control right. `SettingsRow` stays the one row co
   the viewer header's `Start over`; add "the project scope is a rail destination" (only the rail writes `guide-manager.project` / `guide-manager.favProject`;
   a stale value fails open to `All projects` without being rewritten); add the `--mono` one-reader invariant. Edit only those entries.
 - [ ] **Step 3: `pnpm test`, `pnpm run typecheck`, `pnpm run build`** — all clean.
-- [ ] **Step 4: Browser check** with the stack up (`pnpm run docker:up`; the web port is `GM_WEB_PORT` in `.env`), built-in browser: Midnight and Daylight,
+- [ ] **Step 4: Browser check** with the stack up (`pnpm run docker:up`; the web port is `GM_WEB_PORT` in `.env`), Playwright MCP (`mcp__plugin_backlog-manager_playwright__*`; it only
+  writes under the repo, so save screenshots to `.playwright-mcp/`, which is gitignored): Midnight and Daylight,
   desktop and 375 px — rail tree, Continue reading, a series sheet, a viewer `Start over`, a favorite's armed remove, Settings in one and two columns, no
-  horizontal scroll at 375. Note anything that differs from the mocks in the task report. If you started a server, stop it by its recorded pid.
+  horizontal scroll at 375. Note anything that differs from the mocks in the task report. If you started the stack, stop it with `docker compose down`; a server you started by hand, by its recorded pid.
 - [ ] **Step 5: Commit** — `docs: CLAUDE.md invariants for the redesigned shell` (plus any phone CSS as `feat(client): phone layout`).
