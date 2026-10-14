@@ -4,7 +4,14 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import FavoritesView from '../client/src/components/favorites/FavoritesView';
+import { useFavorites } from '../client/src/hooks/useFavorites';
 import type { Favorite } from '../shared/types';
+
+/** FavoritesView as AppShell mounts it: the data hook one level up, and the scope the rail resolved. Narrowing by the rail itself is driven through App
+ *  in app-projects.test.tsx; here the scope is only ever handed in. */
+function Board({ scope = 'all' }: { scope?: string }) {
+  return <FavoritesView favorites={useFavorites()} scope={scope} />;
+}
 
 /**
  * FAVORITES-API — the shared fixture named in
@@ -124,9 +131,9 @@ function mockFetch(favorites: Favorite[] | 'reject'): { calls: Call[]; failNext:
   return { calls, failNext: (method: string) => failing.add(method) };
 }
 
-function renderView(favorites: Favorite[] | 'reject' = FAVORITES) {
+function renderView(favorites: Favorite[] | 'reject' = FAVORITES, scope = 'all') {
   const fetchStub = mockFetch(favorites);
-  render(<FavoritesView />);
+  render(<Board scope={scope} />);
   return fetchStub;
 }
 
@@ -184,7 +191,7 @@ describe('FavoritesView', () => {
   it('shows the exact empty-state copy when nothing is saved at all', async () => {
     renderView([]);
     // Both loading and the empty result render .guides-empty, so waiting for
-    // the class alone can catch the "loading…" render still on screen — wait
+    // the class alone can catch the "Loading…" render still on screen — wait
     // for the actual final copy instead.
     await waitFor(() =>
       expect(document.querySelector('.guides-empty')?.textContent).toBe(
@@ -286,32 +293,30 @@ describe('FavoritesView', () => {
     expect(bayName('german-study-partner')).toBeNull();
   });
 
-  it('narrows to one project bay via the select, and persists the pick', async () => {
-    renderView();
-    await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
-
-    fireEvent.change(screen.getByLabelText('Project'), {
-      target: { value: 'german-study-partner' }
-    });
+  /* Picking the scope is the rail's, and is driven through App in app-projects.test.tsx; the board only narrows to what it is handed. */
+  it('narrows to the scoped project bay', async () => {
+    renderView(FAVORITES, 'german-study-partner');
+    await waitFor(() => expect(bayName('german-study-partner')).toBeTruthy());
 
     expect(bayName('claude-agents-dashboard')).toBeNull();
-    expect(bayName('german-study-partner')).toBeTruthy();
-    expect(localStorage.getItem('guide-manager.favProject')).toBe(
-      JSON.stringify('german-study-partner')
-    );
+    expect(screen.queryByLabelText('Project')).toBeNull();
   });
 
-  it('fails open to All projects when the stored project no longer matches anything', async () => {
-    localStorage.setItem('guide-manager.favProject', JSON.stringify('nope'));
-    renderView();
+  /* AppShell resolves a stale name to ALL before it gets here, but the board does not lean on that. */
+  it('shows every bay for a scope no favorite carries, rather than blanking the board', async () => {
+    renderView(FAVORITES, 'nope');
     await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
 
     expect(bayName('claude-agents-dashboard')).toBeTruthy();
     expect(bayName('german-study-partner')).toBeTruthy();
+  });
 
-    const select = screen.getByLabelText('Project') as HTMLSelectElement;
-    expect(select.value).toBe('all');
-    expect(select.options[select.selectedIndex].textContent).toBe('All projects');
+  /* The hook lives in AppShell now, so leaving and re-entering Favorites no longer remounts it; the view asks again itself, or a favorite saved
+     inside a guide would stay off the board until a reload. */
+  it('asks for the favorites again each time it mounts', async () => {
+    const { calls } = renderView();
+    await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
+    expect(calls.filter((c) => c.method === 'GET' && c.url === '/api/favorites')).toHaveLength(2);
   });
 
   it("renders f4's snapshot body sanitised — no script, no onclick, the unwrapped 'j' text, and the https anchor kept with target=_blank", async () => {

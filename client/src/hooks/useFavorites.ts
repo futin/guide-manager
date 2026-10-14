@@ -11,14 +11,16 @@ import type { Favorite } from '../../../shared/types';
  * put on screen*, by an explicit tap on ☆ and Save. There is no window in
  * which a favorite could appear behind this tab's back the way a new guide
  * can — and the one path that would need a live update, coming back from the
- * viewer with a freshly-saved favorite, is a full tab switch away, which is
- * itself a remount. So a single fetch on mount is not a shortcut here; it is
- * already the complete answer.
+ * viewer with a freshly-saved favorite, is a full section switch away.
+ * The hook lives in AppShell (the rail counts favorites on every section), so
+ * that switch is no longer a remount of the hook; FavoritesView calls
+ * `refetch` on its own mount instead, which is the same one fetch per visit
+ * the hook used to get by living inside the view.
  *
  * That is also why, unlike useGuides, there is NO `message` listener. The
  * guides board listens because a framed guide's progress write happens behind
  * the board's back and has to be announced. A favorite's save happens in the
- * same tab that is about to remount into this view — nothing needs to shout
+ * same tab, which refetches the moment the reader opens Favorites — nothing needs to shout
  * across a frame boundary for a change that only takes effect once the reader
  * has already left and come back.
  */

@@ -5,10 +5,17 @@ import { render, screen, waitFor } from '@testing-library/react';
 
 import { App } from '../client/src/App';
 import GuidesView from '../client/src/components/guides/GuidesView';
+import { useGuides } from '../client/src/hooks/useGuides';
 import { openHref } from '../client/src/components/favorites/FavoriteCard';
 import { deeplinkHref, readDeeplink, viewerHref } from '../client/src/lib/deeplink';
 import { SETTINGS_STORAGE_KEY } from '../client/src/lib/settings';
 import type { Favorite, GuidesIndex } from '../shared/types';
+
+/** GuidesView as AppShell mounts it: the data hook one level up, handing the board its state, and the scope the rail resolved — every project here,
+ *  because narrowing is the rail's and is driven through App in app-projects.test.tsx. */
+function Board() {
+  return <GuidesView guides={useGuides()} scope="all" />;
+}
 
 /**
  * Opening a favorite must land on the *same page* as opening the guide off the
@@ -133,7 +140,7 @@ describe('GuidesView — arriving on a deep link', () => {
 
   it('opens the viewer on the linked guide, framing its href plus the anchor', async () => {
     setUrl(openHref(FAVORITE));
-    render(<GuidesView />);
+    render(<Board />);
 
     const frame = await waitFor(() => {
       const f = document.querySelector('iframe.guide-viewer-frame');
@@ -149,7 +156,7 @@ describe('GuidesView — arriving on a deep link', () => {
      with the chrome a guide opened off the board gets. */
   it('gives it the same viewer chrome a guide opened off the board gets', async () => {
     setUrl(openHref(FAVORITE));
-    render(<GuidesView />);
+    render(<Board />);
 
     await waitFor(() => expect(document.querySelector('.guide-viewer')).toBeTruthy());
     expect(document.querySelector('.guide-viewer-back')?.textContent).toBe('‹ Guides');
@@ -163,7 +170,7 @@ describe('GuidesView — arriving on a deep link', () => {
      re-open that guide on every reload, whatever the reader had moved on to. */
   it('drops the link from the address bar once it has opened', async () => {
     setUrl(`${openHref(FAVORITE)}&keep=1`);
-    render(<GuidesView />);
+    render(<Board />);
 
     await waitFor(() => expect(document.querySelector('.guide-viewer')).toBeTruthy());
     expect(window.location.search).toBe('?keep=1');
@@ -174,17 +181,17 @@ describe('GuidesView — arriving on a deep link', () => {
      same situation seen from the other side. */
   it('falls back to the board for a path the index does not know', async () => {
     setUrl(deeplinkHref('/p/g/gone.html', null));
-    render(<GuidesView />);
+    render(<Board />);
 
-    await waitFor(() => expect(screen.queryByText('loading…')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Loading…')).toBeNull());
     expect(document.querySelector('.guide-viewer')).toBeNull();
     expect(screen.getByText('Alpha Guide')).toBeTruthy();
     expect(window.location.search).toBe('');
   });
 
   it('opens the board as usual when there is no link', async () => {
-    render(<GuidesView />);
-    await waitFor(() => expect(screen.queryByText('loading…')).toBeNull());
+    render(<Board />);
+    await waitFor(() => expect(screen.queryByText('Loading…')).toBeNull());
     expect(document.querySelector('.guide-viewer')).toBeNull();
   });
 });

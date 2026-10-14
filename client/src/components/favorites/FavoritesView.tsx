@@ -1,27 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { useFavorites } from '../../hooks/useFavorites';
-import { usePersistedState } from '../../hooks/usePersistedState';
+import type { FavoritesState } from '../../hooks/useFavorites';
+import { ALL } from '../../lib/rail';
 import FavoriteCard from './FavoriteCard';
 import type { Favorite } from '../../../../shared/types';
 
 /**
- * The project select's persisted value. Named distinctly from GuidesView's
- * PROJECT_KEY (`guide-manager.project`) rather than sharing it: the two
- * selects answer *different* questions even though they look alike — the
- * Guides one holds a registry *path* (see GuidesView.tsx's own comment on
- * PROJECT_KEY), because two checkouts of one repo register the same project
- * name twice under two different paths. A favorite carries no path at all,
- * only the project *name* the capture blob denormalised (shared/types.ts,
- * Favorite.project) — so this select is valued and labelled by that name,
- * and sharing the guides key would mean a value written by one select (a
- * path) silently mis-scoping the other (which expects a name).
+ * The data comes from AppShell, which fetches it once for the rail's counts as well as for this board. `scope` is the rail's resolved pick: ALL or a
+ * project *name* — never a path, because a favorite carries only the name the capture blob denormalised (shared/types.ts, Favorite.project). Which is
+ * why the rail stores it under its own key, `guide-manager.favProject`, rather than sharing Guides' path-valued `guide-manager.project`.
  */
-const FAV_PROJECT_KEY = 'guide-manager.favProject';
-
-/** Same "not narrowed" sentinel GuidesView uses, and the same reason: a
- *  value that always reads as itself, never as "the field was cleared". */
-const ALL = 'all';
+interface Props {
+  favorites: FavoritesState;
+  scope: string;
+}
 
 /**
  * Copy, verbatim — global-constraints.md's "Copy, verbatim" list. Held as a
@@ -98,7 +90,7 @@ function computeDropIds(items: Favorite[], sourceId: string, targetId: string): 
  * nowhere near the registry board's scale problem that folding exists to
  * solve). The bay header is therefore a plain, unfoldable `div`.
  */
-export default function FavoritesView() {
+export default function FavoritesView({ favorites: state, scope }: Props) {
   /*
     All three of this task's mutations, pulled out together: `updateFavorite`
     (the card's inline title/note edit), `reorderBay` (↑/↓/⤒ and drag-and-
@@ -108,38 +100,39 @@ export default function FavoritesView() {
     all three against a Task 7 card that called none of them; this task is
     what wires the calls.
   */
-  const { favorites, loading, error, updateFavorite, reorderBay, removeFavorite } = useFavorites();
+  const { favorites, loading, error, refetch, updateFavorite, reorderBay, removeFavorite } = state;
+
+  /*
+    Ask again on every visit. useFavorites' "one fetch per mount" used to mean one per visit, because the hook lived in this view and leaving the
+    section unmounted it. Lifted into AppShell it mounts once per page load, and a favorite saved inside a framed guide — the only way one is ever
+    made — would then stay off this board until a reload. Entering the section is when the reader expects to see it.
+  */
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
   /* Plain state, like GuidesView's query: a remembered search that hides most
      of a short, hand-curated list on open would read as "my favorites are
      gone", which is a worse default than a board that opens showing all of
      them every time. */
   const [query, setQuery] = useState('');
-  const [project, setProject] = usePersistedState<string>(FAV_PROJECT_KEY, ALL);
 
   const all = favorites ?? [];
 
   /*
     Distinct project *names*, in the order they first appear in the server's
-    own response (project asc, order asc — favorites.service.ts's `all()`).
-    Derived from the whole unfiltered list, exactly as GuidesView derives its
-    project select from `all` rather than from the filtered bays: listing
-    only the projects a search or the select itself left standing would strip
-    the select down to one option with no way back to the others.
+    own response (project asc, order asc — favorites.service.ts's `all()`):
+    the bays' order.
   */
   const projectNames = Array.from(new Set(all.map((f) => f.project)));
 
   /*
-    Fail-open, mirroring GuidesView's `scoped`/`projectValue` pair: a name
-    remembered from a previous session may no longer appear in the data (its
-    one favorite was deleted, or this is a fresh device holding a stale key),
-    and an unmatched filter that emptied the whole board would look like the
-    server broke rather than like a leftover setting. An unmatched value reads
-    as All, and the select is fed this same fallback so it never shows a blank
-    or nonexistent option.
+    `scope` arrives resolved (AppShell, lib/rail.ts resolveScope): a name no
+    favorite carries any more has already become ALL upstream, where the rail
+    marks the same fallback. The `includes` check is that fail-open once more,
+    so an unresolved name still shows every bay rather than an empty board.
   */
-  const projectValue = project === ALL || projectNames.includes(project) ? project : ALL;
-  const inScope = projectValue === ALL ? all : all.filter((f) => f.project === projectValue);
+  const inScope = scope === ALL || !projectNames.includes(scope) ? all : all.filter((f) => f.project === scope);
 
   /*
     Search matches title, note, text (the block's own textContent) and the
@@ -192,22 +185,11 @@ export default function FavoritesView() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <select
-            className="guides-select"
-            aria-label="Project"
-            value={projectValue}
-            onChange={(e) => setProject(e.target.value)}
-          >
-            <option value={ALL}>All projects</option>
-            {projectNames.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
         </div>
       </div>
 
       {loading ? (
-        <div className="guides-empty">loading…</div>
+        <div className="guides-empty">Loading…</div>
       ) : error ? (
         <div className="guides-empty">{ERROR_COPY}</div>
       ) : all.length === 0 ? (

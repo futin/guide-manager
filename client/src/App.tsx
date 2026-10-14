@@ -1,11 +1,14 @@
 import { lazy, Suspense, useState } from 'react';
 
 import { SideRail, type Section } from './components/SideRail';
+import { useFavorites } from './hooks/useFavorites';
+import { useGuides } from './hooks/useGuides';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
 import { usePersistedState } from './hooks/usePersistedState';
 import { readDeeplink } from './lib/deeplink';
+import { ALL, favoriteTree, guideTree, resolveScope } from './lib/rail';
 
-// Lazy: each section's chunk loads only when it is opened.
+// Lazy: each section's chunk loads only when it is opened. Only the data hooks moved up here (below); the views' code still waits for their section.
 const GuidesView = lazy(() => import('./components/guides/GuidesView'));
 const FavoritesView = lazy(() => import('./components/favorites/FavoritesView'));
 const SettingsView = lazy(() => import('./components/settings/SettingsView'));
@@ -58,6 +61,42 @@ function AppShell() {
     setStored(s);
   };
 
+  /*
+    Both indexes are fetched here, once, rather than by the section that shows them: the rail counts guides and favorites on every section, Settings
+    included, so the data cannot wait for its view to mount. The hooks themselves are unchanged — useGuides' coalesced refetch on a framed guide's
+    progress message is installed exactly once, here, for the life of the app rather than once per visit to Guides.
+  */
+  const guides = useGuides();
+  const favorites = useFavorites();
+
+  /*
+    The scope keys, owned here because the rail writes them and the views read them, and this is the nearest common parent. Same keys and same values
+    as the toolbar selects they replace, unmigrated: a device's stored pick becomes its rail selection.
+  */
+  const [guideStored, setGuideStored] = usePersistedState<string>('guide-manager.project', ALL);
+  const [favStored, setFavStored] = usePersistedState<string>('guide-manager.favProject', ALL);
+
+  /*
+    `null` while loading or after a failure — the rail then shows that section's row with no count and no tree, and the section shows its own error
+    copy; the other section is unaffected. The shape checks are not paranoia: useGuides has no `res.ok` check, so a server error lands a JSON error
+    object in `index`, and GuidesView survives that only by reading `index?.projects ?? []`. The rail has no such fallback, and a throw here would take
+    the whole shell down rather than one section.
+  */
+  const guideRows =
+    !guides.loading && !guides.error && Array.isArray(guides.index?.projects) ? guideTree(guides.index!) : null;
+  const favRows =
+    !favorites.loading && !favorites.error && Array.isArray(favorites.favorites)
+      ? favoriteTree(favorites.favorites, guides.index && Array.isArray(guides.index.projects) ? guides.index : null)
+      : null;
+
+  /* Resolved for display only. A stored scope the data does not name renders as All projects and is never written back, so it comes back if the
+     project does — see resolveScope. */
+  const guideScope = resolveScope(guideRows, guideStored);
+  const favScope = resolveScope(favRows, favStored);
+
+  const pickScope = (s: 'guides' | 'favorites', scope: string): void =>
+    s === 'guides' ? setGuideStored(scope) : setFavStored(scope);
+
   // Guard a hand-edited or stale stored value — an unknown section would render
   // nothing at all. 'settings' and 'favorites' map to themselves; anything else
   // (including a value from a rail this app no longer has) falls back to 'guides'.
@@ -66,16 +105,24 @@ function AppShell() {
 
   return (
     <div className="shell">
-      <SideRail section={current} onChange={change} />
+      <SideRail
+        section={current}
+        onChange={change}
+        guideRows={guideRows}
+        favRows={favRows}
+        guideScope={guideScope}
+        favScope={favScope}
+        onScope={pickScope}
+      />
       <main className="main">
         {/* Only the guide list and its viewer need the extra room — Favorites and
             Settings both read better narrow, like a column of cards or of rows. */}
         <div className={current === 'guides' ? 'wrap wide' : 'wrap'}>
-          <Suspense fallback={<div className="guides-empty">loading…</div>}>
+          <Suspense fallback={<div className="guides-empty">Loading…</div>}>
             {current === 'guides' ? (
-              <GuidesView />
+              <GuidesView guides={guides} scope={guideScope} />
             ) : current === 'favorites' ? (
-              <FavoritesView />
+              <FavoritesView favorites={favorites} scope={favScope} />
             ) : (
               <SettingsView />
             )}

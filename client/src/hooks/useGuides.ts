@@ -5,7 +5,7 @@ import type { GuidesIndex } from '../../../shared/types';
 /**
  * Guides data hook. No polling and no refresh key: a guide appears when a skill
  * publishes one — on the order of days, not seconds — so one fetch per mount is
- * enough, and reopening the tab (a fresh mount) is how you pick up a new one.
+ * enough, and reloading the page (a fresh mount — the hook lives in AppShell, so switching section is not one) is how you pick up a new one.
  *
  * `refetch` is the one exception, and it is not polling: it exists because this
  * app now *writes* to the data it renders. Resetting a guide's progress makes
