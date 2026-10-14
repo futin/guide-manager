@@ -3,43 +3,37 @@ import { useEffect, useRef, useState } from 'react';
 import type { GuidesState } from '../../hooks/useGuides';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { clearDeeplink, readDeeplink, viewerHref } from '../../lib/deeplink';
+import { boardCounts, continueReading } from '../../lib/continue';
 import { ALL } from '../../lib/rail';
-import { partitionSeries, seriesLabel } from '../../lib/series';
-import type { SeriesLesson } from '../../lib/series';
+import { lessonPosition, partitionSeries } from '../../lib/series';
 import type { GuideEntry, GuideType, ProjectEntry } from '../../../../shared/types';
+import { ContinueReading } from './ContinueReading';
+import { GuideTile } from './GuideTile';
+import { SeriesCard } from './SeriesCard';
+import type { SeriesGroupView } from './SeriesCard';
 
 /**
- * Folded bays, stored as the project *paths* that are currently folded shut.
- *
- * Paths rather than names because the registry keys on the path: two checkouts of
- * one repo register the same project name twice, and a name-keyed fold would
- * collapse both bays on one tap. The list is also self-cleaning — a stored path
- * whose project is no longer registered simply never matches a bay, so there is
- * no pruning pass and no way for a stale entry to fold the wrong project.
- *
- * Stored as the folded set rather than the open one so that a project registered
- * after the fold state was written arrives open, which is the useful default: a
- * new project you have not seen yet should not appear pre-folded.
- */
-const COLLAPSED_BAYS_KEY = 'guide-manager.collapsedBays';
-
-/**
- * Folded series shelves, stored the same way for the same reasons: keyed by the
- * series *directory's* absolute path (a SeriesGroup's `key`), which is unique
+ * Folded series sheets, stored as the set of keys currently folded shut. Keyed by
+ * the series *directory's* absolute path (a SeriesGroup's `key`), which is unique
  * even when two projects both hold a series named `basics`, and self-cleaning —
- * a stored key whose series no longer renders simply never matches a shelf.
- * Stored as the folded set so a series registered after this was written
- * arrives open, like a new bay does.
+ * a stored key whose series no longer renders simply never matches a sheet, so
+ * there is no pruning pass. Stored as the folded set rather than the open one so a
+ * series registered after this was written arrives open, which is the useful
+ * default: a series you have not seen yet should not appear pre-folded.
+ *
+ * The per-project fold (`guide-manager.collapsedBays`) that used to sit beside
+ * this is gone, not migrated: narrowing to one project is the rail's job now. The
+ * key is left in storage, unread.
  */
 const FOLDED_SERIES_KEY = 'guide-manager.foldedSeries';
 
 /**
- * The two toolbar selects, remembered per device. The project scope is not
+ * The type switch and the sort select, remembered per device. The project scope is not
  * here: it is a rail destination now (SideRail), stored by AppShell and handed
  * in as the `scope` prop. The search box is not here either, on purpose — see
  * the plain useState below.
  *
- * The type select's "not narrowed" value is the rail's ALL sentinel: a sentinel
+ * The type switch's "not narrowed" value is the rail's ALL sentinel: a sentinel
  * rather than an empty string, so a stored value always reads as itself and
  * never as "the field was cleared".
  */
@@ -48,7 +42,7 @@ const SORT_KEY = 'guide-manager.sort';
 
 /** Sort keys, in the order the select offers them. `created` leads because it is
  *  the default: the board's job is to put the guide you generated ten minutes ago
- *  at the top of the bay you generated it in. */
+ *  at the top of the project you generated it in. */
 type SortKey = 'created' | 'name' | 'type';
 
 /** study before tutor. A written-down order rather than a localeCompare over the
@@ -74,33 +68,28 @@ interface Props {
   scope: string;
 }
 
-/**
- * One series shelf as the board renders it. `lessons` is the series' full
- * membership and `shown` what survived the toolbar — both are kept because they
- * answer different questions: the step badge says "2/7" from the full series
- * even when a search left one card standing (the lesson's position in its
- * series does not change because the board is filtered), and the header's
- * segmented progress strip likewise describes the whole series. Only the cards
- * and the header's count follow the filter, matching the bay-count rule below:
- * a count contradicts the screen unless it counts what is actually rendered.
- */
-interface Shelf {
-  key: string;
-  name: string;
-  lessons: SeriesLesson<GuideEntry>[];
-  shown: SeriesLesson<GuideEntry>[];
-}
-
-/** One bay as the board renders it: the project it names, that project's series
- *  shelves, and its loose guides that survived the toolbar, already sorted. */
-interface Bay {
+/** One project as the board draws it: the project, its series sheets and its loose guides that survived the toolbar, already sorted. */
+interface ProjectBoard {
   project: ProjectEntry;
-  shelves: Shelf[];
+  shelves: SeriesGroupView[];
   loose: GuideEntry[];
 }
 
+/** `N guides · M in progress · K read` — the band's line over the scope, and each project's under its name on an unscoped board. */
+function countLine(guides: GuideEntry[]): string {
+  const c = boardCounts(guides);
+  return `${c.total} ${c.total === 1 ? 'guide' : 'guides'} · ${c.inProgress} in progress · ${c.read} read`;
+}
+
+/** The type switch's options, in the order it draws them. Sentence case here; the pills on the tiles stay lowercase — they are tags, not labels. */
+const TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: ALL, label: 'All' },
+  { value: 'study', label: 'Study' },
+  { value: 'tutor', label: 'Tutor' },
+];
+
 /**
- * Sorts one bay's guides. Onto a copy, never in place: `project.guides` belongs
+ * Sorts one project's loose guides. Onto a copy, never in place: `project.guides` belongs
  * to the fetched index, and sorting it where it lies would make the board's order
  * depend on how many times it had been re-rendered.
  *
@@ -124,21 +113,21 @@ function sortGuides(guides: GuideEntry[], sort: SortKey): GuideEntry[] {
 }
 
 /**
- * Sorts one bay's shelves. Inside a shelf the lessons are always in series
- * order — that ordering is the shelf's whole reason to exist, so the sort
- * select never reaches in — but the shelves themselves still have to line up
+ * Sorts one project's series sheets. Inside a sheet the lessons are always in series
+ * order — that ordering is the sheet's whole reason to exist, so the sort
+ * select never reaches in — but the sheets themselves still have to line up
  * against each other under whichever key the select holds. `name` compares the
- * series name; `created` (and `type`, where every shelf is uniformly tutor and
- * the key has nothing to say) puts the shelf with the newest lesson first,
+ * series name; `created` (and `type`, where every sheet is uniformly tutor and
+ * the key has nothing to say) puts the sheet with the newest lesson first,
  * which is the same "what you just generated floats up" promise the default
- * sort makes for loose cards.
+ * sort makes for loose tiles.
  */
-function sortShelves(shelves: Shelf[], sort: SortKey): Shelf[] {
+function sortShelves(shelves: SeriesGroupView[], sort: SortKey): SeriesGroupView[] {
   const out = [...shelves];
   if (sort === 'name') {
     out.sort((a, b) => a.name.localeCompare(b.name));
   } else {
-    const newest = (s: Shelf) =>
+    const newest = (s: SeriesGroupView) =>
       s.lessons.reduce((m, l) => (l.guide.createdAt > m ? l.guide.createdAt : m), '');
     out.sort((a, b) => newest(b).localeCompare(newest(a)) || a.name.localeCompare(b.name));
   }
@@ -147,11 +136,12 @@ function sortShelves(shelves: Shelf[], sort: SortKey): Shelf[] {
 
 /**
  * Guides section — every guide registered in ~/.guide-manager/registry.json,
- * read via GET /api/guides, grouped by the project it belongs to. Read-only and
- * unpolled.
+ * read via GET /api/guides. Read-only and unpolled. Top to bottom (spec §3): the
+ * band, the toolbar, Continue reading, then each project's series sheets and loose
+ * tiles. The state lives here; ContinueReading, SeriesCard and GuideTile only draw.
  *
  * Ported from ../claude-agents-dashboard/client/src/components/guides/GuidesView.tsx.
- * Two changes: the fixed Decks / Study-guides pair becomes one bay per project,
+ * Two changes: the fixed Decks / Study-guides pair becomes per-project sections,
  * and the viewer carries the entry's own `href` instead of a relative path it
  * would otherwise have to rebuild — the server already resolved and encoded it,
  * and re-deriving it here is how the two would drift.
@@ -202,13 +192,10 @@ export default function GuidesView({ guides, scope }: Props) {
   */
   const [resetNonce, setResetNonce] = useState(0);
   /*
-    Per device, not per account: which projects you keep folded on the phone has
-    nothing to do with what you want folded on the desktop board, and the phone is
-    the whole reason this exists. Must sit above the early return with the other
-    hooks.
+    Per device, not per account: which series you keep folded on the phone has
+    nothing to do with what you want folded on the desktop board. Must sit above
+    the early return with the other hooks.
   */
-  const [collapsedBays, setCollapsedBays] = usePersistedState<string[]>(COLLAPSED_BAYS_KEY, []);
-  /* Same persistence, one level down: which series shelves are folded shut. */
   const [foldedSeries, setFoldedSeries] = usePersistedState<string[]>(FOLDED_SERIES_KEY, []);
 
   /*
@@ -226,13 +213,6 @@ export default function GuidesView({ guides, scope }: Props) {
   /* usePersistedState hands back a plain setter, not a dispatch, so the next
      value is computed from the current one here. Safe without an updater form:
      one tap is one toggle, and there is no path that queues two of them. */
-  const toggleBay = (path: string) =>
-    setCollapsedBays(
-      collapsedBays.includes(path)
-        ? collapsedBays.filter((p) => p !== path)
-        : [...collapsedBays, path]
-    );
-
   const toggleShelf = (key: string) =>
     setFoldedSeries(
       foldedSeries.includes(key)
@@ -259,7 +239,7 @@ export default function GuidesView({ guides, scope }: Props) {
     Turn a parked deep link into an open viewer, once the index is here to say
     what the guide is called.
 
-    The lookup is over the *whole* index, never the toolbar's filtered bays: a
+    The lookup is over the *whole* index, never the toolbar's filtered board: a
     remembered project scope or a leftover type filter has nothing to do with
     which guide a favorite points at, and a link that silently did nothing
     because the board happened to be narrowed would be unexplainable from the
@@ -416,38 +396,60 @@ export default function GuidesView({ guides, scope }: Props) {
   /*
     `scope` arrives already resolved (AppShell, lib/rail.ts resolveScope): a path
     the index no longer names has been turned into ALL upstream, where the rail
-    can mark the same fallback the board shows. The `scoped.length` check is the
-    same fail-open once more, so a board rendered with an unresolved path still
-    shows every project rather than nothing.
+    can mark the same fallback the board shows. The `find` here is the same
+    fail-open once more, so a board rendered with an unresolved path still shows
+    every project — and names itself `All projects` — rather than nothing.
   */
-  const scoped = all.filter((p) => p.path === scope);
-  const inScope = scope === ALL || scoped.length === 0 ? all : scoped;
+  const scoped = scope === ALL ? undefined : all.find((p) => p.path === scope);
+  const inScope = scoped ? [scoped] : all;
+  const scopeGuides = inScope.flatMap((p) => p.guides);
 
   /* Titles only, never content: the index the board holds *has* no content in it,
      and fetching every guide's body to grep it is not what a phone on a tailnet
      should be doing to answer a keystroke. */
   const needle = query.trim().toLowerCase();
-  const matches = (g: GuideEntry) =>
-    (type === ALL || g.type === type) &&
-    (needle === '' || g.title.toLowerCase().includes(needle));
+  const matchesQuery = (g: GuideEntry) => needle === '' || g.title.toLowerCase().includes(needle);
+  const matches = (g: GuideEntry) => (type === ALL || g.type === type) && matchesQuery(g);
 
   /*
-    A bay the filters emptied is dropped whole, header and all. The alternative —
-    an empty bay with its header still standing — puts a row on the board for
-    every project that has nothing to show, so on a board of a dozen projects a
-    two-hit search returns a screenful of headers with the hits buried in it. The
-    rail's project scope is different in kind: it narrows the board *to* a bay
-    rather than filtering inside one, so its header survives being the only bay
-    left — that header is the one place on the board the project's name is written.
+    The switch's counts are over the scope and ignore the query: they say what each
+    option would show, not what the query left — a `Study 0` that only meant "no
+    study guide has 'deck' in its title" would read as a project with no study
+    guides at all.
   */
+  const typeCount = (value: string) => scopeGuides.filter((g) => value === ALL || g.type === value).length;
+
   /*
-    Series are split out *before* the filters run, because a shelf needs to know
-    its full membership even when the toolbar hides part of it — the step badges
-    and the header's progress strip describe the series, not the filter result.
-    The filter then works per lesson: a shelf whose every lesson it hid drops
-    whole, header included, exactly like an emptied bay and for the same reason.
+    Continue reading answers "where was I", not the query: while the search box or
+    the switch is narrowing the board it is hidden rather than filtered, because a
+    row of the in-progress guides that happen to match "deck" answers neither
+    question. Across the whole scope — on an unscoped board, once, above every
+    project.
   */
-  const bays: Bay[] = inScope
+  const filtering = needle !== '' || type !== ALL;
+  const continuing = filtering ? [] : continueReading(scopeGuides, 4);
+  /* A lesson's place is counted within its own project's shelf — the shelf the
+     board draws it on. */
+  const lessonOf = (path: string) => {
+    const owner = inScope.find((p) => p.guides.some((g) => g.path === path));
+    return owner ? lessonPosition(owner.guides, path) : null;
+  };
+  const open = (g: GuideEntry) => setViewer({ href: g.href, title: g.title, path: g.path });
+
+  /*
+    A project the filters emptied is dropped whole, heading and all. The
+    alternative — an empty section with its heading still standing — puts a row on
+    the board for every project that has nothing to show, so on a board of a dozen
+    projects a two-hit search returns a screenful of headings with the hits buried
+    in it.
+
+    Series are split out *before* the filters run, because a sheet needs to know
+    its full membership even when the toolbar hides part of it — the numbered dots,
+    the subtitle and the segmented bar describe the series, not the filter result.
+    The filter then works per lesson: a sheet whose every lesson it hid drops
+    whole, title included, exactly like an emptied project and for the same reason.
+  */
+  const boards: ProjectBoard[] = inScope
     .map((p) => {
       const { shelves, loose } = partitionSeries(p.guides);
       const shown = shelves
@@ -459,60 +461,106 @@ export default function GuidesView({ guides, scope }: Props) {
         loose: sortGuides(loose.filter(matches), sort),
       };
     })
-    .filter((bay) => bay.shelves.length > 0 || bay.loose.length > 0);
+    .filter((b) => b.shelves.length > 0 || b.loose.length > 0);
+
+  /* One project's series and loose tiles, under a heading each with its count. A
+     heading over nothing is not drawn — a project with no series has no Series. */
+  const sections = ({ shelves, loose }: ProjectBoard) => (
+    <>
+      {shelves.length > 0 ? (
+        <section className="board-sec">
+          <h2 className="sec-h board-sec-h">
+            Series <span className="meta">{shelves.length}</span>
+          </h2>
+          <div className="series-grid">
+            {shelves.map((s) => (
+              <SeriesCard
+                key={s.key}
+                group={s}
+                /* Forced open while a query runs: a sheet still on the board
+                   holds at least one match, and a fold that hid it would make
+                   the search read as empty. Derived at render with the stored
+                   fold left alone — a search that rewrote it would leave every
+                   series it ever matched hanging open once the query cleared. */
+                folded={foldedSeries.includes(s.key) && needle === ''}
+                onFold={() => toggleShelf(s.key)}
+                onOpen={open}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+      {loose.length > 0 ? (
+        <section className="board-sec">
+          <h2 className="sec-h board-sec-h">
+            Guides <span className="meta">{loose.length}</span>
+          </h2>
+          <div className="tile-grid">
+            {loose.map((g) => (
+              <GuideTile key={g.path} guide={g} onOpen={() => open(g)} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </>
+  );
 
   return (
-    <div className="guides">
-      <div className="guides-bar">
-        <div className="guides-title">Guides</div>
-        {/*
-          The controls are grouped in their own element rather than dropped into
-          the bar directly, for two reasons: the bar is `align-items:baseline` for
-          the sake of the title, and the three controls have to align to each other
-          rather than to it — and the group is the thing that wraps to a line of
-          its own on a phone, which loose children could not do together. There is
-          no project select: the project scope is a rail destination now.
+    <div className="board">
+      {/* A band on the ground, not a card: it names the page and says what the
+          scope holds, over the scope before any filter — the counts below the
+          toolbar's switch are the ones that answer to the filters. */}
+      <header className="band board-band">
+        <h1>
+          Guides <span className="band-sep">·</span> {scoped ? scoped.name : 'All projects'}
+        </h1>
+        {index ? <p>{countLine(scopeGuides)}</p> : null}
+      </header>
 
-          Each control is named by an aria-label rather than a visible <label>: a
-          caption over each would double the bar's height to say what the control's
-          own current value ("All types", "Newest first") says anyway.
-        */}
-        <div className="guides-tools">
-          <input
-            type="search"
-            className="guides-search"
-            aria-label="Search guides"
-            placeholder="search titles"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <select
-            className="guides-select"
-            aria-label="Type"
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-          >
-            <option value={ALL}>All types</option>
-            <option value="study">study</option>
-            <option value="tutor">tutor</option>
-          </select>
-          <select
-            className="guides-select"
-            aria-label="Sort"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-          >
-            <option value="created">Newest first</option>
-            <option value="name">By name</option>
-            <option value="type">By type</option>
-          </select>
+      {/*
+        Each control is named by an aria-label rather than a visible <label>: a
+        caption over each would double the bar's height to say what the control's
+        own current value ("All", "Newest first") says anyway. There is no project
+        select: the project scope is a rail destination.
+      */}
+      <div className="toolbar board-toolbar">
+        <input
+          type="search"
+          className="input board-search"
+          aria-label="Search guides"
+          placeholder="Search titles"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <div className="seg board-type" role="group" aria-label="Type">
+          {TYPE_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              className={type === o.value ? 'on' : undefined}
+              aria-pressed={type === o.value}
+              onClick={() => setType(o.value)}
+            >
+              {o.label} <span className="seg-count">{typeCount(o.value)}</span>
+            </button>
+          ))}
         </div>
+        <select
+          className="select board-sort"
+          aria-label="Sort"
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortKey)}
+        >
+          <option value="created">Newest first</option>
+          <option value="name">By name</option>
+          <option value="type">By type</option>
+        </select>
       </div>
 
       {loading ? (
-        <div className="guides-empty">Loading…</div>
+        <div className="empty-line">Loading…</div>
       ) : error ? (
-        <div className="guides-empty">Guides unavailable</div>
+        <div className="empty-line">Guides unavailable</div>
       ) : all.length === 0 ? (
         /*
           Two distinct empty states, because they ask the reader for two different
@@ -522,223 +570,32 @@ export default function GuidesView({ guides, scope }: Props) {
           send the reader to the wrong place half the time — and the no-matches
           line deliberately offers nothing further, because the fix is already on
           screen and a "clear filters" button would be a second way to do what the
-          selects do.
+          toolbar does.
         */
-        <div className="guides-empty">nothing registered yet</div>
-      ) : bays.length === 0 ? (
-        <div className="guides-empty">no matches</div>
+        <div className="empty-line">Nothing registered yet</div>
+      ) : boards.length === 0 ? (
+        <div className="empty-line">No matches</div>
       ) : (
-        bays.map(({ project: p, shelves, loose }) => {
-          /*
-            A folded bay is forced open while a query is running. Every bay still
-            on the board holds at least one match by this point — the empty ones
-            were dropped above — so a non-empty query is on its own enough to open
-            this one. Without it, typing a query into a board with folded bays
-            looks like a search that found nothing.
-
-            Derived at render, with `collapsedBays` left alone: the fold state is
-            the user's standing preference, and a search that rewrote it would
-            leave every bay it ever matched in hanging open once the query was
-            cleared. Clearing the query drops each bay straight back to whatever it
-            was folded to before.
-          */
-          const open = !collapsedBays.includes(p.path) || needle !== '';
-          const shownCount = shelves.reduce((n, s) => n + s.shown.length, 0) + loose.length;
-
-          return (
-            <div className="bay" key={p.path}>
-              {/*
-                The header renders unconditionally: the board carries the project's
-                name nowhere else, so a single-bay board without its header is a
-                board that never says which project you are looking at. The previous
-                drawer hid the heading whenever one group was showing, which is
-                exactly the bug that produced it.
-
-                The whole header is the disclosure, rather than a caret button
-                beside the name: on a phone the header row is a comfortable tap
-                target and an 8px caret is not. That makes it a real <button> — not
-                a div with onClick — so it gets keyboard focus, Enter/Space, and an
-                aria-expanded the assistive layer already knows how to announce.
-
-                The tick stays an empty span, not a text glyph or a border on
-                .bay-h: a border cannot be given its own 14x3 footprint beside the
-                baseline-aligned name, and a glyph at the *start* of the header
-                would be read as part of the project's name. The caret is a glyph
-                and does land in the header's textContent, which is why it sits
-                last and carries aria-hidden — anything reading the project name
-                off the DOM reads .bay-name, never the header.
-              */}
-              <button
-                type="button"
-                className="bay-h"
-                aria-expanded={open}
-                onClick={() => toggleBay(p.path)}
-              >
-                <span className="bay-tick" />
-                <span className="bay-name">{p.name}</span>
-                {/* The count is of what the grid below actually holds, not of what
-                    the project has registered: a header reading "12 guides" over a
-                    filtered grid of two is a header contradicting the screen under
-                    it, and the grid is the one telling the truth. */}
-                <span className="bay-count">
-                  {shownCount} {shownCount === 1 ? 'guide' : 'guides'}
-                </span>
-                <span className="bay-caret" aria-hidden="true">▾</span>
-              </button>
-              {/*
-                Unmounted rather than hidden with CSS. A folded bay is one a phone
-                should not be paying for at all — hiding the grid would keep every
-                card's DOM, and a board of grown projects folds precisely because
-                that DOM is the scroll wall being folded away.
-
-                Shelves render above the loose grid: a series is the bay's most
-                structured content, and interleaving its cards into the plain
-                grid is exactly the unreadability the shelf exists to fix.
-              */}
-              {open ? (
-                <>
-                  {shelves.map((s) => {
-                    /* Forced open by a query for the same reason a bay is: a
-                       shelf still on the board holds at least one match, and a
-                       fold that hid it would make the search read as empty. */
-                    const shelfOpen = !foldedSeries.includes(s.key) || needle !== '';
-                    return (
-                      <div className={`shelf${shelfOpen ? '' : ' folded'}`} key={s.key}>
-                        {/*
-                          The whole header is the disclosure, like .bay-h and for
-                          the same phone-sized reasons. The progress strip is
-                          aria-hidden: one green cell per lesson is a glance
-                          affordance, and a screen reader walking seven empty
-                          spans would hear nothing the per-card meta lines don't
-                          already say.
-                        */}
-                        <button
-                          type="button"
-                          className="shelf-h"
-                          aria-expanded={shelfOpen}
-                          onClick={() => toggleShelf(s.key)}
-                        >
-                          <span className="shelf-tag">series</span>
-                          <span className="shelf-name">{seriesLabel(s.name)}</span>
-                          {/* Counts what the grid below holds, like .bay-count. */}
-                          <span className="shelf-count">
-                            {s.shown.length} {s.shown.length === 1 ? 'lesson' : 'lessons'}
-                          </span>
-                          <span className="shelf-segs" aria-hidden="true">
-                            {s.lessons.map((l) => (
-                              <span className="shelf-seg" key={l.guide.path}>
-                                <span
-                                  className="shelf-seg-fill"
-                                  style={{
-                                    width: `${
-                                      l.guide.progress?.completed
-                                        ? 100
-                                        : l.guide.progress?.furthestPercent ?? 0
-                                    }%`,
-                                  }}
-                                />
-                              </span>
-                            ))}
-                          </span>
-                          <span className="shelf-caret" aria-hidden="true">▾</span>
-                        </button>
-                        {shelfOpen ? (
-                          <div className="guides-grid">
-                            {s.shown.map((l) => (
-                              <GuideCard
-                                key={l.guide.path}
-                                guide={l.guide}
-                                step={`${l.order}/${s.lessons.length}`}
-                                onOpen={() =>
-                                  setViewer({
-                                    href: l.guide.href,
-                                    title: l.guide.title,
-                                    path: l.guide.path,
-                                  })
-                                }
-                              />
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                  {loose.length > 0 ? (
-                    <div className="guides-grid">
-                      {loose.map((g) => (
-                        <GuideCard
-                          key={g.path}
-                          guide={g}
-                          onOpen={() => setViewer({ href: g.href, title: g.title, path: g.path })}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-          );
-        })
+        <>
+          <ContinueReading guides={continuing} lessonOf={lessonOf} onOpen={open} />
+          {scoped
+            ? sections(boards[0])
+            : boards.map((b) => (
+                /* Unscoped, each project is drawn under its own name with its own
+                   counts — over the whole project, like the band's, not over what
+                   the filters left. The heading renders whatever the filters
+                   leave of the section: it is the one place the board says which
+                   project a tile belongs to. */
+                <section className="board-project" key={b.project.path}>
+                  <div className="board-project-h">
+                    <h2 className="board-project-name">{b.project.name}</h2>
+                    <p className="meta board-project-meta">{countLine(b.project.guides)}</p>
+                  </div>
+                  {sections(b)}
+                </section>
+              ))}
+        </>
       )}
-    </div>
-  );
-}
-
-/**
- * One tappable guide card: title on top, then a footer row of the type as a pill
- * and a meta line of date · how far you got. A finished guide reads as a state
- * ("read"); a part-read one as a number, because there the number is the
- * information. A guide never opened says nothing at all rather than "0%", which
- * would look like a failure to start.
- *
- * The number is `furthestPercent`, never `percent`. The two disagree whenever the
- * reader has scrolled back — and a card that reported the *current* position
- * would walk the board backwards for glancing at chapter one, which is the one
- * thing a progress display must never do. Where you are is the frame's business,
- * and the frame restores it; how far you got is the board's.
- *
- * The pill and the meta line are wrapped in .guides-card-foot rather than sitting
- * on the card directly. The old layout was a two-row named-areas grid, which was
- * the right shape while cards were a single column of full-width rows — but in a
- * grid of side-by-side cards the cells stretch to the tallest card in the row, and
- * a grid row cannot be pushed to the bottom of a taller cell. One footer element
- * can: .guides-card is a flex column and the footer takes `margin-top:auto`, so
- * the meta lines of neighbouring cards align however long their titles run.
- */
-function GuideCard({
-  guide,
-  step,
-  onOpen,
-}: {
-  guide: GuideEntry;
-  /** `N/total` for a card on a series shelf — the lesson's own filename number
-   *  over the series' full size, untouched by the toolbar (see Shelf). Absent on
-   *  a loose card, which renders exactly as before shelves existed. */
-  step?: string;
-  onOpen: () => void;
-}) {
-  return (
-    <div className="guides-card" role="button" onClick={onOpen}>
-      <div className="guides-card-title">{guide.title}</div>
-      <div className="guides-card-foot">
-        {/*
-          The type leads the footer as a coloured pill rather than a word in the
-          run of monospace text. Both types get one: a card with no pill would read
-          as missing data rather than as "the plain kind". The step badge leads
-          even the pill: on a shelf the first question is "which lesson is this",
-          and the answer belongs where the eye lands first.
-        */}
-        {step ? <span className="guides-card-step">{step}</span> : null}
-        <span className={`pill pill-${guide.type}`}>{guide.type}</span>
-        <div className="guides-card-meta">
-          {guide.updated.slice(0, 10)}
-          {guide.progress?.completed ? (
-            <span className="guides-card-read"> · read</span>
-          ) : guide.progress ? (
-            <span className="guides-card-part"> · {guide.progress.furthestPercent}%</span>
-          ) : null}
-        </div>
-      </div>
     </div>
   );
 }
