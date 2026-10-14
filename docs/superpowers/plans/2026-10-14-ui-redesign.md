@@ -30,7 +30,8 @@ https://claude.ai/artifact/NAkehDwVz1o8o4qkVs9uJb (where the spec and a mock dis
 - One face in the shell: Hanken Grotesk 400/500/600/700 via Google Fonts in `client/index.html`, falling back to Plus Jakarta Sans then the system UI face.
 - 11 px is the type floor. Sentence case in all shell copy; the rail kicker `GUIDE MANAGER` is the only uppercase text; type pills stay lowercase.
 - Exact copy: `Loading…`, `Guides unavailable`, `Nothing registered yet`, `No matches`, `Couldn't load favorites`, `Add a note`, `Start over`, `Start over?`,
-  `Remove?`, `Continue reading`, `last opened first`, `Search titles`, `Search favorites`, `All projects`, `Saved <date>`,
+  `Remove?`, `Continue reading`, `last opened first`, `Search titles` (Guides search placeholder; its `aria-label` stays `Search guides`), `Search favorites` (placeholder and the existing `aria-label`),
+  `All projects`, `Saved <date>`,
   `Stored in this browser · each device keeps its own`.
 - Breakpoints: 640 (rail → top bar), 768 (Settings two columns; favorite snapshot stops scrolling sideways), 1280 (viewer fixed column).
 - Text size: `.shell { zoom: var(--font-scale, 1) }`, never on `body`; every `vh`/`dvh`/`vw` inside `.shell` is divided by `var(--font-scale, 1)`.
@@ -79,7 +80,9 @@ https://claude.ai/artifact/NAkehDwVz1o8o4qkVs9uJb (where the spec and a mock dis
 - [ ] **Step 1: Write the failing tests.** Build `GuideEntry` fixtures with a small factory. Run date cases at `T12:00:00Z` so no local timezone moves the day.
   - `shortDate('2026-09-17T12:00:00Z', new Date('2026-10-14T12:00:00Z'))` → `'Sep 17'`
   - `shortDate('2025-09-17T12:00:00Z', new Date('2026-10-14T12:00:00Z'))` → `'Sep 17, 2025'`
-  - `shortDate('2026-01-03', new Date('2026-10-14T12:00:00Z'))` → `'Jan 3'` (date-only ISO, as registry `updated` values look)
+  - `shortDate('2026-01-03', new Date('2026-10-14T12:00:00Z'))` → `'Jan 3'` (date-only parse robustness)
+  - `shortDate('2026-08-24T20:16:36.844Z', new Date('2026-10-14T12:00:00Z'))` → `'Aug 24'` (full ISO, as `bin/register.js` writes `updated`). jest
+    runs in the host timezone (`jest.config.ts` sets none), so no input may sit within 12 h of a day boundary
   - `shortDate('not-a-date')` → `'not-a-date'`; `shortDate('')` → `''`
   - `continueReading`: given A (furthest 40, lastOpenedAt `2026-10-12`), B (furthest 0), C (completed, furthest 100), D (`progress: null`), E (furthest 10,
     `2026-10-13`), F (furthest 100, **not** completed, `2026-10-01`) with limit 4 → `[E, A, F]`.
@@ -89,8 +92,8 @@ https://claude.ai/artifact/NAkehDwVz1o8o4qkVs9uJb (where the spec and a mock dis
   - Review Focus 1: a guide with `lastOpenedAt: 'garbage'` and furthest 30, alongside A → `[A, garbage-guide]`; no throw.
   - `boardCounts([A, B, C, D, E, F])` → `{ total: 6, inProgress: 3, read: 1 }` (A, E, F in progress — Review Focus 5; C read).
   - `isStarted`: B (furthest 0, `openCount` 3) → false; a completed guide at furthest 0 → true; A → true.
-  - `lessonPosition`: for the existing series fixture in `series.test.ts` (or a new one with `/p/b1-brief/b1-brief-1-a.html`, `…-2-b.html`, `…-3-c.html`),
-    the second lesson → `{ label: seriesLabel('b1-brief'), n: 2, m: 3 }`; a loose `/p/notes.html` → `null`; an unknown path → `null`.
+  - `lessonPosition`: over guides at `/p/b1-brief/b1-brief-1-a.html`, `/p/b1-brief/b1-brief-2-b.html`, `/p/b1-brief/b1-brief-3-c.html` and `/p/notes.html`
+    (built with the suite's existing `g(path)` factory), `/p/b1-brief/b1-brief-2-b.html` → `{ label: seriesLabel('b1-brief'), n: 2, m: 3 }`; a loose `/p/notes.html` → `null`; an unknown path → `null`.
 - [ ] **Step 2: Run them, expect failure** — `pnpm test -- test/dates test/continue-reading test/series`: module-not-found / not-a-function.
 - [ ] **Step 3: Implement** the helpers. Ordering in `continueReading` parses `lastOpenedAt` once per guide; an unparsable date sorts as oldest.
 - [ ] **Step 4: Run the three suites, expect PASS.**
@@ -132,15 +135,20 @@ https://claude.ai/artifact/NAkehDwVz1o8o4qkVs9uJb (where the spec and a mock dis
 ### Task 3: Tokens, font, base stylesheet
 
 **Files:**
-- Modify: `shared/theme.css`, `client/index.html`, `client/src/styles.css`, `client/src/lib/settings.ts`
+- Modify: `shared/theme.css`, `client/index.html`, `client/src/styles.css`, `client/src/lib/settings.ts`, `client/src/main.tsx` (drop the four
+  `@fontsource/barlow*` imports, keep `@fontsource/ibm-plex-mono` for `--mono`, rewrite the "no external hosts" comment — the face now loads from Google
+  Fonts, spec Out of scope), `package.json` + `pnpm-lock.yaml` (`pnpm remove @fontsource/barlow @fontsource/barlow-condensed`)
 - Create: `client/src/components/icons.tsx`, `client/src/components/ProgressBar.tsx`
 - Test: `test/theme-tokens.test.ts`, `test/font-scale-css.test.ts` (must pass unchanged), `test/settings.test.ts`, `test/progress-bar.test.tsx`
 
 **Interfaces:**
 - Produces:
   - Tokens per §1, incl. `--magenta-tint` / `--magenta-ink` per theme and the role tokens `--green-fill --green-fill2 --green-solid --green-tint
-    --amber-solid --amber-text --amber-tint --amber-ink --mustard-tint --mustard-ink`, values from the dashboard's `project/tokens.json` and its shipped
-    `client/src/styles.css` theme blocks. The dashboard's Daylight block defines no `--amber`; guide-manager's Daylight block must still define every base
+    --amber-solid --amber-text --amber-tint --amber-ink --mustard-tint --mustard-ink`, values from `project/tokens.json` in the design-system **artifact** (https://claude.ai/artifact/XBMon4GJEdzip9WrojZYAj —
+    read it with the Artifact tool; the dashboard repo has no `project/` dir). Where it lacks a value, derive it from the dashboard's shipped
+    `client/src/styles.css`, which writes the dark themes' role tokens as `color-mix()`/`var()` (`:46-61`) — resolve each to a literal: tints are
+    `rgba(<base>, .18)` green / `.11` amber / `.13` mustard; solids and inks are the base hex; `--green-fill`/`--green-fill2` are the oklab 70 % / 45 %
+    mix of `--green` over `--strip`, computed once and written as hex. Daylight takes the shipped overrides' literals. The dashboard's Daylight block defines no `--amber`; guide-manager's Daylight block must still define every base
     token it defined before (copy the existing Daylight `--amber` forward if the dashboard has none) so the resolve check holds.
   - `icons.tsx`: named components `IconGuides`, `IconFavorites`, `IconSettings`, `IconChevronLeft`, `IconChevronDown`, `IconSearch`, `IconUp`, `IconDown`,
     `IconTop`, `IconClose`, `IconMenu`, `IconReset` — outline, 1.5 px stroke, 20×20 viewBox, `currentColor`, `aria-hidden="true"`, size prop defaulting 20.
@@ -163,7 +171,7 @@ https://claude.ai/artifact/NAkehDwVz1o8o4qkVs9uJb (where the spec and a mock dis
   modifier and no fill element (flat track, no hatch); `percent 140` → `100%`; `percent -5` → empty; `SegmentedBar({percents:[25,0,100]})` → three
   segments with fills `25%`, empty, `100%`.
 - [ ] **Step 3: `settings.test.ts`**: Daylight's label is `Daylight` and hint `light grey ground, white cards, dark ink`; theme ids unchanged
-  (`midnight graphite amber nightshift daylight`, whatever the current ids are — assert the existing list).
+  (`midnight graphite amber nightshift daylight` — the list `test/settings.test.ts:15` already asserts).
 - [ ] **Step 4: Run, expect the new assertions to fail.** `pnpm test -- test/theme-tokens test/progress-bar test/settings`.
 - [ ] **Step 5: Implement** `theme.css` (header comment names the dashboard revision it now matches — `git -C ../claude-agents-dashboard log -1 --format=%h`),
   the font links (preconnect to `fonts.googleapis.com` and `fonts.gstatic.com` crossorigin, then the `css2` link for 400;500;600;700 `display=swap`),
@@ -199,17 +207,19 @@ Rail behaviour (§2): wordmark (`GUIDE MANAGER` kicker, `› guides` prompt, sta
 `rows[0].count` when rows are non-null, nothing otherwise; Settings no count. Active section row `aria-current="page"`. Under the active section (Guides or
 Favorites) its tree renders when its rows are non-null; the picked tree row has `aria-current="true"`. Clicking a tree row calls `onScope(section, scope)`
 then `onChange(section)`. Clicking a section row calls only `onChange`. The phone bar: a `header.mnav` **outside** `nav.rail` with the prompt and a ☰ button
-(`aria-expanded`, `aria-controls` → the rail's id, `aria-label` `Open menu` / `Close menu`). While the menu is open the rail gets an open modifier and renders
+(`aria-expanded`, `aria-controls="rail-nav"`, the rail carrying `id="rail-nav"` as the dashboard's does, `aria-label` `Open menu` / `Close menu`). While the menu is open the rail gets an open modifier and renders
 **both** trees; picking any row closes it. No element inside `.rail` carries `aria-expanded`.
 
 - [ ] **Step 1: Rewrite `side-rail.test.tsx` cases (failing).** Keep: `aria-label="Sections"`; `aria-current="page"` on the active row; reports the clicked
-  section; wordmark text `GUIDE MANAGER` and `› guides`; clicking the showing section's row calls `onChange` with it; `.rail [aria-expanded]` length 0 in
+  section; wordmark: the DOM text stays `Guide Manager` (uppercase is CSS `text-transform`, which jsdom does not apply, so the existing
+  `toContain('Manager')` holds) plus `› guides`; clicking the showing section's row calls `onChange` with it; `.rail [aria-expanded]` length 0 in
   both sections and with the menu open. Change: "exactly three buttons" → exactly three section rows (by their class or role, not all buttons). Add:
-  - rows null → section rows show no count and no tree; rows given → Guides row shows `3`, tree rows `All projects 3`, `alpha 2`, `beta 1`.
+  - rows null → section rows show no count and no tree; rows given → the Guides section row's count element (`.rail-count`) reads `3`; the tree rows' (`.rail-sublink`) text
+    contents are `All projects3`, `alpha2`, `beta1` (label and `.rail-count` inside each — query the two kinds separately, never `getByText('3')`).
   - section `guides` → Guides tree present, Favorites tree absent; section `settings` → no tree.
   - `guideScope '/a'` → the `alpha` row has `aria-current="true"`, `All projects` does not.
   - click `beta` under Guides → `onScope('guides','/b')` and `onChange('guides')`, in that order.
-  - ☰ is inside `header.mnav`, not inside `.rail`; `aria-expanded` false → click → true and both trees render → click a Favorites tree row → closed (false).
+  - ☰ is inside `header.mnav`, not inside `.rail`, with `aria-controls="rail-nav"` matching the rail's `id`; `aria-expanded` false → click → true and both trees render → click a Favorites tree row → closed (false).
 - [ ] **Step 2: `app-projects.test.tsx` (failing)**, through `App` with mocked fetches:
   - stored `guide-manager.project = '/b'` → board shows only beta's guides; rail `beta` row current.
   - click `alpha` in the rail → `localStorage['guide-manager.project'] === '/a'` and the board narrows to alpha.
@@ -220,9 +230,10 @@ then `onChange(section)`. Clicking a section row calls only `onChange`. The phon
     storage still `'/b'`.
   - a `{source:'guide-manager',kind:'progress'}` message posted twice within 300 ms → exactly one extra `GET /api/guides` (the existing coalescing case,
     now driven through `App`).
-- [ ] **Step 3: `app-landing.test.tsx`** — existing landing cases must pass unchanged in meaning; update only the `loading…` string to `Loading…`.
+- [ ] **Step 3: `loading…` → `Loading…`** in the waits at `test/guides-view.test.tsx:78`, `test/guides-series.test.tsx:100` and
+  `test/favorites-deeplink.test.tsx:179,187`. `app-landing.test.tsx` holds no such string and must pass with no edit beyond rendering through the new props.
 - [ ] **Step 4: Run, expect failures.** `pnpm test -- test/side-rail test/app-projects test/app-landing`.
-- [ ] **Step 5: Implement** the lift, the new `SideRail`, the props on both views (remove both project `<select>`s and their `usePersistedState` for the scope
+- [ ] **Step 5: Implement** the lift, the new `SideRail` (rewrite its docblock: scope now belongs to the rail, not the Guides toolbar), the props on both views (remove both project `<select>`s and their `usePersistedState` for the scope
   keys; the views filter by the `scope` prop), and the rail/`.mnav` CSS: 240 px rail, 24 px padding, 36 px rows desktop / 44 px in the phone menu, 16 px row
   radius, active row `--strip-hi` + 3×16 `--ink` bar, tree rule `--hairline2` at a 24 px indent with a 12 px tick, picked tree row `--ink` 500 with no
   fill, `.mnav` 60 px with an 11 px kicker, rail height in `dvh` divided by `--font-scale`.
@@ -262,8 +273,10 @@ counts, Continue once above; `collapsedBays` gone; empty/error lines `Loading…
   - Review Focus 5: a loose guide at 100 % not completed shows `100%` and a bar, no `Read` pill; a completed one shows `Read`.
   - empty index → `Nothing registered yet`; fetch error → `Guides unavailable`; query with no hits → `No matches`; loading → `Loading…`.
   - All projects with two projects → two project headings, one Continue row; no element carries the old bay `aria-expanded`.
-  - no `guide-manager.collapsedBays` read or write (spy on `localStorage`).
-- [ ] **Step 2: `guides-series.test.tsx`** — retarget to the sheet: subtitle `Series · 3 lessons · 1 started` (a lesson opened at 0 % is not started);
+  - no `guide-manager.collapsedBays` read or write (spy on `localStorage`); delete the old bay-fold cases (`test/guides-view.test.tsx:232-270,390`,
+    `button.bay-h` `aria-expanded`) rather than retargeting them.
+- [ ] **Step 2: `guides-series.test.tsx`** — retarget to the sheet: subtitle `Series · 3 lessons · 2 started` for the suite's existing fixture (lesson 1 completed at 100, lesson 2 furthest 40, lesson 3 `progress: null`);
+  add a case where lesson 3 has a progress row at furthest 0 → still `2 started` (opened at 0 % is not started);
   fold toggles `aria-expanded` on the chevron button and writes `guide-manager.foldedSeries`; folded hides the rows but keeps the title and segmented bar;
   remount keeps the fold; the existing "forces a folded shelf open while a query is running, without rewriting the fold" case kept with new selectors.
 - [ ] **Step 3: Run, expect failure.** `pnpm test -- test/guides-view test/guides-series`.
@@ -323,7 +336,7 @@ All projects one section per project under its name, no collapse; `.fav-body pre
   - band and subtitle: 3 favorites from 2 guides → `3 saved blocks from 2 guides · newest on top`; 1 from 1 → `1 saved block from 1 guide · newest on top`.
   - crumb text equals the existing `crumbText` output (`Title › a › b ↗`) and its `href` is `deeplinkHref(...)` — unchanged assertion in `favorites-deeplink`.
   - remove: first press → visible `Remove?`, `aria-label` `Confirm remove`; second → `DELETE`.
-  - ⤒ `Move to top` still present and reorders.
+  - ⤒ `Move to top` still present and reorders; the existing reorder/drag cases (`test/favorites-view.test.tsx:617` onward) pass unchanged.
   - empty note → `Add a note`; foot `Saved Oct 11` for `createdAt 2026-10-11T12:00:00Z` (with a fixed `now` via jest fake timers or by injecting the date).
   - error → `Couldn't load favorites`; loading → `Loading…`; no hits → `No matches`.
   - Review Focus 4 (in `app-projects`): `favProject = 'beta'`, beta has one favorite, remove it (both presses) → the rail's `beta` row is gone, the view shows
