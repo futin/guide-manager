@@ -13,7 +13,7 @@ interface Props {
 
 /**
  * Top-level section switch: the guide list · favorites · settings. A rail down
- * the left edge on desktop, a horizontal scroll strip below 700px.
+ * the left edge on desktop, a horizontal scroll strip below 640px.
  *
  * Ported from ../claude-agents-dashboard/client/src/components/SideRail.tsx with
  * its five tabs cut to two, and a third — Favorites — added back in task-6 of

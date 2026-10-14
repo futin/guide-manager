@@ -1,5 +1,12 @@
 /* ── Theme tokens ─────────────────────────────────────────────────────────────
-   Ported verbatim from ../claude-agents-dashboard/client/src/styles.css.
+   Matches ../claude-agents-dashboard/client/src/styles.css at 1ea48ec (the five [data-theme] blocks), with three deliberate differences:
+
+   - The dashboard writes its role tokens (--green-fill, --amber-tint, …) as colour-mix formulas and var() in the :root block and overrides them for daylight. Here
+     every role token is resolved once and written as a literal in EVERY theme block — tints as rgba() at the dashboard's own strengths (green 18 %,
+     amber 11 %, mustard 13 %), solids and inks as the base hex, the dark themes' green fills as the oklab 70 % / 45 % mix of --green over --strip.
+     test/theme-tokens.test.ts reads each block with a regex, and a value that only exists as a formula, or only in :root, is a value it cannot check.
+   - --magenta-tint / --magenta-ink are guide-manager's own: the tutor pill is magenta, and --magenta fails 4.5:1 on its own tint in Midnight and Graphite.
+   - --mono survives for one reader, a favorite's snapshot <pre>/<code> (a snapshot is what the reader saw). The dashboard dropped it along with its condensed display token, which is gone here too.
 
    This file is the single palette definition for BOTH surfaces: the React shell
    imports it, and the server links it into every rendered guide page (see
@@ -31,15 +38,26 @@
   --scrim:rgba(4,8,16,.66);   /* drawer backdrop */
   --shadow:rgba(0,0,0,.4);    /* card lift — lighter themes need far less */
   --shadow2:rgba(0,0,0,.5);   /* deeper lift: popovers, the cocked strip */
+  /* One face for the shell — Hanken Grotesk, linked from Google Fonts in client/index.html, as the dashboard does. Figures line up through
+     `font-variant-numeric: tabular-nums` on <body> rather than through a mono, so there is no condensed display cut any more. --mono is kept for the
+     favorite snapshot alone (see the header). Guide pages link this file but set their own faces, so neither token reaches them. */
   --mono:'IBM Plex Mono','SF Mono','JetBrains Mono',monospace;
-  --font:'Barlow',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  --display:'Barlow Condensed','Barlow',sans-serif;
+  --font:'Hanken Grotesk','Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   /* legacy aliases — TSX inline styles + unmigrated rules keep resolving */
   --bg:var(--board);--surface:var(--strip);--surface2:var(--steel);
   --border:var(--hairline);--border2:var(--hairline2);
   --text:var(--ink);--text2:var(--ink2);--text3:var(--ink3);
-  --accent:var(--cyan);--blue:var(--amber);--orange:var(--amber);
+  --accent:var(--cyan);--blue:var(--amber-solid);--orange:var(--amber-solid);
   --yellow:var(--mustard);--pink:var(--magenta);
+  /* Role tokens. Green as a data FILL (a lesson's segment), as a solid mark (the progress bar) and as a pill tint behind green text; amber and mustard
+     as a soft pill — the fill behind the text and the text on it — plus amber as a solid mark and as text on the bare card. On the dark boards the solids,
+     inks and text are the accent itself, which clears 4.5:1 on its own tint; daylight splits them (see its block). */
+  --green-fill:#3a9a74;--green-fill2:#2e6d5f;--green-solid:#46d48c;--green-tint:rgba(70,212,140,.18);
+  --amber-solid:#ffb03a;--amber-text:#ffb03a;--amber-tint:rgba(255,176,58,.11);--amber-ink:#ffb03a;
+  --mustard-tint:rgba(209,186,82,.13);--mustard-ink:#d1ba52;
+  /* The tutor pill: --magenta at 14 % over the card, and the text on it. --magenta alone reads 4.01:1 on that tint here, so the ink is --magenta mixed
+     toward --ink just far enough to clear 4.5 (4.65). */
+  --magenta-tint:rgba(207,111,158,.14);--magenta-ink:#d181ab;
 }
 /* Graphite — the same board with the blue cast taken out. For anyone who finds
    the navy too warm-shifted on a wide-gamut display. */
@@ -52,6 +70,10 @@
   --red:#dd5f4c;--magenta:#c47fa4;
   --on-accent:#111214;--scrim:rgba(0,0,0,.66);
   --shadow:rgba(0,0,0,.45);--shadow2:rgba(0,0,0,.55);
+  --green-fill:#4a926a;--green-fill2:#3c6750;--green-solid:#5ac98a;--green-tint:rgba(90,201,138,.18);
+  --amber-solid:#e6a445;--amber-text:#e6a445;--amber-tint:rgba(230,164,69,.11);--amber-ink:#e6a445;
+  --mustard-tint:rgba(200,180,94,.13);--mustard-ink:#c8b45e;
+  --magenta-tint:rgba(196,127,164,.14);--magenta-ink:#c789ab; /* --magenta is 4.32:1 on its tint; this is 4.74 */
 }
 /* Amber CRT — black glass, one phosphor. The status colors survive as amber
    tints rather than hues, which is the point: a monochrome tube. */
@@ -64,6 +86,10 @@
   --red:#e2603a;--magenta:#e0975a;
   --on-accent:#0a0805;--scrim:rgba(10,6,0,.72);
   --shadow:rgba(0,0,0,.55);--shadow2:rgba(0,0,0,.65);
+  --green-fill:#8f9338;--green-fill2:#626228;--green-solid:#c8d24a;--green-tint:rgba(200,210,74,.18);
+  --amber-solid:#ffb03a;--amber-text:#ffb03a;--amber-tint:rgba(255,176,58,.11);--amber-ink:#ffb03a;
+  --mustard-tint:rgba(224,166,60,.13);--mustard-ink:#e0a63c;
+  --magenta-tint:rgba(224,151,90,.14);--magenta-ink:#e0975a;
 }
 /* Nightshift — a deep green scope. Easiest of the dark set on a dim room. */
 [data-theme="nightshift"]{
@@ -75,20 +101,35 @@
   --red:#e2664b;--magenta:#c982ad;
   --on-accent:#07120d;--scrim:rgba(2,10,7,.68);
   --shadow:rgba(0,0,0,.42);--shadow2:rgba(0,0,0,.52);
+  --green-fill:#3da371;--green-fill2:#2e7250;--green-solid:#4fe09a;--green-tint:rgba(79,224,154,.18);
+  --amber-solid:#ffbe52;--amber-text:#ffbe52;--amber-tint:rgba(255,190,82,.11);--amber-ink:#ffbe52;
+  --mustard-tint:rgba(207,197,94,.13);--mustard-ink:#cfc55e;
+  --magenta-tint:rgba(201,130,173,.14);--magenta-ink:#c982ad;
 }
-/* Daylight Strip — the actual paper the whole metaphor comes from: manila
-   stock, dark ink, printed rules. The one light theme; shadows drop right down
-   because a lift that reads as depth on black reads as dirt on paper. */
+/* Daylight — the light theme, retuned to the dashboard's shipped Daylight: a light grey ground, white cards, near-black ink. Every token drawn as text
+   clears WCAG AA on the surface it sits on, so the state inks are darkened cousins of the dark themes' hues, and `--cyan` (the one interactive accent) is
+   a dark green dark enough to carry the focus ring. The bright brand fills live only in the role tokens — `--green-solid` and `--amber-solid` are marks,
+   never text; amber *text* is simply the ink, because no amber light enough to read as amber clears 4.5:1 on white.
+
+   The dashboard's block defines no `--amber`; this one keeps the previous daylight amber so every base token still resolves in every theme. Shadows drop
+   right down: a lift that reads as depth on black reads as dirt on paper. */
 [data-theme="daylight"]{
   color-scheme:light;
-  --board:#e8e3d7;--steel:#f2eee5;--strip:#fbf8f1;--strip-hi:#f2ecdd;
-  --edge:rgba(0,0,0,.04);--hairline:#cdc4b1;--hairline2:#ab9f88;
-  --ink:#231f1a;--ink2:#5a5346;--ink3:#8a8172;
-  --green:#1f7a4d;--amber:#a86414;--mustard:#8a7415;--cyan:#136d78;
-  --red:#a83420;--magenta:#8d3f66;
-  --on-accent:#fbf8f1;--scrim:rgba(60,52,38,.42);
-  --shadow:rgba(60,50,30,.13);--shadow2:rgba(60,50,30,.2);
+  --board:#f4f4f3;--steel:#ededec;--strip:#ffffff;--strip-hi:#f2f2f1;
+  --edge:rgba(0,0,0,.03);--hairline:#eaeae8;--hairline2:#dcdcda;
+  --ink:#131313;--ink2:#525252;--ink3:#6b6b6b;
+  --green:#38631a;--amber:#a86414;--mustard:#5f530b;--cyan:#306c0f;
+  --red:#aa3927;--magenta:#6950a5;
+  --on-accent:#ffffff;--scrim:rgba(19,19,19,.28);
+  --shadow:rgba(0,0,0,.06);--shadow2:rgba(0,0,0,.1);
+  --green-fill:#7dc242;--green-fill2:#9bd25c;--green-solid:#7dc242;--green-tint:#cde8a8;
+  /* the dashboard's #c4761f / #9a8712 at 11 % / 13 % for the fill; the text is that hue darkened only as far as 4.5:1 over the fill */
+  --amber-solid:#c4761f;--amber-text:#131313;--amber-tint:rgba(196,118,31,.11);--amber-ink:#945917;
+  --mustard-tint:rgba(154,135,18,.13);--mustard-ink:#74660e;
+  /* --magenta at 11 % here, not 14: on white the stronger tint muddies. --magenta itself clears 5.46:1 on it. */
+  --magenta-tint:rgba(105,80,165,.11);--magenta-ink:#6950a5;
 }
+
 
 /* Aliases for the older token names the guide stylesheet and the vendored
    reading aid already consume. assets/bionic.css themes itself from --line,

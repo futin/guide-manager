@@ -20,7 +20,7 @@ export const THEMES = [
   { id: 'graphite', label: 'Graphite', hint: 'neutral dark, no blue cast' },
   { id: 'amber', label: 'Amber CRT', hint: 'black glass and amber phosphor' },
   { id: 'nightshift', label: 'Nightshift', hint: 'deep green radar scope' },
-  { id: 'daylight', label: 'Daylight Strip', hint: 'light manila paper, dark ink' }
+  { id: 'daylight', label: 'Daylight', hint: 'light grey ground, white cards, dark ink' }
 ] as const;
 
 export type ThemeId = (typeof THEMES)[number]['id'];
