@@ -80,8 +80,9 @@ https://claude.ai/artifact/NAkehDwVz1o8o4qkVs9uJb (where the spec and a mock dis
 - [ ] **Step 1: Write the failing tests.** Build `GuideEntry` fixtures with a small factory. Run date cases at `T12:00:00Z` so no local timezone moves the day.
   - `shortDate('2026-09-17T12:00:00Z', new Date('2026-10-14T12:00:00Z'))` → `'Sep 17'`
   - `shortDate('2025-09-17T12:00:00Z', new Date('2026-10-14T12:00:00Z'))` → `'Sep 17, 2025'`
-  - `shortDate('2026-01-03', new Date('2026-10-14T12:00:00Z'))` → `'Jan 3'` (date-only parse robustness)
-  - `shortDate('2026-08-24T20:16:36.844Z', new Date('2026-10-14T12:00:00Z'))` → `'Aug 24'` (full ISO, as `bin/register.js` writes `updated`). jest
+  - `shortDate('2026-01-03', new Date('2026-10-14T12:00:00Z'))` → `'Jan 3'` — a date-only `YYYY-MM-DD` is a calendar date, parsed as local midnight
+    and formatted with no timezone shift, so it reads `Jan 3` on every host
+  - `shortDate('2026-08-24T12:00:00.844Z', new Date('2026-10-14T12:00:00Z'))` → `'Aug 24'` (full ISO, as `bin/register.js` writes `updated`). jest
     runs in the host timezone (`jest.config.ts` sets none), so no input may sit within 12 h of a day boundary
   - `shortDate('not-a-date')` → `'not-a-date'`; `shortDate('')` → `''`
   - `continueReading`: given A (furthest 40, lastOpenedAt `2026-10-12`), B (furthest 0), C (completed, furthest 100), D (`progress: null`), E (furthest 10,
@@ -201,6 +202,7 @@ https://claude.ai/artifact/NAkehDwVz1o8o4qkVs9uJb (where the spec and a mock dis
     favScope: string; onScope(section: 'guides' | 'favorites', scope: string): void }` — `guideScope`/`favScope` are the **resolved** values.
   - `GuidesView` props: `{ guides: GuidesState; scope: string }` (resolved scope; `'all'` or a project path).
   - `FavoritesView` props: `{ favorites: FavoritesState; scope: string }` (resolved; `'all'` or a project name).
+  - Rail class names tests rely on: `.rail-count` (a row's count), `.rail-sublink` (a tree row), `header.mnav`, `nav.rail#rail-nav`.
   - The views stay lazy chunks; only the hooks move. `App`'s `Suspense` fallback reads `Loading…`.
 
 Rail behaviour (§2): wordmark (`GUIDE MANAGER` kicker, `› guides` prompt, static cursor); three section rows with icons; Guides and Favorites rows show
