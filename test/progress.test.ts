@@ -10,11 +10,13 @@ import { ProgressController } from '../server/src/progress/progress.controller';
 import { ProgressService } from '../server/src/progress/progress.service';
 import { ReadingProgress, ReadingProgressSchema } from '../server/src/progress/progress.schema';
 import type { GuideProgress } from '../shared/types';
+import { createFlakeDiagnostics } from './flake-diagnostics';
 
 /**
- * Diagnostics for a flake seen exactly once: this suite's first POST came back
- * 401 "Unauthorized" on a full run, and every rerun since has been green -- 26
- * consecutive full runs, plus 120 isolated first-request iterations.
+ * Diagnostics for a flake seen twice: this suite's first POST came back 401
+ * "Unauthorized" on a full run, and the reruns around it were green -- 26
+ * consecutive full runs, plus 120 isolated first-request iterations. The
+ * second sighting, in a single-suite run, left no usable evidence.
  *
  * The status is the whole puzzle. No route here is guarded, and Nest gives a
  * response a status it was not handed by an HttpException only when the thrown
@@ -25,10 +27,26 @@ import type { GuideProgress } from '../shared/types';
  * two questions, because the first sighting could answer neither.
  *
  * Both stay silent on the statuses this suite means to produce, so a passing
- * run prints nothing at all. Background:
- * backlog/bugs/open/bug-1-progress-suite-401-flake.md
+ * run prints nothing at all. Background: backlog #5 (github
+ * futin/guide-manager#5).
+ *
+ * Whatever either hook prints also goes to a file under the OS temp directory
+ * (`./flake-diagnostics`), whose path the first diagnostic names. The second
+ * sighting was lost because stderr was the only record, and a full run buries
+ * it; `scripts/provoke-progress-401.mjs` loops the suite and stops on the first
+ * failure with that file in place.
  */
 const EXPECTED_STATUSES = new Set([200, 201, 204, 400]);
+
+const flake = createFlakeDiagnostics();
+
+const report = (label: string, details: Record<string, unknown>): void => {
+  // eslint-disable-next-line no-console
+  console.error(`[progress] ${label}`, details);
+  // The file outlives the jest output that would otherwise say which test this
+  // was, so it carries the name itself.
+  flake.record(label, { test: expect.getState().currentTestName, ...details });
+};
 
 /**
  * Which error. Logs the raw exception's own properties -- above all whether it
@@ -43,14 +61,14 @@ class DiagnosticFilter extends BaseExceptionFilter {
       exception instanceof HttpException && EXPECTED_STATUSES.has(exception.getStatus());
     if (!deliberate) {
       const err = exception as Record<string, unknown> | null | undefined;
-      // eslint-disable-next-line no-console
-      console.error('[progress] exception reached the filter', {
+      report('exception reached the filter', {
         constructor: err?.constructor?.name,
         message: err?.message,
         statusCode: err?.statusCode,
         code: err?.code,
         codeName: err?.codeName,
-        own: Object.getOwnPropertyNames(err ?? {})
+        own: Object.getOwnPropertyNames(err ?? {}),
+        stack: typeof err?.stack === 'string' ? err.stack : undefined
       });
     }
     super.catch(exception, host);
@@ -93,8 +111,7 @@ describe('progress', () => {
     // superagent's Response type, and the socket is the only place the serving
     // port is recorded.
     const socket = (res as unknown as { res?: { socket?: { remoteAddress?: string; remotePort?: number; localPort?: number } } }).res?.socket;
-    // eslint-disable-next-line no-console
-    console.error('[progress] unexpected status', {
+    report('unexpected status', {
       status: res.status,
       headers: res.headers,
       body: res.text?.slice(0, 500),

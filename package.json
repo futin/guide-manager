@@ -14,6 +14,7 @@
     "dev": "nest start --watch --no-shell",
     "dev:web": "vite",
     "test": "jest --runInBand",
+    "test:provoke": "node scripts/provoke-progress-401.mjs",
     "typecheck": "tsc --noEmit",
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down",
