@@ -1,13 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-// The three faces the ported stylesheet asks for through --font, --display and
-// --mono. Imported here rather than linked from a CDN so the app works offline
-// and over a tailnet with no external hosts.
-import '@fontsource/barlow/400.css';
-import '@fontsource/barlow/600.css';
-import '@fontsource/barlow-condensed/600.css';
-import '@fontsource/barlow-condensed/700.css';
+// The shell's own face, Hanken Grotesk, is linked from Google Fonts in index.html, as the dashboard does — so the UI face needs an external host now,
+// and offline it falls back to Plus Jakarta Sans or the system face (an accepted trade: self-hosting it is out of scope for the redesign). The mono
+// stays bundled because it has exactly one reader, a favorite's snapshot <pre>/<code>, which keeps the monospace the guide showed it in.
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/600.css';
 

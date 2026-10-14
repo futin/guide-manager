@@ -13,6 +13,13 @@
      cyan accent and ink, hardcoded because a favicon is painted by the browser
      chrome and never sees the page's CSS variables. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2355d0dd'/%3E%3Cpath d='M6 8.6c3.6-1.5 6.7-1.4 9.3.7v14.9c-2.6-2.1-5.7-2.2-9.3-.7z' fill='%230c1220'/%3E%3Cpath d='M26 8.6c-3.6-1.5-6.7-1.4-9.3.7v14.9c2.6-2.1 5.7-2.2 9.3-.7z' fill='%230c1220' opacity='.45'/%3E%3C/svg%3E">
+<!-- The shell's one face, Hanken Grotesk, from Google Fonts — the same three tags the dashboard's index.html carries, so the two apps stay siblings.
+     Preconnect first so the css2 request and the font files it names do not each pay a cold TLS handshake; gstatic needs `crossorigin` because font
+     files are fetched in CORS mode, and a non-CORS preconnect would be a socket the font request cannot reuse. `display=swap` paints in the fallback
+     (Plus Jakarta Sans, then the system face — see --font in shared/theme.css) rather than holding the text invisible. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script>
 // Stamp the saved theme, density and text scale before first paint. Without
 // this every load renders in the default palette at 100% until React mounts,

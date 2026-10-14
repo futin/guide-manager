@@ -29,7 +29,7 @@ describe('SettingsView', () => {
 
   it('offers all five themes, three display rows and three reading rows', () => {
     renderSettings();
-    for (const label of ['Midnight Radar', 'Graphite', 'Amber CRT', 'Nightshift', 'Daylight Strip']) {
+    for (const label of ['Midnight Radar', 'Graphite', 'Amber CRT', 'Nightshift', 'Daylight']) {
       expect(screen.getByRole('button', { name: new RegExp(label) })).toBeTruthy();
     }
     for (const row of ['Density', 'Text size', 'Opens on', 'Bionic reading', 'Fixation', 'Every']) {
@@ -94,7 +94,7 @@ describe('SettingsView', () => {
 
   it('stamps the picked theme on <html> and persists it', () => {
     renderSettings();
-    act(() => { screen.getByRole('button', { name: /Daylight Strip/ }).click(); });
+    act(() => { screen.getByRole('button', { name: /^Daylight/ }).click(); });
     expect(document.documentElement.dataset.theme).toBe('daylight');
     expect(stored(SETTINGS_STORAGE_KEY).theme).toBe('daylight');
   });

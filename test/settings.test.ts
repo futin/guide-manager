@@ -15,6 +15,12 @@ describe('clampSettings', () => {
     expect(THEMES.map((t) => t.id)).toEqual(['midnight', 'graphite', 'amber', 'nightshift', 'daylight']);
   });
 
+  it('describes Daylight as the light grey theme it now is, not manila paper', () => {
+    const daylight = THEMES.find((t) => t.id === 'daylight');
+    expect(daylight?.label).toBe('Daylight');
+    expect(daylight?.hint).toBe('light grey ground, white cards, dark ink');
+  });
+
   it('rejects a stringly-typed boolean', () => {
     expect(clampSettings({ bionicOn: 'true' }).bionicOn).toBe(false);
   });

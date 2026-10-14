@@ -1,80 +1,189 @@
-/* Ported from ../claude-agents-dashboard/client/src/styles.css, cut to the two
-   sections this app has. Everything for Sessions, Management, Analytics, the
-   chat drawer, the spawn panel, dictation and the permission/remote UI is gone.
+/* Ported from ../claude-agents-dashboard/client/src/styles.css, cut to the sections this app has, and redrawn under the dashboard's DESIGN.md (spec
+   docs/superpowers/specs/2026-10-14-ui-redesign-design.md §1): one face, an 11 px type floor, sentence case, borderless sheets on the ground, one 36 px
+   control family. This top block is the base layer every section below builds on; the section rules further down are redrawn one section at a time.
 
-   The five theme palettes are NOT here: they live in shared/theme.css, which the
-   server also links into every rendered guide page. One definition, two
-   surfaces — a palette tweak cannot leave the shell and the guide body
-   disagreeing.
+   The five theme palettes are NOT here: they live in shared/theme.css, which the server also links into every rendered guide page. One definition, two
+   surfaces — a palette tweak cannot leave the shell and the guide body disagreeing. Nothing in this file hardcodes a colour or a shadow.
 
-   The text scale IS here now (task-8), so the viewport divisions the dashboard
-   carries are here too — see `.shell{zoom}` below and every `/ var(--font-scale)`
-   in this file. They are not decoration: `zoom` scales the element's own box but
-   NOT what `vh`/`vw`/`dvh` resolve against, so an undivided `100vh` child of the
-   zoomed shell overhangs the screen by exactly the scale factor. Anything added
-   here that measures in viewport units needs the same division. */
+   The text scale IS here, so the viewport divisions the dashboard carries are here too — see `.shell{zoom}` below and every `/ var(--font-scale)` in this
+   file. They are not decoration: `zoom` scales the element's own box but NOT what `vh`/`vw`/`dvh` resolve against, so an undivided `100vh` child of the
+   zoomed shell overhangs the screen by exactly the scale factor. Anything added here that measures in viewport units needs the same division.
+
+   Type scale, by its DS name (each size below is commented with the name it plays): metric-lg 30/700, title 19/500, row-name 15/500, nav/percent 14,
+   body/label 13, meta 12, pill/kicker 11. 11 px is the floor — nothing in the shell is set smaller.
+
+   Breakpoints are the DS set: 640 (rail → top bar), 768 (Settings two columns; a favorite's snapshot stops scrolling sideways), 1280 (the viewer's
+   fixed-height column). `@media` cannot read `var()`, so they are written out at each use. */
 @import '../../shared/theme.css';
 
 /* Density + text scale.
 
-   Compact only retunes spacing — never a colour, never a font size — so it
-   composes with all five palettes rather than multiplying into five more. Every
-   value it moves is a custom property declared here first, which is what keeps
-   the override to one block: a rule that wants to be denser asks for a token
-   instead of growing a `[data-density]` twin.
+   Compact only retunes spacing — never a colour, never a font size — so it composes with all five palettes rather than multiplying into five more. Every
+   value it moves is a custom property declared here first, which is what keeps the override to one block: a rule that wants to be denser asks for a token
+   instead of growing a `[data-density]` twin. Three carry the whole board — --body-pad (the main column's vertical padding; the horizontal one rides 8 px
+   above it), --card-gap (between sheets) and --group-gap (between a section's bands) — and the rest are the inner paddings that follow them down.
 
-   `zoom` scales the whole board including its px-based type, which a root
-   font-size cannot do here — this stylesheet is px throughout, so `rem` would
-   reach almost nothing. It rides `.shell` and NOT `body`: `zoom` is a legacy
-   property whose interaction with `position: sticky` descendants is
-   engine-dependent, and the sticky rail is a direct child of the zoomed element
-   rather than a grandchild of the scroll root. Everything the app renders lives
-   inside `.shell`, so the scaling reach is unchanged either way. */
+   `zoom` scales the whole board including its px-based type, which a root font-size cannot do here — this stylesheet is px throughout, so `rem` would reach
+   almost nothing. It rides `.shell` and NOT `body`: `zoom` is a legacy property whose interaction with `position: sticky` descendants is engine-dependent,
+   and the sticky rail is a direct child of the zoomed element rather than a grandchild of the scroll root. Everything the app renders lives inside
+   `.shell`, so the scaling reach is unchanged either way. */
 .shell { zoom: var(--font-scale, 1) }
 
 :root {
-  --body-pad: 24px;
-  --card-pad: 10px 14px;
-  --card-gap: 10px;
-  --card-inner-gap: 10px;
-  --bay-gap: 8px;
-  --group-gap: 14px;
-  --set-pad: 9px 12px;
+  --body-pad: 32px;
+  --card-pad: 24px;
+  --tile-pad: 20px;
+  --card-gap: 16px;
+  --card-inner-gap: 12px;
+  --bay-gap: 12px;
+  --group-gap: 24px;
+  --set-pad: 16px 24px;
 }
-/* Must FOLLOW the :root defaults — both selectors match <html> at the same
-   specificity, so source order is the only thing deciding the winner. */
+/* Must FOLLOW the :root defaults — both selectors match <html> at the same specificity, so source order is the only thing deciding the winner. */
 [data-density="compact"] {
-  --body-pad: 14px;
-  --card-pad: 7px 11px;
-  --card-gap: 6px;
-  --card-inner-gap: 6px;
-  --bay-gap: 5px;
-  --group-gap: 9px;
-  --set-pad: 6px 10px;
+  --body-pad: 20px;
+  --card-pad: 16px;
+  --tile-pad: 14px;
+  --card-gap: 10px;
+  --card-inner-gap: 8px;
+  --bay-gap: 8px;
+  --group-gap: 16px;
+  --set-pad: 10px 16px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
 
-/* The one viewport unit in this file that is deliberately NOT divided by
-   --font-scale: body is the zoomed element's parent, not its descendant, so
-   `zoom` on .shell never scales it and 100vh here already means the screen. */
+/* The one viewport unit in this file that is deliberately NOT divided by --font-scale: body is the zoomed element's parent, not its descendant, so `zoom`
+   on .shell never scales it and 100vh here already means the screen.
+   `tabular-nums` is what replaced the mono: figures in the one face line up in columns (percents, counts, dates) without a second family. */
 body {
   font-family: var(--font);
+  font-size: 13px; /* body */
+  font-variant-numeric: tabular-nums;
   background: var(--board);
   color: var(--ink);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-  line-height: 1.4;
+  line-height: 1.45;
 }
+/* A code span in the shell's own copy is marked by its fill, not by a second face. The one exception is a favorite's snapshot: it shows what the reader
+   saw, and the guide showed its code in a monospace — see `.fav-body pre, .fav-body code` in the Favorites section, the only reader --mono has left. */
+code, kbd, samp, pre { font-family: inherit }
 
+/* ── Layout ─────────────────────────────────────────────────────────────────── */
+.shell { display: flex }
+.main { flex: 1; min-width: 0; padding: var(--body-pad) calc(var(--body-pad) + 8px) }
 .wrap { max-width: 820px; margin: 0 }
 .wrap.wide { max-width: 1280px }
 
-/* rack selector — the section rail down the left edge. Sticky and full-height so
+/* The page band: a section's own title and the one line under it. metric-lg for the title — a band names the page, and it is the only 30 px text in the
+   shell, so nothing else competes with it. */
+.band { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--group-gap) }
+.band h1 { font-size: 30px; font-weight: 700; line-height: 1.15; color: var(--ink) } /* metric-lg */
+.band p { font-size: 13px; color: var(--ink2) } /* body */
+/* A section heading over a run of sheets — sentence case, ink2, baseline-aligned with any count beside it. */
+.sec-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: 15px; font-weight: 500; color: var(--ink) } /* row-name */
+.meta { font-size: 12px; color: var(--ink3) } /* meta */
+.empty-line { font-size: 13px; color: var(--ink3); padding: 20px 0; text-align: center } /* body */
+
+/* A sheet: --strip on the --board ground, radius 16, and nothing else. No border and no shadow — the contrast between the two surfaces is the whole
+   separation, which is DESIGN.md's elevation rule. Only popovers float, and the shell has none. */
+.card { background: var(--strip); border-radius: 16px; padding: var(--card-pad) }
+
+/* ── Controls ────────────────────────────────────────────────────────────────
+   One family, 36 px tall, radius 12: inputs, selects, buttons and the segmented switch all share a height so a toolbar reads as one instrument rather than
+   a row of differently-sized widgets. `align-items: center` rather than stretch, because every member now declares its own height. */
+.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; row-gap: 10px }
+.input, .select, .btn {
+  height: 36px; font-family: var(--font); font-size: 13px; /* label */
+  color: var(--ink); background: var(--strip); border: 1px solid var(--hairline2); border-radius: 12px;
+  padding: 0 12px; transition: color .15s, border-color .15s, background .15s;
+}
+.input { min-width: 0 }
+.input::placeholder { color: var(--ink3) }
+.select { cursor: pointer; max-width: 220px; text-overflow: ellipsis }
+.btn { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; white-space: nowrap }
+.input:hover, .select:hover, .btn:hover:not(:disabled) { border-color: var(--ink3) }
+.btn:disabled { cursor: default; opacity: .4 }
+/* Destructive, and quiet until armed: an always-loud danger control trains the eye to ignore it, which defeats the second tap it exists for. The armed
+   state is the component's to add (`.btn.danger.armed`). */
+.btn.danger { color: var(--red) }
+.btn.danger.armed { color: var(--on-accent); background: var(--red); border-color: var(--red) }
+
+/* Segmented switch — a pill track of --hairline2 with the picked option lifted onto --strip. The lift replaces the old cyan inset underline: the picked
+   option is the one that looks like a sheet, the rest are the track. */
+.seg { display: inline-flex; align-items: center; height: 36px; background: var(--hairline2); border-radius: 12px; padding: 3px }
+.seg > button {
+  height: 30px; font-family: var(--font); font-size: 13px; font-weight: 500; white-space: nowrap; /* label */
+  color: var(--ink2); background: none; border: 0; border-radius: 9px; padding: 0 12px; cursor: pointer;
+  transition: color .15s, background .15s;
+}
+.seg > button:hover:not(:disabled) { color: var(--ink) }
+.seg > button:disabled { cursor: default; opacity: .4 }
+.seg > button.on { color: var(--ink); background: var(--strip); box-shadow: 0 1px 2px var(--shadow) }
+
+/* A boolean switch: a 999-radius track with a knob. The checked state is the accent fill, keyed off `aria-checked` so the visual state cannot disagree
+   with what assistive tech is told. */
+.switch {
+  position: relative; flex: none; width: 40px; height: 24px; border: 0; border-radius: 999px;
+  background: var(--hairline2); cursor: pointer; transition: background .15s;
+}
+.switch::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 999px;
+  background: var(--strip); box-shadow: 0 1px 2px var(--shadow); transition: transform .15s;
+}
+.switch[aria-checked="true"] { background: var(--cyan) }
+.switch[aria-checked="true"]::after { transform: translateX(16px) }
+.switch:disabled { cursor: default; opacity: .4 }
+
+/* A 30×30 icon button — back, the move arrows, close, the phone menu. Muted until hovered; the icon inherits the colour through currentColor. */
+.key {
+  display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px;
+  color: var(--ink3); background: none; border: 0; border-radius: 12px; cursor: pointer;
+  transition: color .15s, background .15s;
+}
+.key:hover:not(:disabled) { color: var(--ink); background: var(--strip-hi) }
+.key:disabled { cursor: default; opacity: .4 }
+
+/* Type pill: a tint and the ink that clears 4.5:1 on it, from the theme's role tokens — the theme file measures every pair, so a pill here cannot come out
+   unreadable on one palette. Lowercase, the one label exempt from nothing: the pill names a type (`study`, `tutor`), not a heading. --mustard for study,
+   --magenta for tutor (both picked to collide with neither the green of a read bar nor the cyan accent), green for a finished read. */
+.pill {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 500; white-space: nowrap; /* pill */
+}
+.pill.study { color: var(--mustard-ink); background: var(--mustard-tint) }
+.pill.tutor { color: var(--magenta-ink); background: var(--magenta-tint) }
+.pill.read { color: var(--green); background: var(--green-tint) }
+
+/* The one progress bar (components/ProgressBar.tsx): a 10 px --steel track, a --green-solid fill with a 45° hatch of ≈2 px stripes at ≈8 % white laid
+   over it. The hatch is what tells a fill from a track at a glance on Daylight, where --steel and a pale green sit close in luminance. White at 8 % is
+   the one literal colour in this file, deliberately: a stripe is a texture on the fill, not a palette role, and it must read the same on all five. An
+   unread guide is `.empty` with no fill element — a flat track, no hatch. */
+.bar { position: relative; height: 10px; border-radius: 8px; background: var(--steel); overflow: hidden }
+.bar-fill {
+  display: block; height: 100%; border-radius: 8px; background-color: var(--green-solid);
+  background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .08) 0 2px, transparent 2px 5px);
+  transition: width .5s ease;
+}
+/* A series: the same bar once per lesson, side by side. Each segment keeps the bar's own track and fill, so a segment is a bar, not a lookalike. */
+.segbar { display: flex; gap: 4px }
+.segbar > .bar { flex: 1; min-width: 0 }
+
+/* ── Quality floor ─────────────────────────────────────────────────────────── */
+/* A 2 px solid --cyan ring on every interactive element; the UA outline is only ever dropped where this replaces it. */
+:where(button, select, input, textarea, summary, a, [role=button], [tabindex]):focus-visible {
+  outline: 2px solid var(--cyan); outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important }
+}
+
+/* ── Rail (redrawn in its own task) ──────────────────────────────────────────
+   rack selector — the section rail down the left edge. Sticky and full-height so
    its right rule runs the length of the board. The height is divided by
    --font-scale because .shell{zoom} leaves 100vh resolving against the UNZOOMED
    viewport: at 120% a plain 100vh rail is drawn 20% taller than the screen. */
-.shell { display: flex }
 .rail {
   flex: 0 0 150px; display: flex; flex-direction: column; gap: 2px;
   align-self: flex-start; position: sticky; top: 0; z-index: 5;
@@ -83,18 +192,18 @@ body {
 }
 /* the app's wordmark, in the rail rather than the page — a kicker over the name */
 .rail-brand {
-  font-family: var(--display); font-size: 15px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .06em; line-height: 1.15;
+  font-size: 15px; font-weight: 700;
+  letter-spacing: .06em; line-height: 1.15;
   color: var(--ink); padding: 0 10px; margin-bottom: 18px;
 }
 .rail-kicker {
-  font-family: var(--mono); font-size: 9.5px; font-weight: 400;
+  font-size: 11px; font-weight: 400;
   letter-spacing: .14em; color: var(--ink3);
 }
 .rail-link {
-  font-family: var(--display); font-size: 11.5px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .08em; text-align: left;
-  color: var(--ink3); background: none; border: 0; border-radius: 2px;
+  font-size: 11.5px; font-weight: 600;
+  letter-spacing: .08em; text-align: left;
+  color: var(--ink3); background: none; border: 0; border-radius: 12px;
   padding: 8px 10px; cursor: pointer; transition: color .15s, background .15s;
 }
 .rail-link:hover { color: var(--ink2); background: var(--strip-hi) }
@@ -104,11 +213,9 @@ body {
   color: var(--ink); background: var(--strip-hi);
   box-shadow: inset 2px 0 0 var(--cyan), inset 0 1px 0 var(--edge);
 }
-.main { flex: 1; min-width: 0; padding: var(--body-pad) }
-
 /* phone: the rail lies down into a scrollable strip above the content, and the
    accent bar goes back to the bottom edge where a row wants it. */
-@media (max-width: 700px) {
+@media (max-width: 639px) {
   .shell { flex-direction: column }
   .rail {
     flex: none; width: auto; height: auto; align-self: stretch;
@@ -123,7 +230,7 @@ body {
 
 /* Desktop: the tab becomes the scroller rather than the page, so the guide
    viewer can fill the screen without the board scrolling behind it. */
-@media (min-width: 1201px) {
+@media (min-width: 1280px) {
   /* Same 100vh-under-zoom correction the rail makes. Only the viewport term is
      divided: --body-pad is a px length inside the zoomed subtree, so it is
      already scaled by the same factor and dividing it would undo that. */
@@ -142,8 +249,8 @@ body {
    right between controls sitting side by side. */
 .guides-bar { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; row-gap: 8px }
 .guides-title {
-  font-family: var(--display); font-size: 14px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .07em; color: var(--ink);
+  font-size: 14px; font-weight: 600;
+  letter-spacing: .07em; color: var(--ink);
 }
 /* The toolbar: search, then project / type / sort. Pushed to the far end of the
    bar because it states the board's state, so it belongs beside the board rather
@@ -157,14 +264,14 @@ body {
    is ever changed. */
 .guides-tools { margin-left: auto; display: flex; align-items: stretch; flex-wrap: wrap; gap: 6px }
 /* One recessed-well look for all four, inherited from the removed .guides-scope
-   button: --steel against the --strip cards, a hairline rule, and 10px mono, so
+   button: --steel against the --strip cards, a hairline rule, and one type size, so
    the row reads as instrument panel rather than as a form. One block rather than
    four, because the four controls only read as one instrument while their
    padding, border and type are literally the same declarations. */
 .guides-search, .guides-select {
-  font-family: var(--mono); font-size: 10px; letter-spacing: .04em;
+  font-size: 11px; letter-spacing: .04em;
   color: var(--ink2); background: var(--steel);
-  border: 1px solid var(--hairline); border-radius: 2px;
+  border: 1px solid var(--hairline); border-radius: 12px;
   padding: 4px 8px; transition: color .15s, border-color .15s;
 }
 /* Fixed rather than content-sized: a text field that grows as you type shoves the
@@ -189,7 +296,7 @@ body {
    rather than sitting oddly right-aligned on a line of its own). The search takes
    a whole row and the three selects share the next, each free to shrink — at
    375px the four cannot share one line without every label truncating. */
-@media (max-width: 700px) {
+@media (max-width: 639px) {
   .guides-tools { margin-left: 0; width: 100% }
   .guides-search { flex: 1 1 100%; width: auto }
   /* Thirds of the row, and the cap is off: a select given `max-width` as well as
@@ -213,16 +320,16 @@ body {
 .bay { display: flex; flex-direction: column; gap: var(--bay-gap) }
 /* The promoted header. This is the whole fix for "project names are almost not
    visible": the name was a 10.5px --ink3 caption, the same weight as a field
-   label, and on a board of bright cards it disappeared. Now display font at the
+   label, and on a board of bright cards it disappeared. Now heavy type at the
    section title's own size in full --ink, with a rule under it and a cyan tick
    beside it — the two things that make a row of text read as a header instead of
    as slightly bolder body text.
-   Baseline alignment, not centre: the 14px name and the 9.5px mono count only
+   Baseline alignment, not centre: the 14px name and the 11px count only
    look like one line if they share a baseline.
    It is a <button> now — the whole header is the fold disclosure — so the first
    half of this rule is a button reset. `font: inherit` and `color: inherit`
    matter most: without them the UA's own 13px system font would win over
-   .bay-name's display face, because the children inherit from the button rather
+   the shell's own face, because the children inherit from the button rather
    than from .bay. width:100% makes the entire row the tap target, which is the
    only reason folding is usable on a phone; text-align:left undoes the button
    default that would otherwise centre the row once it spans the board. */
@@ -243,10 +350,10 @@ body {
   width: 14px; height: 3px; background: var(--cyan);
 }
 .bay-name {
-  font-family: var(--display); font-size: 14px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .07em; color: var(--ink);
+  font-size: 14px; font-weight: 700;
+  letter-spacing: .07em; color: var(--ink);
 }
-.bay-count { font-family: var(--mono); font-size: 9.5px; color: var(--ink3) }
+.bay-count { font-size: 11px; color: var(--ink3) }
 /* margin-left:auto, so the caret goes to the far end of the header rather than
    trailing the count. Two reasons, both found by looking at it: beside the count
    the glyph reads as punctuation the count picked up — "2 guides ▸" — and at the
@@ -262,7 +369,7 @@ body {
    the transition possible at all — two different glyphs would snap. */
 .bay-caret {
   flex: none; align-self: center; margin-left: auto;
-  font-size: 10px; color: var(--ink3); transition: transform .15s, color .15s;
+  font-size: 11px; color: var(--ink3); transition: transform .15s, color .15s;
 }
 .bay-h:hover .bay-caret { color: var(--ink2) }
 /* The folded state, keyed off aria-expanded rather than a class set beside it:
@@ -277,7 +384,7 @@ body {
 /* auto-fill, so the column count follows the width the board actually got rather
    than a breakpoint guessing at it: the same rule gives a phone one column, the
    820px board three, and the 1280px wide board more. 220px is the floor at which
-   a card's mono meta line still fits beside its pill without wrapping. */
+   a card's meta line still fits beside its pill without wrapping. */
 .guides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--card-gap) }
 /* A flex column, where the row layout used a named-areas grid. The grid put the
    pill and the meta line in a grid row, and a grid row cannot be pushed to the
@@ -288,7 +395,7 @@ body {
    four selectors. */
 .guides-card {
   display: flex; flex-direction: column; gap: var(--card-inner-gap);
-  background: var(--strip); border: 1px solid var(--hairline); border-radius: 2px;
+  background: var(--strip); border: 1px solid var(--hairline); border-radius: 16px;
   padding: var(--card-pad); cursor: pointer; transition: border-color .15s;
   box-shadow: inset 0 1px 0 var(--edge);
 }
@@ -298,20 +405,12 @@ body {
    without it the meta lines of neighbours sit at different heights. */
 .guides-card-foot { margin-top: auto; display: flex; align-items: baseline; gap: 8px }
 .guides-card-foot .pill { flex: none }
-.guides-card-meta { min-width: 0; font-size: 10.5px; color: var(--ink3); font-family: var(--mono) }
+.guides-card-meta { min-width: 0; font-size: 11px; color: var(--ink3) }
 
-/* Type pill. Outline and ink only, no tint: a tinted fill would need a mix per
-   palette, and five palettes is five places for one of them to come out
-   unreadable. The two colours are picked to collide with nothing else on the
-   card — --green is the finished-reading marker in the same meta line, and
-   --cyan is the rail's selection accent. */
-.pill {
-  font-family: var(--mono); font-size: 9px; font-weight: 600; line-height: 1.5;
-  text-transform: uppercase; letter-spacing: .09em; white-space: nowrap;
-  padding: 1px 6px; border: 1px solid; border-radius: 2px;
-}
-.pill-study { color: var(--mustard); border-color: var(--mustard) }
-.pill-tutor { color: var(--magenta); border-color: var(--magenta) }
+/* Interim: the hyphenated type modifiers the not-yet-redrawn board card and favorite card still emit. Same tokens as the base `.pill.study` /
+   `.pill.tutor`; they go when those two components move onto the base modifiers. */
+.pill-study { color: var(--mustard-ink); background: var(--mustard-tint) }
+.pill-tutor { color: var(--magenta-ink); background: var(--magenta-tint) }
 /* Reading progress, in the card's meta line. Green for finished, plain for
    part-read: a percentage is information, a finished guide is a state. */
 .guides-card-read { color: var(--green) }
@@ -343,13 +442,13 @@ body {
 }
 .shelf-tag {
   flex: none; align-self: center;
-  font-family: var(--mono); font-size: 8.5px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .09em;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .09em;
   color: var(--magenta); border: 1px solid var(--magenta);
-  padding: 0 5px; border-radius: 2px;
+  padding: 0 5px; border-radius: 12px;
 }
 .shelf-name { font-size: 12.5px; font-weight: 600; color: var(--ink) }
-.shelf-count { font-family: var(--mono); font-size: 9.5px; color: var(--ink3) }
+.shelf-count { font-size: 11px; color: var(--ink3) }
 /* One cell per lesson, filled to that lesson's furthest — the series' progress
    at a glance, in the header, where it survives the shelf being folded. The
    cells are centred like the bay's tick (an empty inline box baseline-aligns on
@@ -359,13 +458,13 @@ body {
 .shelf-seg-fill { display: block; height: 100%; background: var(--green) }
 .shelf-caret {
   flex: none; align-self: center; margin-left: auto;
-  font-size: 10px; color: var(--ink3); transition: transform .15s, color .15s;
+  font-size: 11px; color: var(--ink3); transition: transform .15s, color .15s;
 }
 .shelf-h:hover .shelf-caret { color: var(--ink2) }
 .shelf-h[aria-expanded="false"] .shelf-caret { transform: rotate(-90deg) }
-/* The lesson's place in its series, leading the card footer. Mono and muted:
+/* The lesson's place in its series, leading the card footer. Small and muted:
    it is an index, not a title, and it must not outweigh the pill beside it. */
-.guides-card-step { flex: none; font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: .06em; color: var(--ink3) }
+.guides-card-step { flex: none; font-size: 11px; font-weight: 600; letter-spacing: .06em; color: var(--ink3) }
 
 /* Viewer pane — .guide-viewer-head is kept as its own element deliberately: it
    is the exact class name a later companion panel would mount into, so its
@@ -377,7 +476,7 @@ body {
 }
 .guide-viewer-back {
   font-family: var(--font); font-size: 11.5px; color: var(--ink2);
-  background: var(--steel); border: 1px solid var(--hairline); border-radius: 2px;
+  background: var(--steel); border: 1px solid var(--hairline); border-radius: 12px;
   padding: 5px 10px; cursor: pointer; transition: color .15s, border-color .15s;
 }
 .guide-viewer-back:hover { color: var(--ink); border-color: var(--hairline2) }
@@ -391,7 +490,7 @@ body {
 .guide-viewer-reset {
   margin-left: auto;
   font-family: var(--font); font-size: 11.5px; color: var(--ink2);
-  background: var(--steel); border: 1px solid var(--hairline); border-radius: 2px;
+  background: var(--steel); border: 1px solid var(--hairline); border-radius: 12px;
   padding: 5px 10px; cursor: pointer; transition: color .15s, border-color .15s;
 }
 .guide-viewer-reset:hover { color: var(--ink); border-color: var(--hairline2) }
@@ -399,13 +498,13 @@ body {
 .guide-viewer-body { flex: 1; min-height: 200px; display: flex; flex-direction: column; overflow: hidden }
 .guide-viewer-frame { flex: 1 1 auto; border: 0; width: 100% }
 
-/* Phones: below 1201px the shell is a plain scrolling page, so .guide-viewer has
+/* Phones: below 1280px the shell is a plain scrolling page, so .guide-viewer has
    no height to inherit and .guide-viewer-body falls back to its 200px floor — a
    guide whose content runs past 1000px then reads through a quarter-screen
    porthole. Lift the viewer out of flow instead: the guide gets the whole screen
    and its own head is the only chrome. `100dvh` rather than `vh` so iOS Safari's
    collapsing URL bar cannot leave it permanently short. */
-@media (max-width: 700px) {
+@media (max-width: 639px) {
   .guide-viewer {
     position: fixed; inset: 0; z-index: 40; gap: 0;
     background: var(--board);
@@ -421,14 +520,14 @@ body {
    reads fine as a scroller — so keep the viewer in flow and give the body a
    viewport-derived floor instead. Subtrahend is .main's padding (twice) plus the
    head and the gap above it. */
-@media (min-width: 701px) and (max-width: 1200px) {
+@media (min-width: 640px) and (max-width: 1279px) {
   .guide-viewer-body { min-height: calc(100dvh / var(--font-scale, 1) - 2 * var(--body-pad) - 62px) }
 }
 /* The framed guide scrolls inside another document, which cannot be given
    `overscroll-behavior` from here — so the scroll chain is refused at the root
    for exactly as long as a guide is open. GuidesView adds the class; the rule is
    inside the phone breakpoint because the overlay is. */
-@media (max-width: 700px) {
+@media (max-width: 639px) {
   html.guide-locked, html.guide-locked body { overflow: hidden; overscroll-behavior: none }
 }
 
@@ -449,7 +548,7 @@ body {
    article would promise a click the card itself does nothing with. */
 .fav-card {
   display: flex; flex-direction: column; gap: var(--card-inner-gap);
-  background: var(--strip); border: 1px solid var(--hairline); border-radius: 2px;
+  background: var(--strip); border: 1px solid var(--hairline); border-radius: 16px;
   padding: var(--card-pad); box-shadow: inset 0 1px 0 var(--edge);
 }
 .fav-head { display: flex; align-items: baseline; gap: 8px }
@@ -462,7 +561,7 @@ body {
    this card. */
 .fav-title-input, .fav-note-input {
   font-family: var(--font); color: var(--ink); width: 100%;
-  background: var(--steel); border: 1px solid var(--hairline); border-radius: 2px;
+  background: var(--steel); border: 1px solid var(--hairline); border-radius: 12px;
   padding: 4px 6px;
 }
 .fav-title-input:focus, .fav-note-input:focus { outline: none; border-color: var(--cyan) }
@@ -489,7 +588,7 @@ body {
    for. */
 .fav-ctl {
   font-family: var(--font); font-size: 11px; color: var(--ink2);
-  background: var(--steel); border: 1px solid var(--hairline); border-radius: 2px;
+  background: var(--steel); border: 1px solid var(--hairline); border-radius: 12px;
   padding: 3px 7px; cursor: pointer; transition: color .15s, border-color .15s;
 }
 .fav-ctl:hover:not(:disabled) { color: var(--ink); border-color: var(--hairline2) }
@@ -501,12 +600,12 @@ body {
    "why keep this?" once one exists). */
 .fav-note { font-size: 12.5px; font-style: italic; color: var(--ink2); cursor: pointer }
 .fav-note.empty { color: var(--ink3) }
-/* Mono and muted like .guides-card-meta, not the display face .fav-title
+/* Small and muted like .guides-card-meta, not the weight .fav-title
    uses: the crumb trail is metadata about *where* the block came from, and
    the underline-on-hover is the one hint that it is also a live link, since
    nothing else about it looks like the rest of the app's buttons. */
 .fav-crumb {
-  font-family: var(--mono); font-size: 10.5px; color: var(--ink3);
+  font-size: 11px; color: var(--ink3);
   text-decoration: none;
 }
 .fav-crumb:hover { text-decoration: underline }
@@ -535,9 +634,10 @@ body {
 .fav-body table { border-collapse: collapse; width: 100% }
 .fav-body th, .fav-body td { border: 1px solid var(--hairline); padding: 4px 8px; text-align: left }
 .fav-body th { color: var(--ink2) }
+.fav-body pre, .fav-body code { font-family: var(--mono) }
 .fav-body pre {
-  overflow: auto; font-family: var(--mono); font-size: 11.5px;
-  background: var(--steel); padding: 8px; border-radius: 2px;
+  overflow: auto; font-size: 11.5px;
+  background: var(--steel); padding: 8px; border-radius: 12px;
 }
 .fav-body blockquote {
   border-left: 2px solid var(--hairline2); margin: 0; padding-left: 10px; color: var(--ink2);
@@ -545,7 +645,7 @@ body {
 .fav-body svg, .fav-body img { max-width: 100%; height: auto }
 .fav-body details summary { cursor: pointer }
 .fav-body .eyebrow {
-  font-family: var(--mono); font-size: 9.5px; text-transform: uppercase;
+  font-size: 11px; text-transform: uppercase;
   letter-spacing: .09em; color: var(--ink3);
 }
 /* A captured quiz card ships collapsed and stays answerable: `.quiz-feedback`
@@ -558,20 +658,20 @@ body {
 .fav-body .quiz-option.revealed .quiz-feedback { display: block }
 .fav-body .quiz-option-btn { font: inherit; cursor: pointer }
 
-.fav-foot { font-size: 10.5px; color: var(--ink3); font-family: var(--mono) }
+.fav-foot { font-size: 11px; color: var(--ink3) }
 
 /* ---------------------------------------------- Settings section */
 .mdetail-label {
   display: flex; align-items: center; gap: 8px;
-  font-family: var(--display); font-size: 10.5px; font-weight: 600;
-  color: var(--ink3); text-transform: uppercase; letter-spacing: .09em; margin-top: 4px;
+  font-size: 11px; font-weight: 600;
+  color: var(--ink3); letter-spacing: .09em; margin-top: 4px;
 }
 .set { display: flex; flex-direction: column; gap: 18px; max-width: 640px }
 .set-group { display: flex; flex-direction: column; gap: 2px }
 .set-group > .mdetail-label { margin-bottom: 6px }
 .set-row {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: var(--set-pad); border: 1px solid var(--hairline); border-radius: 2px;
+  padding: var(--set-pad); border: 1px solid var(--hairline); border-radius: 16px;
   background: var(--strip); box-shadow: inset 0 1px 0 var(--edge);
 }
 /* The theme grid is a .set-row's sibling but not one itself, so the adjacency
@@ -580,25 +680,25 @@ body {
 .set-row + .set-row, .set-themes + .set-row { margin-top: 5px }
 .set-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 }
 .set-name { font-size: 12px; font-weight: 600; color: var(--ink) }
-.set-hint { font-size: 10.5px; color: var(--ink3); line-height: 1.45 }
-.set-hint code { font-family: var(--mono); font-size: 10px; color: var(--cyan) }
+.set-hint { font-size: 11px; color: var(--ink3); line-height: 1.45 }
+.set-hint code { font-size: 11px; color: var(--cyan) }
 .set-control { display: flex; align-items: center; gap: 6px; flex-shrink: 0 }
 .set-control select,
 .set-control input[type=number],
 .set-control input[type=text] {
-  font-family: var(--mono); font-size: 11px; color: var(--ink);
-  background: var(--steel); border: 1px solid var(--hairline); border-radius: 2px;
+  font-size: 11px; color: var(--ink);
+  background: var(--steel); border: 1px solid var(--hairline); border-radius: 12px;
   padding: 5px 8px;
 }
 .set-control select:focus, .set-control input:focus { outline: none; border-color: var(--cyan) }
 .set-control input[type=number] { width: 84px; font-variant-numeric: tabular-nums }
-.set-unit { font-size: 10px; color: var(--ink3); font-family: var(--mono) }
+.set-unit { font-size: 11px; color: var(--ink3) }
 
 .set-seg { display: flex; gap: 4px }
 .set-seg button {
-  font-family: var(--display); font-size: 10.5px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .07em; color: var(--ink3);
-  background: var(--steel); border: 1px solid var(--hairline); border-radius: 2px;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .07em; color: var(--ink3);
+  background: var(--steel); border: 1px solid var(--hairline); border-radius: 12px;
   padding: 5px 11px; cursor: pointer; transition: color .15s, border-color .15s;
 }
 .set-seg button:hover:not(:disabled) { color: var(--ink2); border-color: var(--hairline2) }
@@ -608,18 +708,18 @@ body {
 .set-themes { display: flex; gap: 8px; flex-wrap: wrap }
 .set-theme {
   display: flex; flex-direction: column; gap: 6px; width: 104px; padding: 7px;
-  border: 1px solid var(--hairline); border-radius: 2px; background: var(--steel);
+  border: 1px solid var(--hairline); border-radius: 12px; background: var(--steel);
   cursor: pointer; transition: border-color .15s;
 }
 .set-theme:hover { border-color: var(--hairline2) }
 .set-theme.on { border-color: var(--cyan); box-shadow: inset 0 0 0 1px var(--cyan) }
-.set-swatch { display: flex; height: 34px; border-radius: 2px; overflow: hidden; border: 1px solid var(--hairline) }
+.set-swatch { display: flex; height: 34px; border-radius: 12px; overflow: hidden; border: 1px solid var(--hairline) }
 .set-swatch i { flex: 1 }
 .set-swatch i:last-child { flex: 0 0 8px }
-.set-theme-name { font-size: 10.5px; font-weight: 600; color: var(--ink2); text-align: left; line-height: 1.25 }
+.set-theme-name { font-size: 11px; font-weight: 600; color: var(--ink2); text-align: left; line-height: 1.25 }
 .set-theme.on .set-theme-name { color: var(--ink) }
 
-@media (max-width: 700px) {
+@media (max-width: 639px) {
   .set-row { align-items: flex-start; flex-direction: column; gap: 8px }
   .set-control { width: 100% }
   .set-seg { width: 100% }
@@ -627,13 +727,7 @@ body {
   .set-theme { width: calc(50% - 4px) }
 }
 
-/* ---------------------------------------------- quality floor */
-:where(button, select, input, textarea, summary, [role=button]):focus-visible {
-  outline: 2px solid var(--cyan); outline-offset: 1px;
-}
-@media (prefers-reduced-motion: reduce) {
-  * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important }
-}
+/* ---------------------------------------------- touch floor */
 /* touch: iOS Safari zooms the viewport when a focused field's font size is under
    16px, and never zooms back out on blur. Text-entry fields only — a <select>
    opens a native picker rather than putting a caret in the page, so it does not

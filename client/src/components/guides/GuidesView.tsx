@@ -241,7 +241,7 @@ export default function GuidesView() {
     );
 
   /*
-    Phone only in effect (the CSS rule lives inside the max-width:700px
+    Phone only in effect (the CSS rule lives inside the max-width:639px
     breakpoint), but the class goes on unconditionally: the viewer is an overlay
     at that width, and the guide it frames scrolls inside an iframe. A scroller in
     another document cannot be given `overscroll-behavior` from here, so the chain
