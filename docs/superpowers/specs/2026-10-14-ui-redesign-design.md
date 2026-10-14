@@ -42,7 +42,7 @@ first: where they left off.
 ### Tokens (`shared/theme.css`)
 
 - Take the dashboard's current token block (`../claude-agents-dashboard/client/src/styles.css`, the five `[data-theme]` blocks) as the palette: Midnight,
-  Graphite, Amber CRT and Nightshift unchanged in hue, **Daylight retuned** to DESIGN.md's neutrals (`--board #f4f4f3`, `--steel #ededec`,
+  Graphite, Amber CRT and Nightshift unchanged in hue, **Daylight retuned** to the dashboard's shipped Daylight (`--board #f4f4f3`, `--steel #ededec`,
   `--strip #ffffff`, `--strip-hi #f2f2f1`, `--hairline #eaeae8`, `--hairline2 #dcdcda`, `--ink #131313`, `--ink2 #525252`, `--ink3 #6b6b6b`, darkened
   state inks), and the role tokens the dashboard added: `--green-fill`, `--green-fill2`, `--green-solid`, `--green-tint`, `--amber-solid`,
   `--amber-text`, `--amber-tint`, `--amber-ink`, `--mustard-tint`, `--mustard-ink` — written as a **literal in every `[data-theme]` block** (hex, or
@@ -51,10 +51,11 @@ first: where they left off.
   surface in the dark themes, 11 % in Daylight) and `--magenta-ink` for the text on it. `--magenta` itself fails 4.5:1 on its own tint in Midnight (4.01)
   and Graphite (4.32), so `--magenta-ink` is `--magenta` mixed toward `--ink` just far enough to clear it: Midnight `#d181ab` (4.65), Graphite `#c789ab`
   (4.74); Amber CRT (5.99), Nightshift (4.54) and Daylight (5.46) keep `--magenta`. Measured over `--strip`, the surface a pill sits on.
-- **`--display` is deleted** (only the shell's `.rail-brand`/`.rail-kicker` read it, and both are rewritten). **`--mono` stays**, for one reader: a
+- **`--display` is deleted** (only the shell stylesheet reads it — `client/src/styles.css`, which is rewritten whole). **`--mono` stays**, for one reader: a
   favorite's snapshot `<pre>`/`code` (`.fav-body pre`), which keeps the monospace the guide showed it in — a snapshot is what the reader saw. No guide
-  page, asset or render-shell rule reads either token (checked: none of the 15 registered guides, `assets/`, `server/src/`, `skills/`).
-- The `:root` alias block (`--fg`, `--muted`, `--line`, `--card`, `--panel`, `--good`, `--bad`) stays as it is.
+  page, asset or render-shell rule reads either token (checked: none of the 16 registered guides, `assets/`, `server/src/`, `skills/`).
+- The `:root` alias block (`--fg`, `--muted`, `--line`, `--card`, `--panel`, `--good`, `--bad`) stays as it is, and so does the legacy alias line
+  (`--bg`, `--accent`, `--text`, …): `assets/bionic.css` reads `--accent`, and a guide's own CSS may read `--bg`.
 - The header comment's "Ported verbatim from …" claim is updated to say which dashboard revision it now matches.
 - `THEMES` in `client/src/lib/settings.ts`: ids unchanged (stored settings keep working). Daylight's label becomes `Daylight` and its hint `light grey ground, white cards, dark ink`
   (it stops saying "manila paper").
@@ -98,13 +99,14 @@ shipped CSS wins.
 - **Active row:** a `--strip-hi` fill plus a 3 px × 16 px `--ink` bar, radius 999, vertically centred, flush left. Never a label colour change. Hover darkens the label only.
 - **Rows:** Guides (with the total guide count, `meta` style, right-aligned), Favorites (total favorites), Settings (no count).
 - **Sub-nav tree** under Guides and under Favorites: `All projects` first, then one row per project with its count. 14/400 labels, ellipsised; a 1 px
-  `--hairline2` tree rule at a 24 px indent with a 12 px tick per row. The picked row takes `--strip-hi`, `--ink` and
-  500.
+  `--hairline2` tree rule at a 24 px indent with a 12 px tick per row. The picked row takes `--ink` and 500 — no fill, as the dashboard's
+  `.rail-sublink.on` ships it; the fill and bar mark the section row only.
 - **Which trees are open:** on desktop, only the active section's tree. On the phone menu, every tree (DESIGN.md §8: any destination one tap away).
 - **Clicking a project row** switches to that section *and* sets its scope, in one step. Clicking the section row itself keeps the stored scope.
 - **Icons** are inline SVG, outline, 1.5 px stroke, 20×20 viewBox, `currentColor`: an open book (Guides), a bookmark (Favorites), sliders (Settings).
   They live in one small `icons.tsx` so the rail and the phone menu draw the same glyphs.
-- **Below 640 px:** as the dashboard does it — a separate `.mnav` top bar, 60 px (prompt left, a 44 × 44 ☰ right), and the `.rail` itself becomes the
+- **Below 640 px:** as the dashboard does it — a separate `.mnav` top bar, 60 px (prompt left, its kicker held at the 11 px floor rather than the
+  dashboard's 10 px; a 44 × 44 ☰ right), and the `.rail` itself becomes the
   full-width menu that drops under it. The ☰ is the **one** element with `aria-expanded`, and it lives in `.mnav`, outside `.rail`. Picking any row closes the menu. The bar does not auto-hide on scroll (YAGNI; the dashboard's scroll behaviour can follow later).
 - The rail keeps `aria-label="Sections"` and `aria-current="page"` on the active section row; the active project row carries `aria-current="true"`. No
   row carries `aria-expanded` — a row that navigates does not announce a panel (the existing rule in `SideRail`'s docblock; `test/side-rail.test.tsx`'s
@@ -123,7 +125,8 @@ shipped CSS wins.
 The rail needs both indexes on every section (the counts), so `useGuides()` and `useFavorites()` move up to `AppShell` and their results pass down as
 props. Their behaviour is unchanged — `useGuides`' coalesced 300 ms refetch on a framed guide's `{source:'guide-manager',kind:'progress'}` message, and
 `GuidesView`'s refetch on the way back from the viewer, both still happen exactly once per trigger. The lazy section chunks stay lazy; only the data hooks
-move. The rail draws its trees from the data as soon as it has loaded and shows rows without counts until then.
+move. The rail draws its trees from the data as soon as it has loaded and shows rows without counts until then. If a
+fetch fails, that section's row shows no count and no tree, and the section itself shows its existing error copy; the other section is unaffected.
 
 ## 3. The Guides board
 
@@ -146,7 +149,8 @@ Top to bottom (mock: *Guides · one project*):
    `Series · N lessons · M started` subtitle (*started* = `furthestPercent > 0` or `completed`; a lesson opened and left at 0 % is not started), a fold chevron at top right, a **segmented bar** (one 10 px segment per lesson, 4 px gaps, each filled to that
    lesson's `furthestPercent`), then the lessons as boxless rows bled to the sheet's edges with a hairline between: a 28 px numbered dot (green tint once
    `completed`), the title at 15/500 over `type · date`, a 72 px mini bar and the percent at 14/600. Folding keeps `guide-manager.foldedSeries` and hides the
-   rows, leaving the title and the segmented bar. Series detection is `lib/series.ts` as it stands.
+   rows, leaving the title and the segmented bar. Series detection is `lib/series.ts` as it stands. While a
+   search query runs, a folded series is drawn open without rewriting the stored fold, as today; clearing the query restores it.
 5. **Guides** — a `Guides` heading with the count, then the loose guides as tiles in a grid (min 260 px columns): the type pill and date, the title at
    15/500, and a foot of a progress bar plus the percent — or a green `Read` pill once `completed`.
 6. **All projects** draws sections 4–5 once per project, each under the project name at 19/500 with its counts as a subtitle. Section 3 is drawn once, across
@@ -179,7 +183,8 @@ breakpoints:
 The header:
 
 - a 36 px `‹ Guides` button (chevron icon + label) — unchanged behaviour: back to the board, refetching once;
-- a title block: a 13 px `--ink3` crumb `<project> · <series> · n of m` (series part only for a lesson), over the title at 19/500;
+- a title block: a 13 px `--ink3` crumb `<project> · <series> · n of m` (series part only for a lesson), derived from the index by
+  the open guide's path — if a refetch drops the guide from the index while it is open, the crumb shows the title alone and the viewer stays open; over the title at 19/500;
 - a pill `<furthest>% furthest` (hidden at 0 and once `completed`, where it reads `Read`);
 - **`Start over`** — the existing `↺ reset` control relabelled, as a 36 px button with a counter-clockwise arrow icon. Its armed state turns the label to
   `Start over?` in `--red` with a `--red` outline (today's armed text is `sure?`; the `guides-view` assertion on it changes). Its sequence is unchanged and still the only reset control: `DELETE`, refetch, then bump the iframe key
@@ -193,7 +198,8 @@ padding, not the fact that it constrains the frame.
 
 Mock: *Favorites · one project*. Scoped by the rail exactly as Guides is.
 
-- **Band:** `Favorites · <project>` / `Favorites · All projects`, subtitle `N saved blocks from M guides · newest on top`.
+- **Band:** `Favorites · <project>` / `Favorites · All projects`, subtitle `N saved blocks from M guides · newest on top`, where M is the number of distinct
+  `guidePath`s among the favorites in scope.
 - **Toolbar:** the search field only (the project select is gone).
 - **A favorite** is a §8.2 sheet (`--strip`, radius 16, padding 20/24), max column width 820 px:
   - head: the drag grip (`⠿`, fine pointers only, as today), the title at 15/500 (click to rename in place, as today), and under it the crumb as a 13 px
@@ -217,7 +223,8 @@ px, one column below:
 
 - **Appearance** (left): Theme (five swatch buttons in a row, keeping `aria-pressed` — a radio-like group, not switches, the picked one ringed in `--cyan`; the row's hint is the picked theme's
   hint), Density (segmented switch), Text size (select).
-- **Reading aid** (right, top): Bionic reading (a pill switch, `role="switch"`), Fixation and Every (segmented switches).
+- **Reading aid** (right, top): Bionic reading (a pill switch, `role="switch"` — today a `role="group"` of `aria-pressed` buttons, so `settings-view`'s
+  Bionic assertions change), Fixation and Every (segmented switches).
 - **Startup** (right, bottom): Opens on (select).
 
 Rows are boxless: name at 15/500 over a 13 px `--ink3` hint, the control right, 16 px vertical padding, a hairline between. Every control is the 36 px
@@ -275,7 +282,7 @@ against the rewritten stylesheet unchanged). Behaviour each must still prove:
 - the bay-header `aria-expanded` assertions (`guides-view`) are removed with the bays' collapse control, and replaced by the series fold's;
 - `Start over` keeps its order: the iframe key changes only after the `DELETE` resolves (the existing reset test, retargeted);
 - a progress message from a framed guide triggers one coalesced refetch with the hooks lifted to `AppShell`;
-- `theme-tokens`: every token the reading aid and the render shell read (`--fg`, `--muted`, `--line`, `--card`, `--panel`, `--good`, `--bad` in the
+- `theme-tokens`: every token the reading aid and the render shell read (`--accent`, `--bg`, `--fg`, `--muted`, `--line`, `--card`, `--panel`, `--good`, `--bad` in the
   `:root` alias block, and the base set in each theme block) still **resolves** for all five themes, and `--mono` is still defined; the panel-separation
   assertion still holds on the retuned Daylight; `--magenta-ink` on `--magenta-tint` over `--strip` clears 4.5:1 in every theme — the test's
   `tokenByTheme` helper is extended to read an `rgba()` tint and composite it over that theme's `--strip`.
@@ -304,7 +311,7 @@ Continue reading, a series sheet, a viewer reset, a favorite with its armed remo
 
 - **Rail figures from the dashboard's shipped CSS.** DESIGN.md §8 says 280 px wide, 40 px rows and a 22 px bar, and the design-system README says 32 px
   padding; the dashboard ships 240 / 24 / 36 / 16. Matching what ships keeps the two apps' rails identical. (The first cut of the mocks drew 280; they were corrected.)
-- **`↺ reset` → `Start over`.** The README's content rule: name the thing in words, no symbol-as-label. Semantics unchanged.
+- **`↺ reset` → `Start over`.** The README's content rule — "Name the thing, not the action's mechanics" — and a symbol is not a name. Semantics unchanged.
 - **Data hooks lifted to `AppShell`** so the rail can count both indexes; the alternative (counts only on the open section) would make the rail's numbers
   appear and vanish as you move between sections.
 - **`collapsedBays` dropped**, not migrated — narrowing to one project is the rail's job now.
