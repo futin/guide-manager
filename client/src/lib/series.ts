@@ -136,3 +136,26 @@ export function seriesLabel(name: string): string {
   const words = name.replace(/[-_]+/g, ' ').trim();
   return words ? words[0].toUpperCase() + words.slice(1) : name;
 }
+
+/**
+ * Where one lesson sits in its series, for a tile that shows a guide outside
+ * its shelf (Continue reading): `{ label, n, m }` reads `<label> · n of m`.
+ *
+ * `n` is the lesson's position among the shelf's lessons, not the N its
+ * filename claims — a gap in the numbering (1, 3, 4) must still read `2 of 3`
+ * for the second lesson the board actually holds, or the count and the
+ * position would disagree. The shelf is whatever `partitionSeries` builds over
+ * `guides`, so the caller decides the scope by what it passes in.
+ *
+ * `null` for a loose guide, or for a path `guides` does not hold.
+ */
+export function lessonPosition<T extends { path: string }>(
+  guides: T[],
+  path: string
+): { label: string; n: number; m: number } | null {
+  for (const shelf of partitionSeries(guides).shelves) {
+    const i = shelf.lessons.findIndex((l) => l.guide.path === path);
+    if (i >= 0) return { label: seriesLabel(shelf.name), n: i + 1, m: shelf.lessons.length };
+  }
+  return null;
+}

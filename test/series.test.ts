@@ -1,4 +1,9 @@
-import { partitionSeries, seriesLabel, seriesOf } from '../client/src/lib/series';
+import {
+  lessonPosition,
+  partitionSeries,
+  seriesLabel,
+  seriesOf,
+} from '../client/src/lib/series';
 
 /*
   The derivation is the whole contract between the tutor skill's naming
@@ -135,5 +140,38 @@ describe('seriesLabel', () => {
      unchanged keeps the header printing *something* rather than an empty span. */
   it('returns a separator-only name unchanged', () => {
     expect(seriesLabel('--')).toBe('--');
+  });
+});
+
+describe('lessonPosition', () => {
+  const g = (path: string) => ({ path });
+  const guides = [
+    g('/p/b1-brief/b1-brief-1-a.html'),
+    g('/p/b1-brief/b1-brief-2-b.html'),
+    g('/p/b1-brief/b1-brief-3-c.html'),
+    g('/p/notes.html'),
+  ];
+
+  it('places a lesson within its shelf, labelled for display', () => {
+    expect(lessonPosition(guides, '/p/b1-brief/b1-brief-2-b.html')).toEqual({
+      label: seriesLabel('b1-brief'),
+      n: 2,
+      m: 3,
+    });
+  });
+
+  /* n is the position among the lessons the board holds, not the filename's N,
+     so a numbering gap still reads `2 of 3` for the second lesson present. */
+  it('counts position, not the filename number, across a numbering gap', () => {
+    const gapped = [g('/s/s/s-1-a.html'), g('/s/s/s-3-c.html'), g('/s/s/s-4-d.html')];
+    expect(lessonPosition(gapped, '/s/s/s-3-c.html')).toMatchObject({ n: 2, m: 3 });
+  });
+
+  it('returns null for a loose guide', () => {
+    expect(lessonPosition(guides, '/p/notes.html')).toBeNull();
+  });
+
+  it('returns null for a path the list does not hold', () => {
+    expect(lessonPosition(guides, '/p/b1-brief/b1-brief-9-z.html')).toBeNull();
   });
 });
