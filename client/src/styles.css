@@ -179,53 +179,101 @@ code, kbd, samp, pre { font-family: inherit }
   * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important }
 }
 
-/* ── Rail (redrawn in its own task) ──────────────────────────────────────────
-   rack selector — the section rail down the left edge. Sticky and full-height so
-   its right rule runs the length of the board. The height is divided by
-   --font-scale because .shell{zoom} leaves 100vh resolving against the UNZOOMED
-   viewport: at 120% a plain 100vh rail is drawn 20% taller than the screen. */
+/* ── Rail ──────────────────────────────────────────────────────────────────────
+   rack selector — the section rail down the left edge, built to the dashboard's *shipped* rail (claude-agents-dashboard/client/src/styles.css) rather than
+   DESIGN.md §8's mock figures, so the two apps' rails match row for row. Sticky and full-height so it runs the length of the board. The height is divided
+   by --font-scale because .shell{zoom} leaves dvh resolving against the UNZOOMED viewport: at 120% a plain 100dvh rail is drawn 20% taller than the
+   screen. No border: the rail is --strip on the --board ground, and the contrast is the edge. */
 .rail {
-  flex: 0 0 150px; display: flex; flex-direction: column; gap: 2px;
+  flex: 0 0 240px; display: flex; flex-direction: column; gap: 4px;
   align-self: flex-start; position: sticky; top: 0; z-index: 5;
-  height: calc(100vh / var(--font-scale, 1)); overflow-y: auto; padding: var(--body-pad) 10px;
-  background: var(--strip); border-right: 1px solid var(--hairline);
+  height: calc(100dvh / var(--font-scale, 1)); overflow-y: auto; padding: 24px;
+  background: var(--strip);
 }
-/* the app's wordmark, in the rail rather than the page — a kicker over the name */
-.rail-brand {
-  font-size: 15px; font-weight: 700;
-  letter-spacing: .06em; line-height: 1.15;
-  color: var(--ink); padding: 0 10px; margin-bottom: 18px;
-}
-.rail-kicker {
-  font-size: 11px; font-weight: 400;
-  letter-spacing: .14em; color: var(--ink3);
-}
+/* The wordmark: an 11 px kicker over a `› guides` prompt at 22/600 — a terminal prompt, the dashboard's, in the one face. The kicker is the only uppercase
+   text in the shell, and it is uppercase by `text-transform`, so the DOM (and a screen reader) keeps `Guide Manager`. */
+.rail-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; line-height: 1; color: var(--ink); padding: 0 12px 24px }
+.rail-kicker { display: block; font-size: 11px; font-weight: 400; text-transform: uppercase; letter-spacing: .16em; color: var(--ink3) }
+.rail-prompt { display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 600; letter-spacing: -.03em }
+.rail-caret { color: var(--green-solid) }
+/* Static, unlike the dashboard's: there its cursor blinks while a session is working, and nothing in this app "works". */
+.rail-cursor { flex: none; width: 10px; height: 22px; border-radius: 1px; background: var(--green-solid) }
+/* Section rows: 36 px on the rail (44 in the phone menu, below), 16 px padding and radius, 14/500 in --ink2, a 16 px icon 12 px from its label. The row is
+   the hit target, so the fill and radius belong to it rather than to the label. */
+.rail-group { position: relative; display: flex; flex-direction: column }
 .rail-link {
-  font-size: 11.5px; font-weight: 600;
-  letter-spacing: .08em; text-align: left;
-  color: var(--ink3); background: none; border: 0; border-radius: 12px;
-  padding: 8px 10px; cursor: pointer; transition: color .15s, background .15s;
+  position: relative; display: flex; align-items: center; gap: 12px; min-height: 36px;
+  font-family: var(--font); font-size: 14px; font-weight: 500; text-align: left; /* nav */
+  color: var(--ink2); background: none; border: 0; border-radius: 16px; padding: 0 16px;
+  cursor: pointer; transition: color .15s, background .15s;
 }
-.rail-link:hover { color: var(--ink2); background: var(--strip-hi) }
-/* the accent bar sits on the LEFT edge here — a bottom bar marks position in a
-   row, but reads as a divider in a column */
-.rail-link.on {
-  color: var(--ink); background: var(--strip-hi);
-  box-shadow: inset 2px 0 0 var(--cyan), inset 0 1px 0 var(--edge);
+/* Hover darkens the label and nothing else. The fill is what marks the *active* row, so lending it to hover makes a pointer look like a selection. */
+.rail-link:hover { color: var(--ink) }
+/* Icons name the section and never signal state, so they hold --ink whatever the label is doing. */
+.rail-ic { flex: none; display: flex; color: var(--ink) }
+.rail-label { flex: 1; min-width: 0 }
+/* A section's total, or a project's: meta size, pushed to the row's far end so the counts make a column down the rail. */
+.rail-count { flex: none; margin-left: auto; font-size: 12px; font-weight: 400; color: var(--ink3) } /* meta */
+/* Active: the --strip-hi fill plus a short 3 × 16 --ink bar, centred and flush left — never a label colour change. A full-height bar against a 16 px radius
+   reads as a stripe hanging off the pill. */
+.rail-link.on { color: var(--ink); background: var(--strip-hi) }
+.rail-link.on::before {
+  content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 16px; border-radius: 999px; background: var(--ink);
 }
-/* phone: the rail lies down into a scrollable strip above the content, and the
-   accent bar goes back to the bottom edge where a row wants it. */
+/* The project tree under Guides and Favorites. The rule hangs at a 24 px indent — the icon's centreline (row padding 16 + half the 16 px icon) — so it
+   drops out of the glyph above it. Stem and 12 px tick are two background layers on each row rather than a border plus a pseudo-element: the label is
+   ellipsised, and layering the stem per row is what lets the last one stop at its own centre — an `|_`, not a rule running past the last project. */
+.rail-sub { display: flex; flex-direction: column; margin: 2px 0 2px 24px }
+.rail-sublink {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  font-family: var(--font); font-size: 14px; font-weight: 400; text-align: left;
+  color: var(--ink2); background-color: transparent; border: 0; padding: 7px 16px 7px 20px; cursor: pointer; transition: color .15s;
+  background-image: linear-gradient(var(--hairline2), var(--hairline2)), linear-gradient(var(--hairline2), var(--hairline2));
+  background-repeat: no-repeat; background-size: 1px 100%, 12px 1px; background-position: 0 0, 0 50%;
+}
+.rail-sublink:last-child { background-size: 1px 50%, 12px 1px }
+.rail-sublink:hover { color: var(--ink) }
+/* Project names have no fixed length, so the label ellipsises and the count never wraps under it. */
+.rail-sublabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+/* The picked project: --ink and 500, no fill — the fill and bar mark the section row only, so two filled rows never ask which one you are on. */
+.rail-sublink.on { color: var(--ink); font-weight: 500 }
+
+/* ── Phone bar ────────────────────────────────────────────────────────────────
+   Below 640 the rail does not lie down into a strip: as the dashboard does it, a 60 px top bar carries the wordmark left and a 44 × 44 ☰ right, and the
+   *same* `.rail` element drops down under it as a full-width menu. One nav, repositioned — the trees come with it, and in the menu every tree is drawn
+   (SideRail.tsx), so any project is one tap away. The bar lives outside `.rail` so the ☰, the one control in the nav that does disclose a panel, is the
+   only `aria-expanded` and is nowhere inside the rail. */
+.mnav { display: none }
 @media (max-width: 639px) {
   .shell { flex-direction: column }
-  .rail {
-    flex: none; width: auto; height: auto; align-self: stretch;
-    flex-direction: row; gap: 4px; padding: 8px 10px;
-    overflow-x: auto; overflow-y: hidden;
-    border-right: none; border-bottom: 1px solid var(--hairline);
+  .mnav {
+    display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 14px;
+    position: sticky; top: 0; z-index: 30; background: var(--strip); border-bottom: 1px solid var(--hairline);
   }
-  .rail-brand { display: none }
-  .rail-link { flex: none; white-space: nowrap; min-height: 38px; display: flex; align-items: center }
-  .rail-link.on { box-shadow: inset 0 -2px 0 var(--cyan), inset 0 1px 0 var(--edge) }
+  /* The rail's 22 px prompt is a page heading; in a bar it is a label. The kicker stays at the 11 px floor rather than the dashboard's 10. */
+  .mnav-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; line-height: 1; color: var(--ink); min-width: 0 }
+  .mnav-brand .rail-prompt { font-size: 17px; gap: 6px }
+  .mnav-brand .rail-cursor { width: 8px; height: 17px }
+  /* Ink, no fill: the fill in this design marks a selection, and a menu button is never selected. */
+  .mnav-burger {
+    flex: none; margin-left: auto; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px;
+    color: var(--ink); background: none; border: 0; border-radius: 12px; cursor: pointer;
+  }
+  .mnav-burger:active { background: var(--strip-hi) }
+  /* The menu: fixed under the bar, capped at the screen and scrollable, because a tree is a list of registered projects and has no fixed length. The
+     60 px is the bar's, in the same zoomed px as the bar itself; only the viewport term is divided. */
+  .rail {
+    display: none; position: fixed; left: 0; right: 0; top: 60px; z-index: 29;
+    width: auto; height: auto; max-height: calc(100dvh / var(--font-scale, 1) - 60px); align-self: stretch;
+    gap: 2px; padding: 8px 10px 14px; overflow-y: auto; overflow-x: hidden;
+    border-bottom: 1px solid var(--hairline); box-shadow: 0 12px 24px var(--shadow2);
+  }
+  .rail.open { display: flex }
+  /* the bar carries the wordmark here; two of them would be two copies of one label */
+  .rail .rail-brand { display: none }
+  /* thumb targets, not pointer ones — every row in the menu, tree rows included */
+  .rail-link, .rail-sublink { min-height: 44px }
 }
 
 /* Desktop: the tab becomes the scroller rather than the page, so the guide
@@ -252,10 +300,10 @@ code, kbd, samp, pre { font-family: inherit }
   font-size: 14px; font-weight: 600;
   letter-spacing: .07em; color: var(--ink);
 }
-/* The toolbar: search, then project / type / sort. Pushed to the far end of the
+/* The toolbar: search, then type / sort (the project scope moved to the rail's tree). Pushed to the far end of the
    bar because it states the board's state, so it belongs beside the board rather
    than next to the section title. Its own wrap is what saves a narrow tablet: the
-   four controls break onto a second line before they start squeezing each other
+   three controls break onto a second line before they start squeezing each other
    into unreadable widths. `align-items:stretch` rather than `center` because an
    input and a select do not resolve the same height from the same padding and
    font — rendered, the search box came out 2px shorter than the selects beside
@@ -263,10 +311,10 @@ code, kbd, samp, pre { font-family: inherit }
    levels each flex line to its tallest member and keeps doing so if the padding
    is ever changed. */
 .guides-tools { margin-left: auto; display: flex; align-items: stretch; flex-wrap: wrap; gap: 6px }
-/* One recessed-well look for all four, inherited from the removed .guides-scope
+/* One recessed-well look for all three, inherited from the removed .guides-scope
    button: --steel against the --strip cards, a hairline rule, and one type size, so
    the row reads as instrument panel rather than as a form. One block rather than
-   four, because the four controls only read as one instrument while their
+   three, because the three controls only read as one instrument while their
    padding, border and type are literally the same declarations. */
 .guides-search, .guides-select {
   font-size: 11px; letter-spacing: .04em;
@@ -275,15 +323,14 @@ code, kbd, samp, pre { font-family: inherit }
   padding: 4px 8px; transition: color .15s, border-color .15s;
 }
 /* Fixed rather than content-sized: a text field that grows as you type shoves the
-   three selects along the bar with every keystroke. `min-width:0` so the flex
+   two selects along the bar with every keystroke. `min-width:0` so the flex
    line can still shrink it rather than overflowing the bar. */
 .guides-search { width: 150px; min-width: 0 }
 .guides-search::placeholder { color: var(--ink3) }
-/* A select sizes itself to its widest option, so the project one is as wide as
-   the longest project name in the registry — and a project directory named after
-   a long branch would otherwise push the whole toolbar off the bar. The cap makes
-   the UA truncate that one option instead; the full name is still readable in the
-   open dropdown, and on the board's own bay header. */
+/* A select sizes itself to its widest option. The cap was sized for the project
+   select, which grew with the longest project name; that select is gone (the rail's
+   tree carries the scope now), and the cap stays as the guard for any option list
+   that is not ours to bound. */
 .guides-select { cursor: pointer; max-width: 190px; text-overflow: ellipsis }
 .guides-search:hover, .guides-select:hover { color: var(--ink); border-color: var(--hairline2) }
 /* Focus is the cyan rule, matching .set-control's fields in Settings — the UA
@@ -294,23 +341,17 @@ code, kbd, samp, pre { font-family: inherit }
 /* Phones: the toolbar gets its own full-width line under the title (the bar wraps
    it there anyway; `margin-left:auto` is dropped so it starts at the left edge
    rather than sitting oddly right-aligned on a line of its own). The search takes
-   a whole row and the three selects share the next, each free to shrink — at
-   375px the four cannot share one line without every label truncating. */
+   a whole row and the two selects share the next, each free to shrink — at
+   375px the three cannot share one line without every label truncating. */
 @media (max-width: 639px) {
   .guides-tools { margin-left: 0; width: 100% }
   .guides-search { flex: 1 1 100%; width: auto }
-  /* Thirds of the row, and the cap is off: a select given `max-width` as well as
+  /* Halves of the row, and the cap is off: a select given `max-width` as well as
      a flex basis stops growing before it has used the room the row gave it.
 
-     At 375px a third is 105px and the UA's dropdown arrow takes 18 of them, so
-     the longest labels ("All projects", "Newest first") lose their last two or
-     three characters to an ellipsis. Left that way on purpose: buying those
-     characters back costs either a third row of controls on the screen with the
-     least vertical room to spare, or labels shortened until "All projects" reads
-     as the category rather than as the current value. A truncated label on a
-     native select is a phone convention — the full text is one tap away in the
-     open dropdown — and the selects only truncate at all while showing the value
-     that filters nothing. */
+     Written for three selects, when a third of 375px lost "All projects" to an
+     ellipsis; with the project select moved to the rail's tree, two halves hold
+     both labels whole. The cap stays off so the pair fills the row. */
   .guides-select { flex: 1 1 0; min-width: 0; max-width: none }
 }
 

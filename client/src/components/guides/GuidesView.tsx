@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { useGuides } from '../../hooks/useGuides';
+import type { GuidesState } from '../../hooks/useGuides';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { clearDeeplink, readDeeplink, viewerHref } from '../../lib/deeplink';
+import { ALL } from '../../lib/rail';
 import { partitionSeries, seriesLabel } from '../../lib/series';
 import type { SeriesLesson } from '../../lib/series';
 import type { GuideEntry, GuideType, ProjectEntry } from '../../../../shared/types';
@@ -33,24 +34,17 @@ const COLLAPSED_BAYS_KEY = 'guide-manager.collapsedBays';
 const FOLDED_SERIES_KEY = 'guide-manager.foldedSeries';
 
 /**
- * The three toolbar selects, remembered per device.
+ * The two toolbar selects, remembered per device. The project scope is not
+ * here: it is a rail destination now (SideRail), stored by AppShell and handed
+ * in as the `scope` prop. The search box is not here either, on purpose — see
+ * the plain useState below.
  *
- * `guide-manager.project` is deliberately the same key the removed project
- * drawer wrote, holding the same values (a registry project path, or the ALL
- * sentinel): the drawer and this select answer the identical question, so a
- * phone that still carries the drawer's value should open on the project it was
- * left scoped to rather than silently resetting to All.
- *
- * The search box is *not* here on purpose — see the plain useState below.
+ * The type select's "not narrowed" value is the rail's ALL sentinel: a sentinel
+ * rather than an empty string, so a stored value always reads as itself and
+ * never as "the field was cleared".
  */
-const PROJECT_KEY = 'guide-manager.project';
 const TYPE_KEY = 'guide-manager.filterType';
 const SORT_KEY = 'guide-manager.sort';
-
-/** The "not narrowed" sentinel for the project and type selects. A sentinel
- *  rather than an empty string, so a stored value always reads as itself and
- *  never as "the field was cleared". */
-const ALL = 'all';
 
 /** Sort keys, in the order the select offers them. `created` leads because it is
  *  the default: the board's job is to put the guide you generated ten minutes ago
@@ -71,6 +65,13 @@ interface ViewerState {
   href: string;
   title: string;
   path: string;
+}
+
+/** The index comes from AppShell, which fetches it once for the rail's counts as well as for this board; `scope` is the rail's resolved pick — ALL or
+ *  a registry project path. */
+interface Props {
+  guides: GuidesState;
+  scope: string;
 }
 
 /**
@@ -165,8 +166,8 @@ function sortShelves(shelves: Shelf[], sort: SortKey): Shelf[] {
  * class name a later companion panel would mount into, so its shape must stay
  * stable.
  */
-export default function GuidesView() {
-  const { index, loading, error, refetch } = useGuides();
+export default function GuidesView({ guides, scope }: Props) {
+  const { index, loading, error, refetch } = guides;
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   const viewing = viewer !== null;
   /*
@@ -219,7 +220,6 @@ export default function GuidesView() {
     but nobody reads a text field before concluding the app has lost their guides.
   */
   const [query, setQuery] = useState('');
-  const [project, setProject] = usePersistedState<string>(PROJECT_KEY, ALL);
   const [type, setType] = usePersistedState<string>(TYPE_KEY, ALL);
   const [sort, setSort] = usePersistedState<SortKey>(SORT_KEY, 'created');
 
@@ -260,12 +260,13 @@ export default function GuidesView() {
     what the guide is called.
 
     The lookup is over the *whole* index, never the toolbar's filtered bays: a
-    remembered project select or a leftover type filter has nothing to do with
+    remembered project scope or a leftover type filter has nothing to do with
     which guide a favorite points at, and a link that silently did nothing
     because the board happened to be narrowed would be unexplainable from the
     screen. For the same reason nothing here touches the toolbar — the reader is
     going straight into a guide, and the board they eventually come back to
-    should be the one they left.
+    should be the one they left — scope included, which is why the stored scope
+    is never touched on the way in.
 
     A path the index does not know is dropped to the board rather than surfaced
     as an error, matching how a moved guide behaves everywhere else in this app:
@@ -413,19 +414,14 @@ export default function GuidesView() {
   const all = index?.projects ?? [];
 
   /*
-    The project scope is applied here rather than anywhere upstream because this
-    is where the index lives and the fail-open needs it: a path remembered from a
-    previous session may no longer be registered (the guide moved, the project was
-    dropped), and an unmatched filter that emptied the board would look like the
-    server broke. An unmatched path reads as All — and `projectValue` feeds that
-    same fallback back into the select, so the control and the board agree and the
-    fallback is visible rather than silent. Feeding `project` straight to the
-    select would instead leave it showing a blank option, which is the one state
-    that cannot be explained to the person looking at it.
+    `scope` arrives already resolved (AppShell, lib/rail.ts resolveScope): a path
+    the index no longer names has been turned into ALL upstream, where the rail
+    can mark the same fallback the board shows. The `scoped.length` check is the
+    same fail-open once more, so a board rendered with an unresolved path still
+    shows every project rather than nothing.
   */
-  const scoped = all.filter((p) => p.path === project);
-  const inScope = scoped.length > 0 ? scoped : all;
-  const projectValue = scoped.length > 0 ? project : ALL;
+  const scoped = all.filter((p) => p.path === scope);
+  const inScope = scope === ALL || scoped.length === 0 ? all : scoped;
 
   /* Titles only, never content: the index the board holds *has* no content in it,
      and fetching every guide's body to grep it is not what a phone on a tailnet
@@ -440,9 +436,9 @@ export default function GuidesView() {
     an empty bay with its header still standing — puts a row on the board for
     every project that has nothing to show, so on a board of a dozen projects a
     two-hit search returns a screenful of headers with the hits buried in it. The
-    project select is the exception, and narrows the board *to* a bay rather than
-    filtering inside one, so its header survives being the only match: that header
-    is the one place the project's name is written on screen.
+    rail's project scope is different in kind: it narrows the board *to* a bay
+    rather than filtering inside one, so its header survives being the only bay
+    left — that header is the one place on the board the project's name is written.
   */
   /*
     Series are split out *before* the filters run, because a shelf needs to know
@@ -472,14 +468,14 @@ export default function GuidesView() {
         {/*
           The controls are grouped in their own element rather than dropped into
           the bar directly, for two reasons: the bar is `align-items:baseline` for
-          the sake of the title, and the four controls have to align to each other
+          the sake of the title, and the three controls have to align to each other
           rather than to it — and the group is the thing that wraps to a line of
-          its own on a phone, which four loose children could not do together.
+          its own on a phone, which loose children could not do together. There is
+          no project select: the project scope is a rail destination now.
 
-          Each control is named by an aria-label rather than a visible <label>: the
-          row is already four controls wide at 10px mono, and a caption over each
-          would double the bar's height to say what the control's own current value
-          ("All projects", "Newest first") says anyway.
+          Each control is named by an aria-label rather than a visible <label>: a
+          caption over each would double the bar's height to say what the control's
+          own current value ("All types", "Newest first") says anyway.
         */}
         <div className="guides-tools">
           <input
@@ -490,22 +486,6 @@ export default function GuidesView() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <select
-            className="guides-select"
-            aria-label="Project"
-            value={projectValue}
-            onChange={(e) => setProject(e.target.value)}
-          >
-            <option value={ALL}>All projects</option>
-            {/* Valued by path, labelled by name — the registry's own key, so two
-                checkouts of one repo stay two selectable options rather than one
-                ambiguous name that would scope to whichever came first. Listed
-                from `all` rather than from the bays, so narrowing to one project
-                does not leave the select holding one option and no way back. */}
-            {all.map((p) => (
-              <option key={p.path} value={p.path}>{p.name}</option>
-            ))}
-          </select>
           <select
             className="guides-select"
             aria-label="Type"
@@ -530,9 +510,9 @@ export default function GuidesView() {
       </div>
 
       {loading ? (
-        <div className="guides-empty">loading…</div>
+        <div className="guides-empty">Loading…</div>
       ) : error ? (
-        <div className="guides-empty">guides unavailable</div>
+        <div className="guides-empty">Guides unavailable</div>
       ) : all.length === 0 ? (
         /*
           Two distinct empty states, because they ask the reader for two different

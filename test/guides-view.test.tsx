@@ -5,7 +5,14 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
 
 import GuidesView from '../client/src/components/guides/GuidesView';
+import { useGuides } from '../client/src/hooks/useGuides';
 import type { GuidesIndex } from '../shared/types';
+
+/** GuidesView as AppShell mounts it: the data hook one level up, handing the board its state, and the scope the rail resolved. Picking a scope is the
+ *  rail's and is driven through App in app-projects.test.tsx; here it is only ever handed in. */
+function Board({ scope = 'all' }: { scope?: string }) {
+  return <GuidesView guides={useGuides()} scope={scope} />;
+}
 
 /*
   Three guides in the first bay, deliberately arranged so the three sort keys give
@@ -72,10 +79,10 @@ function mockFetch(body: unknown, ok = true): jest.Mock {
 /** Returns the render result so a test can unmount and mount again — which is
  *  how the persisted fold state is checked without reloading a page jsdom does
  *  not have. */
-async function renderGuides(body: unknown = INDEX) {
+async function renderGuides(body: unknown = INDEX, scope = 'all') {
   mockFetch(body);
-  const result = render(<GuidesView />);
-  await waitFor(() => expect(screen.queryByText('loading…')).toBeNull());
+  const result = render(<Board scope={scope} />);
+  await waitFor(() => expect(screen.queryByText('Loading…')).toBeNull());
   return result;
 }
 
@@ -96,7 +103,7 @@ const setControl = (name: string, value: string) =>
   fireEvent.change(control(name), { target: { value } });
 
 describe('GuidesView', () => {
-  /* The fold state and all three selects are persisted, so without this a value
+  /* The fold state and both selects are persisted, so without this a value
      set by one test leaks into every test after it. */
   beforeEach(() => {
     localStorage.clear();
@@ -172,7 +179,7 @@ describe('GuidesView', () => {
     The board is unscoped by default: every registered project is listed, each in
     its own bay under its own header. The list was briefly narrowed to one project
     by a drawer, which also dropped the heading once a single group was showing —
-    both are gone. The toolbar's project select can narrow the board again, but the
+    both are gone. The rail's project tree can narrow the board again, but the
     header stays unconditional even then: it is now where the project's name
     appears on screen at all, so a one-bay board without it is a board that does
     not say what you are looking at.
@@ -323,26 +330,26 @@ describe('GuidesView', () => {
 
   it('says so when the server cannot be reached', async () => {
     (globalThis as { fetch?: unknown }).fetch = jest.fn().mockRejectedValue(new Error('offline'));
-    render(<GuidesView />);
-    await waitFor(() => expect(screen.getByText('guides unavailable')).toBeTruthy());
+    render(<Board />);
+    await waitFor(() => expect(screen.getByText('Guides unavailable')).toBeTruthy());
   });
 
   /* ------------------------------------------------------------------ toolbar */
 
   /*
     Order is part of the design, not an accident of JSX: search reads first because
-    it is the control you reach for, and the three selects narrow-then-order from
-    the broadest scope (project) to the finest (sort). Asserted as a sequence
-    rather than four separate existence checks, which would pass on a bar that had
-    silently shuffled itself.
+    it is the control you reach for, then narrow before order — type, then sort.
+    There is no project select: the scope is a rail destination. Asserted as a
+    sequence rather than separate existence checks, which would pass on a bar that
+    had silently shuffled itself.
   */
-  it('puts search, project, type and sort in the bar, in that order', async () => {
+  it('puts search, type and sort in the bar, in that order, and no project select', async () => {
     await renderGuides();
     const bar = document.querySelector('.guides-bar');
     expect(bar?.querySelector('.guides-title')?.textContent).toBe('Guides');
     expect([...(bar?.querySelectorAll('.guides-search, .guides-select') ?? [])]
       .map((el) => el.getAttribute('aria-label')))
-      .toEqual(['Search guides', 'Project', 'Type', 'Sort']);
+      .toEqual(['Search guides', 'Type', 'Sort']);
   });
 
   it('narrows to the guides whose titles match the query', async () => {
@@ -401,30 +408,25 @@ describe('GuidesView', () => {
   });
 
   /*
-    The project select narrows the board *to* a bay rather than filtering inside
+    The rail's scope narrows the board *to* a bay rather than filtering inside
     one, and its header survives being the only thing on screen: the header is the
     one place the project's name is written, so a headerless single bay is a board
     that does not say what you are looking at. That was the drawer's bug.
   */
-  it('narrows the board to one project, keeping that bay’s header', async () => {
-    await renderGuides();
-    setControl('Project', '/q');
+  it('narrows the board to the scoped project, keeping that bay’s header', async () => {
+    await renderGuides(INDEX, '/q');
     expect(bayNames()).toEqual(['german-study-partner']);
     expect(cardTitles()).toEqual(['Gamma']);
   });
 
   /*
-    Fail-open. A path remembered from a previous session may no longer be
-    registered — the guide moved, the project was dropped — and a filter matching
-    nothing would empty the board in a way that looks like the server broke. It
-    reads as All, and the select says so, so the fallback is visible rather than
-    silent.
+    Fail-open. AppShell resolves a stale path to ALL before it gets here, but the
+    board does not lean on that: a scope naming no registered project shows every
+    project rather than an empty board that looks like the server broke.
   */
-  it('falls a stale stored project path open to All rather than blanking the board', async () => {
-    localStorage.setItem('guide-manager.project', JSON.stringify('/gone'));
-    await renderGuides();
+  it('shows every project for a scope the index does not name, rather than blanking the board', async () => {
+    await renderGuides(INDEX, '/gone');
     expect(bayNames()).toEqual(['guide-manager', 'german-study-partner']);
-    expect(control('Project').value).toBe('all');
   });
 
   /* Newest first is the default: the point of the board is that the guide you
@@ -486,24 +488,21 @@ describe('GuidesView', () => {
   /*
     The selects are remembered per device for the same reason the fold is: a phone
     picked up mid-session should still be looking at the board it was left looking
-    at. The project key is the one the removed drawer wrote, with the same values,
-    so a phone still carrying the drawer's scope keeps it.
+    at. (The project scope is remembered too, but by AppShell for the rail — see
+    app-projects.test.tsx.)
   */
-  it('remembers the project, type and sort selects across a remount', async () => {
+  it('remembers the type and sort selects across a remount', async () => {
     const first = await renderGuides();
-    setControl('Project', '/p');
     setControl('Type', 'study');
     setControl('Sort', 'name');
-    expect(localStorage.getItem('guide-manager.project')).toBe('"/p"');
     expect(localStorage.getItem('guide-manager.filterType')).toBe('"study"');
     expect(localStorage.getItem('guide-manager.sort')).toBe('"name"');
 
     first.unmount();
     await renderGuides();
-    expect(control('Project').value).toBe('/p');
     expect(control('Type').value).toBe('study');
     expect(control('Sort').value).toBe('name');
-    expect(cardTitles()).toEqual(['Alpha Guide', 'Omega Notes']);
+    expect(cardTitles()).toEqual(['Alpha Guide', 'Omega Notes', 'Gamma']);
   });
 
   /*

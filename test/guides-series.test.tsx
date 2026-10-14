@@ -4,7 +4,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import GuidesView from '../client/src/components/guides/GuidesView';
+import { useGuides } from '../client/src/hooks/useGuides';
 import type { GuideEntry, GuidesIndex } from '../shared/types';
+
+/** GuidesView as AppShell mounts it: the data hook one level up, handing the board its state, and the scope the rail resolved — every project here,
+ *  because narrowing is the rail's and is driven through App in app-projects.test.tsx. */
+function Board() {
+  return <GuidesView guides={useGuides()} scope="all" />;
+}
 
 /*
   A board with one series and two loose guides. The series' lessons are listed
@@ -96,8 +103,8 @@ function mockFetch(body: unknown, ok = true): jest.Mock {
 
 async function renderGuides(body: unknown = INDEX) {
   mockFetch(body);
-  const result = render(<GuidesView />);
-  await waitFor(() => expect(screen.queryByText('loading…')).toBeNull());
+  const result = render(<Board />);
+  await waitFor(() => expect(screen.queryByText('Loading…')).toBeNull());
   return result;
 }
 
