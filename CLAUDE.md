@@ -18,6 +18,7 @@ live in `README.md` — this file holds only what a working session needs.
 | Production build | `pnpm run build` |
 | Publish the web port to the tailnet | `pnpm run tailnet` (`up` \| `status` \| `down`) |
 | Reinstall the plugin from the pushed HEAD | `pnpm run plugin:sync` |
+| CI (every PR into `main`) | `.github/workflows/ci.yml`: typecheck, build, test, PR title (README §CI) |
 
 Mongo is a hard boot requirement — no database, no server. Ports: API `4321`,
 Vite `5175`, Mongo `27017`; only the host side moves, via `GM_API_PORT` /
@@ -185,3 +186,8 @@ the tailnet port and the local port cannot drift apart.
 - Tests are flat in `test/`, `*.test.ts` / `*.test.tsx`; component suites opt
   into jsdom with a `@jest-environment jsdom` docblock.
 - Backlog items move `open/` → `done/`; `out-of-scope/` is flat.
+- **The PR title must pass `ci / pr-title`** — it becomes the squash commit once squash-only merges are applied: `feat|fix|perf` (`!` allowed) or
+  `docs|chore|test|refactor|ci|build`, optional lowercase `(scope)`, `: `, a description. Bodies follow `.github/pull_request_template.md`.
+- **`ci.yml`'s job id stays `ci` and no job sets `name:`** — the `main-pr-only` ruleset requires `ci / checks`, `ci / pr-title`, `ci / skills` by
+  exactly those names, and a required context that never reports locks `main` (no bypass). Once that ruleset is applied (README §CI says whether it
+  is), `main` takes no direct push: backlog merges, docs commits and plugin-sync changes all land through a PR.

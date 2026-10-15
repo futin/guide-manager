@@ -1,0 +1,28 @@
+# The CI gate for every PR into main (README §CI). The job id must stay `ci` and no job may set `name:` — the ruleset requires the contexts
+# `ci / checks`, `ci / pr-title` and `ci / skills` by exactly those names. This repo passes no skills suite, so `ci / skills` reports success without
+# running anything; it still has to exist, because release-kit's ruleset JSON is the same for every app.
+name: ci
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    uses: futin/release-kit/.github/workflows/ci-node.yml@v1
+    with:
+      # build is a check of its own (nest build + vite build), not a test prerequisite: no suite reads dist/ today.
+      check-commands: |
+        pnpm run typecheck
+        pnpm run build
+        pnpm test
