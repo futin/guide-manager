@@ -8,9 +8,10 @@ import { ALL } from '../../lib/rail';
 import { lessonPosition, partitionSeries } from '../../lib/series';
 import type { GuideEntry, GuideType, ProjectEntry } from '../../../../shared/types';
 import { ContinueReading } from './ContinueReading';
-import { GuideTile } from './GuideTile';
+import { furthestOf, GuideTile } from './GuideTile';
 import { SeriesCard } from './SeriesCard';
 import type { SeriesGroupView } from './SeriesCard';
+import { ViewerHeader } from './ViewerHeader';
 
 /**
  * Folded series sheets, stored as the set of keys currently folded shut. Keyed by
@@ -52,9 +53,11 @@ const TYPE_ORDER: Record<GuideType, number> = { study: 0, tutor: 1 };
 
 /** What the viewer pane shows; null means the list is shown instead.
  *
- *  `path` rides along beside the href purely for the reset button: the API keys
- *  progress on the guide's absolute path, and pulling it back out of the href's
- *  encoded query would be re-deriving what the entry already states. */
+ *  `path` rides along beside the href for the reset button and the header: the API keys
+ *  progress on the guide's absolute path, and the header finds the guide's crumb and
+ *  pill in the current index by it. Pulling it back out of the href's encoded query
+ *  would be re-deriving what the entry already states. `title` is kept as the header's
+ *  fallback for an index that no longer names the path. */
 interface ViewerState {
   href: string;
   title: string;
@@ -152,9 +155,9 @@ function sortShelves(shelves: SeriesGroupView[], sort: SortKey): SeriesGroupView
  * and would cost a round trip per keystroke — and, because it would need a new
  * route, an entry in vite.config.ts's proxy list as well.
  *
- * `.guide-viewer-head` is kept as its own element deliberately: it is the exact
- * class name a later companion panel would mount into, so its shape must stay
- * stable.
+ * `.guide-viewer-head` (drawn by ViewerHeader) is kept as its own element
+ * deliberately: it is the exact class name a later companion panel would mount
+ * into, so its shape must stay stable.
  */
 export default function GuidesView({ guides, scope }: Props) {
   const { index, loading, error, refetch } = guides;
@@ -175,7 +178,7 @@ export default function GuidesView({ guides, scope }: Props) {
   /*
     Whether the viewer's reset button is armed. Two taps, because it is a
     destructive control sitting beside the back link on a phone: the first tap
-    turns it into "sure?", the second fires. Held here rather than inside a
+    turns it into "Start over?", the second fires. Held here rather than inside a
     child so that closing the viewer disarms it — see the effect below.
   */
   const [resetArmed, setResetArmed] = useState(false);
@@ -333,30 +336,31 @@ export default function GuidesView({ guides, scope }: Props) {
   };
 
   if (viewer !== null) {
+    /*
+      The crumb and the pill are read out of the *current* index by the open path, not frozen into ViewerState at open time: a framed guide's own
+      progress announcement refetches the index while it is open, and the header should say what the board would. When a refetch no longer names the
+      path (the guide was moved or unregistered mid-read) the viewer stays open on what it was already showing — the frame is still the frame — and the
+      crumb falls back to the title alone, the one thing ViewerState still knows.
+    */
+    const owner = index?.projects.find((p) => p.guides.some((g) => g.path === viewer.path));
+    const current = owner?.guides.find((g) => g.path === viewer.path);
+    const lesson = owner ? lessonPosition(owner.guides, viewer.path) : null;
+    const crumb = !owner
+      ? viewer.title
+      : lesson
+        ? `${owner.name} · ${lesson.label} · ${lesson.n} of ${lesson.m}`
+        : owner.name;
     return (
       <div className="guide-viewer">
-        <div className="guide-viewer-head">
-          <button className="guide-viewer-back" onClick={() => setViewer(null)}>‹ Guides</button>
-          <span className="guide-viewer-title">{viewer.title}</span>
-          {/*
-            Reset belongs here rather than on the board's cards. `.guides-card` is
-            a whole-card role="button" in a dense grid, so a nested destructive
-            control there is one mis-tap from discarding a session on the device
-            this app exists for. In the viewer there is exactly one guide it could
-            mean — the one on screen.
-
-            The label carries the confirmation rather than a dialog: a window.confirm
-            inside an overlay on a phone is a second modal over a modal, and the
-            two-state button says the same thing in the space it already occupies.
-          */}
-          <button
-            type="button"
-            className={`guide-viewer-reset${resetArmed ? ' armed' : ''}`}
-            onClick={() => (resetArmed ? resetGuide(viewer.path) : setResetArmed(true))}
-          >
-            {resetArmed ? 'sure?' : '↺ reset'}
-          </button>
-        </div>
+        <ViewerHeader
+          crumb={crumb}
+          title={current?.title ?? viewer.title}
+          furthest={current ? furthestOf(current) : 0}
+          completed={current?.progress?.completed ?? false}
+          onBack={() => setViewer(null)}
+          onReset={() => (resetArmed ? resetGuide(viewer.path) : setResetArmed(true))}
+          armed={resetArmed}
+        />
         <div className="guide-viewer-body">
           {/*
             No `sandbox` attribute: this iframe is same-origin — our own server,

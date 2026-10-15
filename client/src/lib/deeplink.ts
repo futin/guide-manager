@@ -9,7 +9,7 @@ import type { GuidePosition } from '../../../shared/types';
  * `max-width` entirely (server/public/style.css) because the thing constraining
  * it is meant to be the app's `.wrap.wide` around the iframe. Opened at the top
  * level there is nothing constraining it, so the guide came up full-bleed, with
- * no side rail, no `‹ Guides` back and no `↺ reset` — a different page from the
+ * no side rail, no `‹ Guides` back and no `Start over` — a different page from the
  * one the same guide gets when it is opened off the board.
  *
  * So the crumb now points at the app instead, and the app opens its ordinary
