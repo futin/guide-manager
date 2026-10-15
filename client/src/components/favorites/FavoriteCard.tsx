@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent, FocusEvent, KeyboardEvent, MouseEvent } from 'react';
 
+import { IconClose, IconDown, IconTop, IconUp } from '../icons';
+import { shortDate } from '../../lib/dates';
 import { deeplinkHref } from '../../lib/deeplink';
 import { sanitizeSnapshot } from '../../lib/sanitize';
 import type { Favorite } from '../../../../shared/types';
@@ -55,7 +57,7 @@ export interface FavoriteCardProps {
    *  current list, so it is the one that turns a direction into the bay's
    *  new id order and calls `reorderBay` with it. */
   onMove: (to: 'up' | 'down' | 'top') => void;
-  /** Delete this favorite, behind the two-tap `sure?` confirm below. */
+  /** Delete this favorite, behind the two-tap `Remove?` confirm below. */
   onRemove: () => void;
   /** Drag-and-drop reorder target: `sourceId` is the id the dropped card's
    *  own handle wrote into `dataTransfer` at `dragstart`. FavoritesView
@@ -66,12 +68,13 @@ export interface FavoriteCardProps {
 }
 
 /**
- * One favorite: head (title, pill, drag handle, move/remove controls),
- * crumb link, the note annotation, the sanitised snapshot body, and the
- * capture date. Every control below mirrors a reasoning already stated
- * elsewhere in this app rather than inventing its own:
+ * One favorite, drawn as a sheet: head (drag grip, title with its pill and
+ * the crumb link under it, the ⤒ ↑ ↓ and remove keys), the note, the
+ * sanitised snapshot body, and the capture date. Every control below mirrors
+ * a reasoning already stated elsewhere in this app rather than inventing its
+ * own:
  *
- * - The delete button's two-tap `sure?` is the same shape as GuidesView's
+ * - The delete button's two-tap `Remove?` is the same shape as GuidesView's
  *   viewer-header `Start over` (see CLAUDE.md's "Starting a guide over has
  *   exactly one control" invariant) — a destructive control that is loud
  *   only *after* the first tap, and disarms on blur here rather than on a
@@ -331,93 +334,105 @@ export default function FavoriteCard({
 
   return (
     <article
-      className="fav-card"
+      className="card fav-card"
       onDragOver={reorderable ? handleDragOver : undefined}
       onDrop={reorderable ? handleDrop : undefined}
     >
       <div className="fav-head">
-        {editingTitle ? (
-          <input
-            className="fav-title-input"
-            value={titleDraft}
-            autoFocus
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setTitleDraft(e.target.value)}
-            onKeyDown={handleTitleKeyDown}
-            onBlur={handleTitleBlur}
-          />
-        ) : (
+        {/* The handle only exists in the DOM while reorderable — see the
+            prop docblock — and even then only *paints* on a fine-pointer
+            device (styles.css's `@media (pointer: fine)`): a touch screen
+            has no hover-and-drag gesture for it to start, so a handle that
+            only ever misfires there is worse than no handle at all. It leads
+            the head, where a grip is looked for, rather than sitting among
+            the keys it is not one of. */}
+        {reorderable ? (
           <span
-            className="fav-title"
-            role="button"
-            tabIndex={0}
-            onClick={startEditTitle}
-            onKeyDown={handleTitleSpanKeyDown}
+            className="fav-handle"
+            draggable
+            aria-hidden="true"
+            onDragStart={handleDragStart}
           >
-            {favorite.title}
+            ⠿
           </span>
-        )}
-        {pillType ? <span className={`pill pill-${pillType}`}>{pillType}</span> : null}
+        ) : null}
+        <div className="fav-heading">
+          <div className="fav-title-row">
+            {editingTitle ? (
+              <input
+                className="fav-title-input"
+                value={titleDraft}
+                autoFocus
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setTitleDraft(e.target.value)}
+                onKeyDown={handleTitleKeyDown}
+                onBlur={handleTitleBlur}
+              />
+            ) : (
+              <span
+                className="fav-title"
+                role="button"
+                tabIndex={0}
+                onClick={startEditTitle}
+                onKeyDown={handleTitleSpanKeyDown}
+              >
+                {favorite.title}
+              </span>
+            )}
+            {pillType ? <span className={`pill ${pillType}`}>{pillType}</span> : null}
+          </div>
+          {/* Restyled, never rewritten: the text is crumbText above and the href is openHref, so a deck, a doc and a null anchor all link the
+              way they did before the sheet was redrawn. */}
+          <a className="fav-crumb" href={openHref(favorite)} target="_top">
+            {crumbText}
+          </a>
+        </div>
+        {/* ⤒ leads: the top is where a new favorite lands, so "send it back there" is the move a reader reaches for first. Icons rather than the
+            arrow characters, so the keys draw in the shell's one stroke and every key is the same 30×30 box; each keeps the aria-label it had. */}
         <div className="fav-ctls">
-          {/* The handle only exists in the DOM while reorderable — see the
-              prop docblock — and even then only *paints* on a fine-pointer
-              device (styles.css's `@media (pointer: fine)`): a touch screen
-              has no hover-and-drag gesture for it to start, so a handle that
-              only ever misfires there is worse than no handle at all. */}
-          {reorderable ? (
-            <span
-              className="fav-handle"
-              draggable
-              aria-hidden="true"
-              onDragStart={handleDragStart}
-            >
-              ⠿
-            </span>
-          ) : null}
           {reorderable ? (
             <>
               <button
                 type="button"
-                className="fav-ctl fav-up"
-                aria-label="Move up"
-                disabled={index === 0}
-                onClick={handleMoveUp}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                className="fav-ctl fav-down"
-                aria-label="Move down"
-                disabled={index === count - 1}
-                onClick={handleMoveDown}
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                className="fav-ctl fav-top"
+                className="key fav-top"
                 aria-label="Move to top"
                 disabled={index === 0}
                 onClick={handleMoveTop}
               >
-                ⤒
+                <IconTop size={16} />
+              </button>
+              <button
+                type="button"
+                className="key fav-up"
+                aria-label="Move up"
+                disabled={index === 0}
+                onClick={handleMoveUp}
+              >
+                <IconUp size={16} />
+              </button>
+              <button
+                type="button"
+                className="key fav-down"
+                aria-label="Move down"
+                disabled={index === count - 1}
+                onClick={handleMoveDown}
+              >
+                <IconDown size={16} />
               </button>
             </>
           ) : null}
+          {/* Armed, the key widens into a `Remove?` text button in --red: the second tap has to say what it will do, and a red ✕ would only say
+              it louder. The aria-label stays `Confirm remove` — the visible word is the question, the label names the action. */}
           <button
             type="button"
-            className={`fav-ctl fav-remove${removeArmed ? ' armed' : ''}`}
+            className={`key fav-remove${removeArmed ? ' armed' : ''}`}
             aria-label={removeArmed ? 'Confirm remove' : 'Remove'}
             onClick={handleRemoveClick}
             onBlur={() => setRemoveArmed(false)}
           >
-            {removeArmed ? 'sure?' : '✕'}
+            {removeArmed ? 'Remove?' : <IconClose size={16} />}
           </button>
         </div>
       </div>
-      <a className="fav-crumb" href={openHref(favorite)} target="_top">
-        {crumbText}
-      </a>
       {editingNote ? (
         <textarea
           className="fav-note-input"
@@ -435,7 +450,7 @@ export default function FavoriteCard({
           onClick={startEditNote}
           onKeyDown={handleNoteDivKeyDown}
         >
-          {favorite.note || 'add a note'}
+          {favorite.note || 'Add a note'}
         </div>
       )}
       {/* dangerouslySetInnerHTML is the one place in this app that renders
@@ -447,7 +462,7 @@ export default function FavoriteCard({
         onClick={handleBodyClick}
         dangerouslySetInnerHTML={{ __html: sanitizedBody }}
       />
-      <div className="fav-foot">{favorite.createdAt.slice(0, 10)}</div>
+      <div className="fav-foot">Saved {shortDate(favorite.createdAt)}</div>
     </article>
   );
 }

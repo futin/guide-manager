@@ -99,7 +99,7 @@ describe('App — which section the page opens on', () => {
     setLanding('favorites');
     renderApp();
     await waitFor(() =>
-      expect(document.querySelector('.guides-title')?.textContent).toBe('Favorites')
+      expect(document.querySelector('.fav-band h1')?.textContent).toMatch(/^Favorites · /)
     );
     expect(activeTab()).toBe('Favorites');
   });

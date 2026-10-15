@@ -6,7 +6,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { App } from '../client/src/App';
 import GuidesView from '../client/src/components/guides/GuidesView';
 import { useGuides } from '../client/src/hooks/useGuides';
-import { openHref } from '../client/src/components/favorites/FavoriteCard';
+import FavoriteCard, { openHref } from '../client/src/components/favorites/FavoriteCard';
 import { deeplinkHref, readDeeplink, viewerHref } from '../client/src/lib/deeplink';
 import { SETTINGS_STORAGE_KEY } from '../client/src/lib/settings';
 import type { Favorite, GuidesIndex } from '../shared/types';
@@ -98,6 +98,26 @@ describe('favorite deep link — the URL both ends agree on', () => {
     expect(openHref(FAVORITE)).toBe(
       '/?open=%2Fp%2Fg%2Fdeck.html&at=%7B%22kind%22%3A%22deck%22%2C%22cardIndex%22%3A12%2C%22sectionId%22%3A%22s3%22%2C%22cardOffset%22%3A1%7D'
     );
+  });
+
+  /* The redraw restyles the crumb and nothing else: its text is still the guide's title then the crumb, joined by ` › ` with a trailing ` ↗`, and its
+     href is still the deep link — rendered, not only computed, so a restyle that rebuilt the link by hand would show here. */
+  it('renders the crumb with its unchanged text, linking to the deep link', () => {
+    render(
+      <FavoriteCard
+        favorite={FAVORITE}
+        index={0}
+        count={1}
+        reorderable
+        onPatch={() => undefined}
+        onMove={() => undefined}
+        onRemove={() => undefined}
+        onDropOn={() => undefined}
+      />
+    );
+    const link = document.querySelector('a.fav-crumb') as HTMLAnchorElement;
+    expect(link.textContent).toBe('Beta Deck › §3 ↗');
+    expect(link.getAttribute('href')).toBe(deeplinkHref(FAVORITE.guidePath, FAVORITE.anchor));
   });
 
   it('omits at= entirely for a favorite with no anchor', () => {

@@ -23,9 +23,21 @@ interface Props {
  */
 const EMPTY_COPY =
   'Nothing saved yet — open a guide and tap ☆ in its header to keep a table, a diagram or a paragraph here.';
-const ERROR_COPY = "couldn't load favorites";
+const ERROR_COPY = "Couldn't load favorites";
 
-/** One project bay as this view renders it: the name, and the favorites that
+/**
+ * `N saved blocks from M guides · newest on top` — the band's line. Counted over the scope, never over the search: the band says what the scope holds,
+ * like the Guides band does, and a line that shrank as you typed would read as favorites going missing. M is distinct `guidePath`s, because one guide
+ * can give several blocks and "from 3 guides" for three blocks of one page would overstate where they came from. "Newest on top" is the order's
+ * promise, not a sort the view applies: a new favorite takes the top (CLAUDE.md, "Order is per project"), and the reader's own reordering moves it.
+ */
+function countLine(items: Favorite[]): string {
+  const guides = new Set(items.map((f) => f.guidePath)).size;
+  const blocks = `${items.length} saved ${items.length === 1 ? 'block' : 'blocks'}`;
+  return `${blocks} from ${guides} ${guides === 1 ? 'guide' : 'guides'} · newest on top`;
+}
+
+/** One project section (once a bay) as this view renders it: the name, and the favorites that
  *  survived the toolbar, already in ascending `order`. */
 interface Bay {
   project: string;
@@ -81,14 +93,14 @@ function computeDropIds(items: Favorite[], sourceId: string, targetId: string): 
 
 /**
  * Favorites section — every saved block, read via GET /api/favorites,
- * grouped by the project it was captured from. Ported in shape from
- * GuidesView (bar, toolbar, per-project bays) but simpler: there is no type
- * filter (a favorite has no `type`, only an `anchor.kind`, and the card
- * reads that directly), no sort control (order is a thing the reader sets by
- * hand — see reorderBay — not a column the toolbar recomputes), and no fold
- * state (a favorites board is at most a few dozen deliberately-kept blocks,
- * nowhere near the registry board's scale problem that folding exists to
- * solve). The bay header is therefore a plain, unfoldable `div`.
+ * grouped by the project it was captured from. Drawn in shape like the
+ * Guides board (band, toolbar, one section per project when unscoped) but
+ * simpler: there is no type filter (a favorite has no `type`, only an
+ * `anchor.kind`, and the card reads that directly), no sort control (order
+ * is a thing the reader sets by hand — see reorderBay — not a column the
+ * toolbar recomputes), and no fold state (a favorites board is at most a few
+ * dozen deliberately-kept blocks, and narrowing to one project is the rail's
+ * job). A project's heading is therefore a plain `h2`, not a disclosure.
  */
 export default function FavoritesView({ favorites: state, scope }: Props) {
   /*
@@ -96,7 +108,7 @@ export default function FavoritesView({ favorites: state, scope }: Props) {
     (the card's inline title/note edit), `reorderBay` (↑/↓/⤒ and drag-and-
     drop both funnel into it — see computeMoveIds/computeDropIds above, which
     turn a control's own gesture into the one shape the hook and the PUT
-    route actually take), and `removeFavorite` (the two-tap ✕). Task 6 built
+    route actually take), and `removeFavorite` (the two-tap remove). Task 6 built
     all three against a Task 7 card that called none of them; this task is
     what wires the calls.
   */
@@ -132,7 +144,8 @@ export default function FavoritesView({ favorites: state, scope }: Props) {
     marks the same fallback. The `includes` check is that fail-open once more,
     so an unresolved name still shows every bay rather than an empty board.
   */
-  const inScope = scope === ALL || !projectNames.includes(scope) ? all : all.filter((f) => f.project === scope);
+  const scoped = scope !== ALL && projectNames.includes(scope);
+  const inScope = scoped ? all.filter((f) => f.project === scope) : all;
 
   /*
     Search matches title, note, text (the block's own textContent) and the
@@ -173,40 +186,41 @@ export default function FavoritesView({ favorites: state, scope }: Props) {
   const reorderable = needle === '';
 
   return (
-    <div className="guides">
-      <div className="guides-bar">
-        <div className="guides-title">Favorites</div>
-        <div className="guides-tools">
-          <input
-            type="search"
-            className="guides-search"
-            aria-label="Search favorites"
-            placeholder="search favorites"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
+    <div className="board fav-board">
+      {/* A band on the ground, the Guides board's own: it names the scope and counts what the scope holds, before any search. */}
+      <header className="band board-band fav-band">
+        <h1>
+          Favorites <span className="band-sep">·</span> {scoped ? scope : 'All projects'}
+        </h1>
+        {favorites ? <p>{countLine(inScope)}</p> : null}
+      </header>
+
+      {/* Search is the whole toolbar: the project is the rail's to pick, there is no type to filter (see the docblock) and the order is the reader's. */}
+      <div className="toolbar fav-toolbar">
+        <input
+          type="search"
+          className="input board-search"
+          aria-label="Search favorites"
+          placeholder="Search favorites"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </div>
 
       {loading ? (
-        <div className="guides-empty">Loading…</div>
+        <div className="empty-line">Loading…</div>
       ) : error ? (
-        <div className="guides-empty">{ERROR_COPY}</div>
+        <div className="empty-line">{ERROR_COPY}</div>
       ) : all.length === 0 ? (
-        <div className="guides-empty">{EMPTY_COPY}</div>
+        <div className="empty-line">{EMPTY_COPY}</div>
       ) : bays.length === 0 ? (
-        <div className="guides-empty">no matches</div>
+        <div className="empty-line">No matches</div>
       ) : (
         bays.map(({ project: p, items }) => (
-          <div className="bay" key={p}>
-            {/* A plain div, not GuidesView's button: nothing folds here, so
-                there is no disclosure for it to be. */}
-            <div className="bay-h">
-              <span className="bay-name">{p}</span>
-              <span className="bay-count">
-                {items.length} {items.length === 1 ? 'favorite' : 'favorites'}
-              </span>
-            </div>
+          <section className="fav-project" key={p}>
+            {/* Unscoped only, and a plain heading: nothing folds here, so there is no disclosure for it to be, and no count either — the band
+                already counts the scope. Scoped, the band names the project and a heading under it would say it twice. */}
+            {scoped ? null : <h2 className="fav-project-name">{p}</h2>}
             <div className="fav-list">
               {items.map((f, i) => (
                 <FavoriteCard
@@ -220,7 +234,7 @@ export default function FavoritesView({ favorites: state, scope }: Props) {
                   onRemove={() => removeFavorite(f.id)}
                   onDropOn={(sourceId) => {
                     const ids = computeDropIds(items, sourceId, f.id);
-                    // null means the drag started in a different bay —
+                    // null means the drag started in a different section —
                     // see computeDropIds's own docblock. Nothing to write
                     // back in that case, so reorderBay is never called.
                     if (ids) reorderBay(ids);
@@ -228,7 +242,7 @@ export default function FavoritesView({ favorites: state, scope }: Props) {
                 />
               ))}
             </div>
-          </div>
+          </section>
         ))
       )}
     </div>
