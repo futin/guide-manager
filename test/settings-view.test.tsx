@@ -27,7 +27,7 @@ describe('SettingsView', () => {
     document.documentElement.style.removeProperty('--font-scale');
   });
 
-  it('offers all five themes, three display rows and three reading rows', () => {
+  it('offers all five themes and the six setting rows', () => {
     renderSettings();
     for (const label of ['Midnight Radar', 'Graphite', 'Amber CRT', 'Nightshift', 'Daylight']) {
       expect(screen.getByRole('button', { name: new RegExp(label) })).toBeTruthy();
@@ -62,9 +62,24 @@ describe('SettingsView', () => {
     const scale = () => document.documentElement.style.getPropertyValue('--font-scale');
     expect(scale()).toBe('1');
 
-    act(() => { screen.getByRole('button', { name: '120%' }).click(); });
+    // A select now, not a row of buttons (spec §6) — driven the way the landing select below is.
+    const select = screen.getByLabelText('Text size') as HTMLSelectElement;
+    expect(select.value).toBe('100');
+    act(() => {
+      select.value = '120';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     expect(scale()).toBe('1.2');
     expect(stored(SETTINGS_STORAGE_KEY).fontScale).toBe(120);
+  });
+
+  it('shows a stored text size that is not one of the stops rather than the first option', () => {
+    // The stored range is 80–130; a controlled select whose value matches no option would show 90% while the board drew 85%.
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ fontScale: 85 }));
+    renderSettings();
+    const select = screen.getByLabelText('Text size') as HTMLSelectElement;
+    expect(select.value).toBe('85');
+    expect([...select.options].map((o) => o.value)).toEqual(['85', '90', '100', '110', '120']);
   });
 
   it('persists the landing pick without touching the remembered section', () => {
@@ -92,6 +107,53 @@ describe('SettingsView', () => {
     ]);
   });
 
+  it('draws three cards under the band, each headed by its name', () => {
+    renderSettings();
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeTruthy();
+    expect(screen.getByText('Stored in this browser · each device keeps its own')).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
+      'Appearance', 'Reading aid', 'Startup'
+    ]);
+  });
+
+  it("presses the picked swatch and shows that theme's hint on the row", () => {
+    renderSettings();
+    const daylight = screen.getByRole('button', { name: /^Daylight/ });
+    expect(daylight.getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('button', { name: /^Midnight Radar/ }).getAttribute('aria-pressed')).toBe('true');
+
+    act(() => { daylight.click(); });
+    expect(daylight.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: /^Midnight Radar/ }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByText('light grey ground, white cards, dark ink')).toBeTruthy();
+  });
+
+  it('draws bionic reading as one switch that reports its state through aria-checked', () => {
+    renderSettings();
+    const toggle = screen.getByRole('switch', { name: 'Bionic reading' });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    // The on/off pair it replaced is gone — two controls for one boolean.
+    expect(screen.queryByRole('button', { name: 'On' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Off' })).toBeNull();
+
+    act(() => { toggle.click(); });
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    expect(stored(SETTINGS_STORAGE_KEY).bionicOn).toBe(true);
+
+    act(() => { toggle.click(); });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(stored(SETTINGS_STORAGE_KEY).bionicOn).toBe(false);
+  });
+
+  it('writes fixation and frequency picks to the stored settings', () => {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ bionicOn: true }));
+    renderSettings();
+    act(() => { screen.getByRole('button', { name: '30%' }).click(); });
+    expect(stored(SETTINGS_STORAGE_KEY).bionicStrength).toBe(0.3);
+    act(() => { screen.getByRole('button', { name: '2nd' }).click(); });
+    expect(stored(SETTINGS_STORAGE_KEY).bionicFreq).toBe(2);
+  });
+
   it('stamps the picked theme on <html> and persists it', () => {
     renderSettings();
     act(() => { screen.getByRole('button', { name: /^Daylight/ }).click(); });
@@ -101,7 +163,7 @@ describe('SettingsView', () => {
 
   it("mirrors bionic changes into the vendored aid's own key", () => {
     renderSettings();
-    act(() => { screen.getByRole('button', { name: 'On' }).click(); });
+    act(() => { screen.getByRole('switch', { name: 'Bionic reading' }).click(); });
     expect(stored(BIONIC_STORAGE_KEY)).toEqual({ on: true, strength: 0.5, freq: 1 });
 
     act(() => { screen.getByRole('button', { name: '70%' }).click(); });
