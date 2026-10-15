@@ -16,12 +16,12 @@ function Board() {
 /*
   A board with one series and two loose guides. The series' lessons are listed
   out of order and given createdAt values that the default sort ('created',
-  newest first) would arrange as 2, 3, 1 — so a shelf that merely inherited the
-  bay's sort would render a different order than a shelf honouring series order,
+  newest first) would arrange as 2, 3, 1 — so a sheet that merely inherited the
+  board's sort would render a different order than a sheet honouring series order,
   and the ordering tests below cannot pass by accident.
 
   Lesson progress is deliberately one of each state: read, part-read, untouched.
-  The header's segment strip has to tell those three apart.
+  The sheet's segmented bar and its started count have to tell those three apart.
 */
 const SERIES_DIR = '/p/docs/guides/tutor/mongo-internals';
 
@@ -108,113 +108,137 @@ async function renderGuides(body: unknown = INDEX) {
   return result;
 }
 
-const shelf = () => document.querySelector<HTMLElement>('.shelf');
-const shelfHeader = () => document.querySelector<HTMLElement>('.shelf-h');
-const shelfCardTitles = () =>
-  [...document.querySelectorAll('.shelf .guides-card-title')].map((n) => n.textContent);
-const stepBadges = () =>
-  [...document.querySelectorAll('.guides-card-step')].map((n) => n.textContent);
-/* Loose cards are the ones NOT inside a shelf. */
-const looseCardTitles = () =>
-  [...document.querySelectorAll('.guides-card-title')]
-    .filter((n) => !n.closest('.shelf'))
-    .map((n) => n.textContent);
+const sheet = () => document.querySelector<HTMLElement>('.series-sheet');
+const foldButton = () => document.querySelector<HTMLElement>('.series-fold');
+const rowTitles = () => [...document.querySelectorAll('.series-row-title')].map((n) => n.textContent);
+const rowDots = () => [...document.querySelectorAll('.series-dot')].map((n) => n.textContent);
+/* Loose tiles are the ones NOT inside a sheet. */
+const looseTitles = () => [...document.querySelectorAll('.guide-tile-title')].map((n) => n.textContent);
 
 const searchBox = () => screen.getByLabelText('Search guides') as HTMLInputElement;
 const setControl = (name: string, value: string) =>
   fireEvent.change(screen.getByLabelText(name) as HTMLSelectElement, { target: { value } });
 
-describe('GuidesView series shelves', () => {
+/** The suite's index with lesson 3 opened and left at 0 % — a progress row, but nothing read. */
+function withLesson3AtZero(): GuidesIndex {
+  const guides = INDEX.projects[0].guides.map((g) =>
+    g.path.endsWith('-3-replication.html')
+      ? {
+          ...g,
+          progress: {
+            guidePath: g.path, percent: 0, furthestPercent: 0, position: { kind: 'deck' as const, cardIndex: 0 },
+            completed: false, lastOpenedAt: '2026-08-26T00:00:00Z', openCount: 1,
+          },
+        }
+      : g
+  );
+  return { projects: [{ ...INDEX.projects[0], guides }] };
+}
+
+describe('GuidesView series sheets', () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('groups series lessons into one shelf, in series order, above the loose grid', async () => {
+  it('groups series lessons into one sheet, in series order, above the loose tiles', async () => {
     await renderGuides();
-    expect(document.querySelectorAll('.shelf')).toHaveLength(1);
-    // The header prints the label, not the directory slug the derivation keys
+    expect(document.querySelectorAll('.series-sheet')).toHaveLength(1);
+    // The sheet prints the label, not the directory slug the derivation keys
     // on — see seriesLabel in client/src/lib/series.ts.
-    expect(shelf()!.querySelector('.shelf-name')!.textContent).toBe('Mongo internals');
+    expect(sheet()!.querySelector('.series-title')!.textContent).toBe('Mongo internals');
     // Series order 1..3, NOT the default created-desc order (2, 3, 1).
-    expect(shelfCardTitles()).toEqual(['Storage engine', 'Indexes', 'Replication']);
-    expect(looseCardTitles()).toEqual(['Vite proxy layer', 'Render pipeline']);
+    expect(rowTitles()).toEqual(['Storage engine', 'Indexes', 'Replication']);
+    expect(looseTitles()).toEqual(['Vite proxy layer', 'Render pipeline']);
   });
 
-  it('gives shelf cards a step badge and loose cards none', async () => {
+  it('counts the lessons and the started ones in the subtitle', async () => {
     await renderGuides();
-    expect(stepBadges()).toEqual(['1/3', '2/3', '3/3']);
-    const loose = screen.getByText('Vite proxy layer').parentElement!;
-    expect(loose.querySelector('.guides-card-step')).toBeNull();
+    // Lesson 1 completed, lesson 2 at 40, lesson 3 never opened.
+    expect(sheet()!.querySelector('.series-sub')!.textContent).toBe('Series · 3 lessons · 2 started');
   });
 
-  it('keeps series order under every sort key while loose cards re-sort', async () => {
+  it('does not count a lesson opened and left at 0 % as started', async () => {
+    await renderGuides(withLesson3AtZero());
+    expect(sheet()!.querySelector('.series-sub')!.textContent).toBe('Series · 3 lessons · 2 started');
+  });
+
+  it('numbers the rows and turns a completed lesson\'s dot green', async () => {
+    await renderGuides();
+    expect(rowDots()).toEqual(['1', '2', '3']);
+    expect([...document.querySelectorAll('.series-dot')].map((n) => n.classList.contains('done'))).toEqual([true, false, false]);
+    expect([...document.querySelectorAll('.series-row-pct')].map((n) => n.textContent)).toEqual(['100%', '40%', '0%']);
+  });
+
+  it('keeps series order under every sort key while loose tiles re-sort', async () => {
     await renderGuides();
     setControl('Sort', 'name');
-    expect(shelfCardTitles()).toEqual(['Storage engine', 'Indexes', 'Replication']);
-    expect(looseCardTitles()).toEqual(['Render pipeline', 'Vite proxy layer']);
+    expect(rowTitles()).toEqual(['Storage engine', 'Indexes', 'Replication']);
+    expect(looseTitles()).toEqual(['Render pipeline', 'Vite proxy layer']);
   });
 
   it('renders one segment per lesson, filled to that lesson\'s furthest', async () => {
     await renderGuides();
-    const fills = [...shelf()!.querySelectorAll<HTMLElement>('.shelf-seg-fill')].map(
-      (n) => n.style.width
-    );
-    // read → 100%, part-read → its high-water mark, untouched → 0%.
-    expect(fills).toEqual(['100%', '40%', '0%']);
+    const segments = [...sheet()!.querySelectorAll<HTMLElement>('.segbar > .bar')];
+    const fills = segments.map((n) => n.querySelector<HTMLElement>('.bar-fill')?.style.width ?? 'empty');
+    // read → 100%, part-read → its high-water mark, untouched → a flat track with no fill.
+    expect(fills).toEqual(['100%', '40%', 'empty']);
   });
 
-  it('counts the bay across shelves and loose cards together', async () => {
+  it('drops an emptied sheet whole, title included', async () => {
     await renderGuides();
-    expect(document.querySelector('.bay-count')!.textContent).toBe('5 guides');
+    setControl('Sort', 'created');
+    fireEvent.click(screen.getByRole('button', { name: /^Study \d+$/ }));
+    // Every lesson is a tutor deck, so the study filter empties the sheet.
+    expect(sheet()).toBeNull();
+    expect(looseTitles()).toEqual(['Render pipeline']);
   });
 
-  it('drops an emptied shelf whole, header included', async () => {
-    await renderGuides();
-    setControl('Type', 'study');
-    // Every lesson is a tutor deck, so the study filter empties the shelf.
-    expect(shelf()).toBeNull();
-    expect(looseCardTitles()).toEqual(['Render pipeline']);
-    expect(document.querySelector('.bay-count')!.textContent).toBe('1 guide');
-  });
-
-  it('filters inside the shelf but keeps badges stated against the full series', async () => {
+  it('filters the rows but keeps the dots and subtitle stated against the full series', async () => {
     await renderGuides();
     fireEvent.change(searchBox(), { target: { value: 'indexes' } });
-    expect(shelfCardTitles()).toEqual(['Indexes']);
+    expect(rowTitles()).toEqual(['Indexes']);
     // Still lesson 2 of 3: the lesson's place in its series is not a filter result.
-    expect(stepBadges()).toEqual(['2/3']);
-    expect(shelf()!.querySelector('.shelf-count')!.textContent).toBe('1 lesson');
+    expect(rowDots()).toEqual(['2']);
+    expect(sheet()!.querySelector('.series-sub')!.textContent).toBe('Series · 3 lessons · 2 started');
   });
 
-  it('folds on the header, dims the spine, and persists across a remount', async () => {
+  it('folds on the chevron, keeps the title and bar, and persists across a remount', async () => {
     const first = await renderGuides();
-    fireEvent.click(shelfHeader()!);
-    expect(shelfHeader()!.getAttribute('aria-expanded')).toBe('false');
-    expect(shelf()!.classList.contains('folded')).toBe(true);
-    expect(shelfCardTitles()).toEqual([]);
-    // Loose cards are untouched by a shelf fold.
-    expect(looseCardTitles()).toEqual(['Vite proxy layer', 'Render pipeline']);
+    expect(foldButton()!.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(foldButton()!);
+    expect(foldButton()!.getAttribute('aria-expanded')).toBe('false');
+    expect(JSON.parse(localStorage.getItem('guide-manager.foldedSeries') ?? '[]')).toEqual([SERIES_DIR]);
+    expect(rowTitles()).toEqual([]);
+    expect(sheet()!.querySelector('.series-title')!.textContent).toBe('Mongo internals');
+    expect(sheet()!.querySelector('.segbar')).toBeTruthy();
+    // Loose tiles are untouched by a sheet fold.
+    expect(looseTitles()).toEqual(['Vite proxy layer', 'Render pipeline']);
 
     first.unmount();
     await renderGuides();
-    expect(shelfHeader()!.getAttribute('aria-expanded')).toBe('false');
-    expect(shelfCardTitles()).toEqual([]);
+    expect(foldButton()!.getAttribute('aria-expanded')).toBe('false');
+    expect(rowTitles()).toEqual([]);
+
+    fireEvent.click(foldButton()!);
+    expect(foldButton()!.getAttribute('aria-expanded')).toBe('true');
+    expect(rowTitles()).toEqual(['Storage engine', 'Indexes', 'Replication']);
   });
 
-  it('forces a folded shelf open while a query is running, without rewriting the fold', async () => {
+  it('forces a folded sheet open while a query is running, without rewriting the fold', async () => {
     await renderGuides();
-    fireEvent.click(shelfHeader()!);
-    expect(shelfCardTitles()).toEqual([]);
+    fireEvent.click(foldButton()!);
+    expect(rowTitles()).toEqual([]);
 
     fireEvent.change(searchBox(), { target: { value: 'storage' } });
-    expect(shelfCardTitles()).toEqual(['Storage engine']);
+    expect(rowTitles()).toEqual(['Storage engine']);
+    expect(JSON.parse(localStorage.getItem('guide-manager.foldedSeries') ?? '[]')).toEqual([SERIES_DIR]);
 
-    // Clearing the query drops the shelf back to its stored folded state.
+    // Clearing the query drops the sheet back to its stored folded state.
     fireEvent.change(searchBox(), { target: { value: '' } });
-    expect(shelfCardTitles()).toEqual([]);
+    expect(rowTitles()).toEqual([]);
   });
 
-  it('opens a lesson in the viewer like any card', async () => {
+  it('opens a lesson in the viewer from its row', async () => {
     await renderGuides();
     fireEvent.click(screen.getByText('Storage engine'));
     expect(document.querySelector('.guide-viewer')).toBeTruthy();

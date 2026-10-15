@@ -287,10 +287,92 @@ code, kbd, samp, pre { font-family: inherit }
   .wrap.wide .guide-viewer { flex: 1; min-height: 0 }
 }
 
-/* ---------------------------------------------- Guides section
-   Registered guides read via GET /api/guides, one bay per project. Two states: a
-   board of bays, or — once a card is tapped — the viewer pane, a same-origin
-   iframe in .guide-viewer-body pointed at the entry's own /guide href. */
+/* ── Guides board ──────────────────────────────────────────────────────────────
+   Registered guides read via GET /api/guides (spec §3). Two states: the board, or — once a tile is tapped — the viewer pane, a same-origin iframe in
+   .guide-viewer-body pointed at the entry's own /guide href. Top to bottom: the band, the toolbar, Continue reading, then each project's series sheets
+   and loose tiles. Every gap is one of the three density properties: --group-gap between the board's bands, --card-gap between sheets in a grid, and
+   --card-inner-gap inside one — so compact tightens the whole board from the one block at the top of this file. */
+.board { display: flex; flex-direction: column; gap: var(--group-gap) }
+/* The base .band is metric-lg for a page that is its own title; the board's band names a scope (`Guides · <project>`), so it sits at title (19/500)
+   with the separator dropped to --ink3 — the project name is the part that changes, and it should be the part the eye lands on. Its own bottom margin
+   goes because .board's gap already spaces it. */
+.board-band { margin-bottom: 0 }
+.board-band h1 { font-size: 19px; font-weight: 500; line-height: 1.3 } /* title */
+.band-sep { color: var(--ink3) }
+.board-band p { color: var(--ink3) }
+/* Search grows into the room the row has; the sort is pushed to the far end, because it orders what the two controls before it chose. */
+.board-search { flex: 1 1 220px; max-width: 320px }
+.board-sort { margin-left: auto }
+.seg-count { font-weight: 400; color: var(--ink3) }
+.seg > button.on .seg-count { color: var(--ink2) }
+/* Phones: the search takes its own row and the switch and sort share the next, the sort still at the far end. */
+@media (max-width: 639px) {
+  .board-search { flex-basis: 100%; max-width: none }
+}
+
+/* A section heading over a grid — `Continue reading`, `Series`, `Guides` — binds to its grid with the inner gap, tighter than the gap between sections. */
+.continue, .board-sec, .board-project { display: flex; flex-direction: column; gap: var(--card-inner-gap) }
+.board-project { gap: var(--group-gap) }
+/* Unscoped, a project's name heads its sections at title size with its counts as a subtitle; the band above already says `All projects`. */
+.board-project-h { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--hairline) }
+.board-project-name { font-size: 19px; font-weight: 500; color: var(--ink) } /* title */
+
+/* Every tappable sheet on the board. No border and no shadow (§1): hover lifts the sheet onto --strip-hi instead, the same fill the rail uses for a
+   row under the pointer's attention. */
+.guide-tile, .continue-tile, .series-row { cursor: pointer; transition: background .15s }
+.guide-tile:hover, .continue-tile:hover, .series-row:hover { background: var(--strip-hi) }
+
+/* Continue reading: up to four equal columns — a row of four is the cap the row itself enforces, so the grid never leaves a fifth column empty. Below
+   the wide board it wraps to two, then one; four 15/500 titles in a 640 px column would each get a word. */
+.continue-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--card-gap) }
+@media (max-width: 1279px) { .continue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+@media (max-width: 639px) { .continue-grid { grid-template-columns: minmax(0, 1fr) } }
+.continue-tile { display: flex; flex-direction: column; gap: var(--card-inner-gap); padding: var(--tile-pad) }
+.continue-head, .guide-tile-head { display: flex; align-items: center; gap: 8px; min-width: 0 }
+.continue-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.continue-title, .guide-tile-title, .series-row-title { font-size: 15px; font-weight: 500; color: var(--ink) } /* row-name */
+/* metric-lg: the percent is the tile's one figure, and the row exists to say it. margin-top:auto pins it and the bar to the foot across a row of
+   tiles whose titles wrap to different heights. */
+.continue-pct { margin-top: auto; font-size: 30px; font-weight: 700; line-height: 1; color: var(--ink) }
+
+/* Series sheets: min 380 px columns — the narrowest a row holds a dot, a two-line title, a 72 px bar and a percent without the title wrapping to a
+   word a line. */
+.series-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr)); gap: var(--card-gap); align-items: start }
+.series-sheet { display: flex; flex-direction: column; gap: var(--card-inner-gap) }
+.series-head { display: flex; align-items: flex-start; gap: 8px }
+.series-heading { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px }
+.series-title { font-size: 19px; font-weight: 500; color: var(--ink) } /* title */
+/* The chevron turns rather than swapping glyphs, keyed off aria-expanded — the attribute assistive tech is already told, so the picture cannot
+   disagree with it. */
+.series-fold svg { transition: transform .15s }
+.series-fold[aria-expanded="false"] svg { transform: rotate(-90deg) }
+/* Rows bled to the sheet's edges with a hairline between: the negative margin undoes the sheet's padding so a row's hover fill and its rule run edge
+   to edge, and the padding puts the content back where the title above it starts. */
+.series-rows { list-style: none; margin: 0 calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)) }
+.series-rows > li + li { border-top: 1px solid var(--hairline) }
+.series-row { display: flex; align-items: center; gap: 12px; padding: 12px var(--card-pad) }
+.series-rows > li:last-child .series-row { border-radius: 0 0 16px 16px }
+/* A 28 px numbered dot: the lesson's place, tinted green once the lesson is complete — the one state colour on the row, so a finished series reads
+   as a column of green before any number is read. */
+.series-dot {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; color: var(--ink2); background: var(--steel);
+}
+.series-dot.done { color: var(--green); background: var(--green-tint) }
+.series-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px }
+.series-row-bar { flex: none; width: 72px }
+.series-row-pct, .guide-tile-pct { flex: none; min-width: 3.5ch; text-align: right; font-size: 14px; font-weight: 600; color: var(--ink) } /* percent */
+
+/* Loose tiles: min 260 px columns — a tile's head holds the pill and a short date, and its foot a bar plus percent, side by side. */
+.tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: var(--card-gap) }
+.guide-tile { display: flex; flex-direction: column; gap: var(--card-inner-gap); padding: var(--tile-pad) }
+/* margin-top:auto is the pin: tiles in a row are as tall as the tallest title, and without it the bars of neighbours sit at different heights. */
+.guide-tile-foot { margin-top: auto; display: flex; align-items: center; gap: 10px }
+.guide-tile-foot .bar { flex: 1; min-width: 0 }
+
+/* ── Shared with Favorites ─────────────────────────────────────────────────────
+   The board above no longer draws any of this; Favorites still does, until its own redraw replaces these with the base layer's controls and headings.
+   Kept as they were, comments included. */
 .guides { display: flex; flex-direction: column; gap: var(--group-gap) }
 /* `row-gap` separately from the flex `gap`, because once the toolbar wraps below
    the title the two lines need less air between them than the 10px that reads
@@ -300,7 +382,7 @@ code, kbd, samp, pre { font-family: inherit }
   font-size: 14px; font-weight: 600;
   letter-spacing: .07em; color: var(--ink);
 }
-/* The toolbar: search, then type / sort (the project scope moved to the rail's tree). Pushed to the far end of the
+/* The toolbar. Pushed to the far end of the
    bar because it states the board's state, so it belongs beside the board rather
    than next to the section title. Its own wrap is what saves a narrow tablet: the
    three controls break onto a second line before they start squeezing each other
@@ -316,7 +398,7 @@ code, kbd, samp, pre { font-family: inherit }
    the row reads as instrument panel rather than as a form. One block rather than
    three, because the three controls only read as one instrument while their
    padding, border and type are literally the same declarations. */
-.guides-search, .guides-select {
+.guides-search {
   font-size: 11px; letter-spacing: .04em;
   color: var(--ink2); background: var(--steel);
   border: 1px solid var(--hairline); border-radius: 12px;
@@ -327,32 +409,18 @@ code, kbd, samp, pre { font-family: inherit }
    line can still shrink it rather than overflowing the bar. */
 .guides-search { width: 150px; min-width: 0 }
 .guides-search::placeholder { color: var(--ink3) }
-/* A select sizes itself to its widest option. The cap was sized for the project
-   select, which grew with the longest project name; that select is gone (the rail's
-   tree carries the scope now), and the cap stays as the guard for any option list
-   that is not ours to bound. */
-.guides-select { cursor: pointer; max-width: 190px; text-overflow: ellipsis }
-.guides-search:hover, .guides-select:hover { color: var(--ink); border-color: var(--hairline2) }
+.guides-search:hover { color: var(--ink); border-color: var(--hairline2) }
 /* Focus is the cyan rule, matching .set-control's fields in Settings — the UA
    outline is dropped only because something visible replaces it. */
-.guides-search:focus, .guides-select:focus { outline: none; color: var(--ink); border-color: var(--cyan) }
+.guides-search:focus { outline: none; color: var(--ink); border-color: var(--cyan) }
 .guides-empty { font-size: 11px; color: var(--ink3); padding: 20px 2px; text-align: center }
 
 /* Phones: the toolbar gets its own full-width line under the title (the bar wraps
    it there anyway; `margin-left:auto` is dropped so it starts at the left edge
-   rather than sitting oddly right-aligned on a line of its own). The search takes
-   a whole row and the two selects share the next, each free to shrink — at
-   375px the three cannot share one line without every label truncating. */
+   rather than sitting oddly right-aligned on a line of its own). */
 @media (max-width: 639px) {
   .guides-tools { margin-left: 0; width: 100% }
   .guides-search { flex: 1 1 100%; width: auto }
-  /* Halves of the row, and the cap is off: a select given `max-width` as well as
-     a flex basis stops growing before it has used the room the row gave it.
-
-     Written for three selects, when a third of 375px lost "All projects" to an
-     ellipsis; with the project select moved to the rail's tree, two halves hold
-     both labels whole. The cap stays off so the pair fills the row. */
-  .guides-select { flex: 1 1 0; min-width: 0; max-width: none }
 }
 
 /* A bay is one project: its header, then its own card grid. The gap is smaller
@@ -422,90 +490,10 @@ code, kbd, samp, pre { font-family: inherit }
 .bay-h[aria-expanded="false"] .bay-tick { background: var(--ink3) }
 .bay-h[aria-expanded="false"] .bay-caret { transform: rotate(-90deg) }
 
-/* auto-fill, so the column count follows the width the board actually got rather
-   than a breakpoint guessing at it: the same rule gives a phone one column, the
-   820px board three, and the 1280px wide board more. 220px is the floor at which
-   a card's meta line still fits beside its pill without wrapping. */
-.guides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--card-gap) }
-/* A flex column, where the row layout used a named-areas grid. The grid put the
-   pill and the meta line in a grid row, and a grid row cannot be pushed to the
-   bottom of a cell that a taller neighbour stretched — which is what every cell
-   in a card grid is. .guides-card-foot plus margin-top:auto can be.
-   Every padding and gap the card has lives in this one rule, so task-8's
-   [data-density="compact"] override is a single block rather than a hunt through
-   four selectors. */
-.guides-card {
-  display: flex; flex-direction: column; gap: var(--card-inner-gap);
-  background: var(--strip); border: 1px solid var(--hairline); border-radius: 16px;
-  padding: var(--card-pad); cursor: pointer; transition: border-color .15s;
-  box-shadow: inset 0 1px 0 var(--edge);
-}
-.guides-card:hover { border-color: var(--hairline2) }
-.guides-card-title { font-size: 13px; font-weight: 600; color: var(--ink) }
-/* margin-top:auto is the pin: cards in a row are as tall as the tallest title, and
-   without it the meta lines of neighbours sit at different heights. */
-.guides-card-foot { margin-top: auto; display: flex; align-items: baseline; gap: 8px }
-.guides-card-foot .pill { flex: none }
-.guides-card-meta { min-width: 0; font-size: 11px; color: var(--ink3) }
-
-/* Interim: the hyphenated type modifiers the not-yet-redrawn board card and favorite card still emit. Same tokens as the base `.pill.study` /
-   `.pill.tutor`; they go when those two components move onto the base modifiers. */
+/* Interim: the hyphenated type modifiers the not-yet-redrawn favorite card still emits. Same tokens as the base `.pill.study` / `.pill.tutor`; they
+   go when that component moves onto the base modifiers. */
 .pill-study { color: var(--mustard-ink); background: var(--mustard-tint) }
 .pill-tutor { color: var(--magenta-ink); background: var(--magenta-tint) }
-/* Reading progress, in the card's meta line. Green for finished, plain for
-   part-read: a percentage is information, a finished guide is a state. */
-.guides-card-read { color: var(--green) }
-.guides-card-part { color: var(--ink2) }
-
-/* ── Series shelf ──────────────────────────────────────────────────────────────
-   A series (lessons living together in one docs/guides/tutor/<series>/ directory
-   — see client/src/lib/series.ts for the derivation) renders as its own foldable
-   sub-group inside the bay. The magenta left spine is the grouping mark: it
-   borrows the tutor pill's colour on purpose, because a shelf only ever holds
-   tutor decks, and it is a border on the wrapper rather than on the header so
-   that it runs the shelf's whole height and visibly *contains* the cards. The
-   header stays lighter than .bay-h in every register — smaller, not uppercase,
-   dashed rule instead of solid — so the two fold levels read as levels instead
-   of as two competing section headers. */
-.shelf { border-left: 2px solid var(--magenta); padding-left: 12px; display: flex; flex-direction: column; gap: var(--bay-gap) }
-/* A folded shelf dims its spine like a folded bay dims its tick, and for the
-   same reason: full-strength accent on a row with nothing under it reads as a
-   grid that failed to render, not as a closed drawer. */
-.shelf.folded { border-left-color: var(--hairline2) }
-/* Button reset first, exactly as .bay-h: the whole header is the disclosure. */
-.shelf-h {
-  appearance: none; width: 100%; margin: 0;
-  background: none; border: 0; font: inherit; color: inherit;
-  text-align: left; cursor: pointer;
-
-  display: flex; align-items: baseline; gap: 8px;
-  padding: 0 0 4px; border-bottom: 1px dashed var(--hairline);
-}
-.shelf-tag {
-  flex: none; align-self: center;
-  font-size: 11px; font-weight: 600;
-  letter-spacing: .09em;
-  color: var(--magenta); border: 1px solid var(--magenta);
-  padding: 0 5px; border-radius: 12px;
-}
-.shelf-name { font-size: 12.5px; font-weight: 600; color: var(--ink) }
-.shelf-count { font-size: 11px; color: var(--ink3) }
-/* One cell per lesson, filled to that lesson's furthest — the series' progress
-   at a glance, in the header, where it survives the shelf being folded. The
-   cells are centred like the bay's tick (an empty inline box baseline-aligns on
-   its bottom margin edge and would hang under the name). */
-.shelf-segs { display: inline-flex; gap: 2px; align-self: center }
-.shelf-seg { width: 14px; height: 4px; background: var(--steel); border-radius: 1px; overflow: hidden }
-.shelf-seg-fill { display: block; height: 100%; background: var(--green) }
-.shelf-caret {
-  flex: none; align-self: center; margin-left: auto;
-  font-size: 11px; color: var(--ink3); transition: transform .15s, color .15s;
-}
-.shelf-h:hover .shelf-caret { color: var(--ink2) }
-.shelf-h[aria-expanded="false"] .shelf-caret { transform: rotate(-90deg) }
-/* The lesson's place in its series, leading the card footer. Small and muted:
-   it is an index, not a title, and it must not outweigh the pill beside it. */
-.guides-card-step { flex: none; font-size: 11px; font-weight: 600; letter-spacing: .06em; color: var(--ink3) }
 
 /* Viewer pane — .guide-viewer-head is kept as its own element deliberately: it
    is the exact class name a later companion panel would mount into, so its
@@ -579,9 +567,9 @@ code, kbd, samp, pre { font-family: inherit }
    how many). What differs is the list under it: a favorite reads best as a
    full-width block (the Task 7 snapshot body will be a table or a diagram,
    not a title-sized tile), so .fav-list is a single column rather than
-   .guides-grid's auto-fill card grid. */
+   the guides board's auto-fill .tile-grid. */
 .fav-list { display: flex; flex-direction: column; gap: var(--card-gap); max-width: 760px }
-/* Same surface as .guides-card — strip background, hairline border, the
+/* Same surface the guides board's card had (.guides-card, before the board moved onto the base .card) — strip background, hairline border, the
    inset top edge — but never the pointer cursor: a guides card is a single
    whole-card button (tapping anywhere opens the guide), while a favorite
    card's own controls (Task 8's edit fields, move buttons, ✕) are what is
@@ -641,7 +629,7 @@ code, kbd, samp, pre { font-family: inherit }
    "why keep this?" once one exists). */
 .fav-note { font-size: 12.5px; font-style: italic; color: var(--ink2); cursor: pointer }
 .fav-note.empty { color: var(--ink3) }
-/* Small and muted like .guides-card-meta, not the weight .fav-title
+/* Small and muted like the base .meta, not the weight .fav-title
    uses: the crumb trail is metadata about *where* the block came from, and
    the underline-on-hover is the one hint that it is also a live link, since
    nothing else about it looks like the rest of the app's buttons. */

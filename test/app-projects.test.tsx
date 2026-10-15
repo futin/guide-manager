@@ -61,8 +61,11 @@ const treeRow = (label: string) => {
   return row;
 };
 const current = () => document.querySelector('.rail .rail-sublink[aria-current="true"] .rail-sublabel')?.textContent;
-const cardTitles = () => [...document.querySelectorAll('.guides-card-title')].map((n) => n.textContent);
+const cardTitles = () => [...document.querySelectorAll('.guide-tile-title')].map((n) => n.textContent);
+/* Favorites still groups into bays; the Guides board heads each project with its own name only when unscoped — scoped, the band names it instead. */
 const bayNames = () => [...document.querySelectorAll('.bay-name')].map((n) => n.textContent);
+const projectNames = () => [...document.querySelectorAll('.board-project-name')].map((n) => n.textContent);
+const bandTitle = () => document.querySelector('.board-band h1')?.textContent;
 
 async function renderOn(section: 'guides' | 'favorites', settled: string) {
   store('guide-manager.section', section);
@@ -98,7 +101,8 @@ describe('App — the rail owns the project scope', () => {
     await renderOn('guides', 'Beta Three');
     act(() => { treeRow('alpha').click(); });
     expect(stored('guide-manager.project')).toBe('/a');
-    expect(bayNames()).toEqual(['alpha']);
+    expect(bandTitle()).toBe('Guides · alpha');
+    expect(projectNames()).toEqual([]);
     expect(cardTitles()).not.toContain('Beta Three');
   });
 
@@ -107,7 +111,7 @@ describe('App — the rail owns the project scope', () => {
     store('guide-manager.project', '/gone');
     await renderOn('guides', 'Beta Three');
     expect(current()).toBe('All projects');
-    expect(bayNames()).toEqual(['alpha', 'beta']);
+    expect(projectNames()).toEqual(['alpha', 'beta']);
     expect(stored('guide-manager.project')).toBe('/gone');
   });
 

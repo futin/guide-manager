@@ -6,7 +6,7 @@ import { act } from 'react';
 
 import GuidesView from '../client/src/components/guides/GuidesView';
 import { useGuides } from '../client/src/hooks/useGuides';
-import type { GuidesIndex } from '../shared/types';
+import type { GuideEntry, GuideProgress, GuidesIndex } from '../shared/types';
 
 /** GuidesView as AppShell mounts it: the data hook one level up, handing the board its state, and the scope the rail resolved. Picking a scope is the
  *  rail's and is driven through App in app-projects.test.tsx; here it is only ever handed in. */
@@ -15,7 +15,7 @@ function Board({ scope = 'all' }: { scope?: string }) {
 }
 
 /*
-  Three guides in the first bay, deliberately arranged so the three sort keys give
+  Three guides in the first project, deliberately arranged so the three sort keys give
   three *different* orders — otherwise a sort test passes on a board that is not
   sorting at all. By createdAt: Beta, Omega, Alpha. By name: Alpha, Beta, Omega.
   By type: the two study guides (Alpha, Omega) and then the deck.
@@ -53,7 +53,7 @@ const INDEX: GuidesIndex = {
           path: '/q/g/c.md', title: 'Gamma', type: 'study', updated: '2026-08-22T00:00:00Z', createdAt: '2026-08-01T00:00:00Z',
           href: '/guide?p=%2Fq%2Fg%2Fc.md',
           /* percent and furthestPercent deliberately disagree: the reader is
-             back near the top, having once reached 62%. The card must show the
+             back near the top, having once reached 62%. The tile must show the
              high-water mark, so a test that could pass on either number would
              not be testing anything. */
           progress: {
@@ -67,6 +67,58 @@ const INDEX: GuidesIndex = {
   ]
 };
 
+/*
+  The board fixture: one project, eight guides — a three-lesson series and five loose — with reading state chosen so every count the band and the
+  switch print is non-trivial and none of them coincide.
+
+  By the rules in lib/continue.ts: in progress = furthest > 0 and not completed → Indexes, Alpha, Gamma, Delta, Epsilon (5); read = completed → Storage
+  engine, Beta (2). Types: Alpha and Gamma are study, the other six tutor. Last opened, newest first: Epsilon (14th), Alpha (13th), Indexes (12th), Gamma
+  (11th), Delta (9th) — five candidates, so the cap of four is exercised.
+
+  The stamps carry the current year and a noon UTC time, so `shortDate` prints `Oct 12` (no year suffix) in any time zone within eleven hours of UTC.
+*/
+const YEAR = new Date().getFullYear();
+const SERIES_DIR = '/b/docs/guides/tutor/mongo-internals';
+
+function progressAt(path: string, furthest: number, day: number | null, completed = false): GuideProgress {
+  return {
+    guidePath: path, percent: furthest, furthestPercent: furthest, position: { kind: 'doc' },
+    completed, lastOpenedAt: day === null ? '' : `${YEAR}-10-${String(day).padStart(2, '0')}T12:00:00Z`, openCount: 1
+  };
+}
+
+function entry(path: string, title: string, type: 'study' | 'tutor', progress: (path: string) => GuideProgress | null): GuideEntry {
+  return {
+    path, title, type, updated: `${YEAR}-09-17T12:00:00Z`, createdAt: '2026-08-01T00:00:00Z',
+    href: `/guide?p=${encodeURIComponent(path)}`, progress: progress(path)
+  };
+}
+
+const BOARD: GuidesIndex = {
+  projects: [
+    {
+      name: 'board-project',
+      path: '/b',
+      guides: [
+        entry(`${SERIES_DIR}/mongo-internals-1-storage.html`, 'Storage engine', 'tutor', (p) => progressAt(p, 100, 10, true)),
+        entry(`${SERIES_DIR}/mongo-internals-2-indexes.html`, 'Indexes', 'tutor', (p) => progressAt(p, 40, 12)),
+        entry(`${SERIES_DIR}/mongo-internals-3-replication.html`, 'Replication', 'tutor', () => null),
+        /* Review Focus 5: furthest 100 without completion is in progress, not read. */
+        entry('/b/docs/alpha.html', 'Alpha guide', 'study', (p) => progressAt(p, 100, 13)),
+        entry('/b/docs/beta.html', 'Beta deck', 'tutor', (p) => progressAt(p, 100, 8, true)),
+        entry('/b/docs/gamma.html', 'Gamma notes', 'study', (p) => progressAt(p, 62, 11)),
+        entry('/b/docs/delta.html', 'Delta deck', 'tutor', (p) => progressAt(p, 10, 9)),
+        entry('/b/docs/epsilon.html', 'Epsilon deck', 'tutor', (p) => progressAt(p, 30, 14))
+      ]
+    }
+  ]
+};
+
+/** Nothing opened anywhere: the Continue row has nothing to say and must not draw its heading. */
+const UNREAD: GuidesIndex = {
+  projects: [{ name: 'fresh', path: '/f', guides: [entry('/f/one.html', 'One', 'study', () => null)] }]
+};
+
 function mockFetch(body: unknown, ok = true): jest.Mock {
   const fn = jest.fn().mockResolvedValue({
     ok,
@@ -77,8 +129,7 @@ function mockFetch(body: unknown, ok = true): jest.Mock {
 }
 
 /** Returns the render result so a test can unmount and mount again — which is
- *  how the persisted fold state is checked without reloading a page jsdom does
- *  not have. */
+ *  how persisted state is checked without reloading a page jsdom does not have. */
 async function renderGuides(body: unknown = INDEX, scope = 'all') {
   mockFetch(body);
   const result = render(<Board scope={scope} />);
@@ -86,12 +137,34 @@ async function renderGuides(body: unknown = INDEX, scope = 'all') {
   return result;
 }
 
-/** The bay headers, in board order. They are buttons now — the disclosure is the
- *  whole header row, not a caret beside it. */
-const headers = () => [...document.querySelectorAll<HTMLElement>('.bay-h')];
-/** Every card on the board, in render order — which is what the sort tests read. */
-const cardTitles = () => [...document.querySelectorAll('.guides-card-title')].map((n) => n.textContent);
-const bayNames = () => [...document.querySelectorAll('.bay-name')].map((n) => n.textContent);
+const texts = (selector: string, root: ParentNode = document) => [...root.querySelectorAll(selector)].map((n) => n.textContent);
+/** Every loose tile on the board, in render order — which is what the sort tests read. */
+const cardTitles = () => texts('.guide-tile-title');
+const projectNames = () => texts('.board-project-name');
+const continueTitles = () => texts('.continue-title');
+const bandTitle = () => document.querySelector('.board-band h1')?.textContent;
+const bandMeta = () => document.querySelector('.board-band p')?.textContent;
+/** A loose tile, found by its title — a title can show twice (its tile and its Continue tile), so lookups go through the tile's own class. */
+const tile = (title: string) => {
+  const t = [...document.querySelectorAll<HTMLElement>('.guide-tile')].find((n) => n.querySelector('.guide-tile-title')?.textContent === title);
+  if (!t) throw new Error(`no tile ${title}`);
+  return t;
+};
+const continueTile = (title: string) => {
+  const t = [...document.querySelectorAll<HTMLElement>('.continue-tile')].find((n) => n.querySelector('.continue-title')?.textContent === title);
+  if (!t) throw new Error(`no continue tile ${title}`);
+  return t;
+};
+/** Opens a guide from wherever the board draws it as a tile or a series row. */
+const openTile = (title: string) => {
+  const target = [...document.querySelectorAll<HTMLElement>('.guide-tile, .series-row')]
+    .find((n) => n.querySelector('.guide-tile-title, .series-row-title')?.textContent === title);
+  if (!target) throw new Error(`no tile ${title}`);
+  act(() => { target.click(); });
+};
+/** The type switch's options, as their accessible names read: label, space, count. */
+const switchOption = (label: string) => screen.getByRole('button', { name: new RegExp(`^${label} \\d+$`) });
+const switchTexts = () => texts('.board-type > button');
 
 /* The toolbar controls are found by their aria-labels, which is also the only
    name they have: the row carries no visible <label>s (see GuidesView). Looking
@@ -103,7 +176,7 @@ const setControl = (name: string, value: string) =>
   fireEvent.change(control(name), { target: { value } });
 
 describe('GuidesView', () => {
-  /* The fold state and both selects are persisted, so without this a value
+  /* The fold state and the toolbar are persisted, so without this a value
      set by one test leaks into every test after it. */
   beforeEach(() => {
     localStorage.clear();
@@ -111,55 +184,119 @@ describe('GuidesView', () => {
 
   afterEach(() => {
     document.documentElement.classList.remove('guide-locked');
+    jest.restoreAllMocks();
   });
 
-  /* Read off .bay-name rather than by text: every project name now appears twice
-     on the page, once as its bay's header and once as an option in the project
-     select, and a bare getByText would find both. */
-  it('renders one bay per project, titled by project name', async () => {
-    await renderGuides();
-    expect(bayNames()).toEqual(['guide-manager', 'german-study-partner']);
+  /* ------------------------------------------------------------------ band */
+
+  it('names the scoped project in the band and counts it before any filter', async () => {
+    await renderGuides(BOARD, '/b');
+    expect(bandTitle()).toBe('Guides · board-project');
+    expect(bandMeta()).toBe('8 guides · 5 in progress · 2 read');
+    /* The band counts the scope, not the query: it says what the project holds, and the switch below it says what the filters leave. */
+    fireEvent.change(searchBox(), { target: { value: 'deck' } });
+    act(() => { switchOption('Study').click(); });
+    expect(bandMeta()).toBe('8 guides · 5 in progress · 2 read');
   });
 
-  it('shows each guide with its title, type pill and update date', async () => {
-    await renderGuides();
-    expect(screen.getByText('Alpha Guide')).toBeTruthy();
-    const card = screen.getByText('Alpha Guide').parentElement;
-    expect(card?.querySelector('.pill')?.textContent).toBe('study');
-    expect(card?.querySelector('.guides-card-meta')?.textContent).toContain('2026-08-24');
+  it('says All projects when unscoped, and reads singular for a scope of one guide', async () => {
+    const first = await renderGuides();
+    expect(bandTitle()).toBe('Guides · All projects');
+    expect(bandMeta()).toBe('4 guides · 1 in progress · 1 read');
+    first.unmount();
+    await renderGuides(INDEX, '/q');
+    expect(bandMeta()).toBe('1 guide · 1 in progress · 0 read');
   });
 
-  it('gives study and tutor their own pill class, so the two read apart at a glance', async () => {
-    await renderGuides();
-    const alpha = screen.getByText('Alpha Guide').parentElement?.querySelector('.pill');
-    const beta = screen.getByText('Beta Deck').parentElement?.querySelector('.pill');
-    expect(alpha?.className).toBe('pill pill-study');
-    expect(beta?.className).toBe('pill pill-tutor');
+  /* ------------------------------------------------------------------ type switch */
+
+  it('counts each type option over the scope, and a query leaves the counts alone', async () => {
+    await renderGuides(BOARD, '/b');
+    expect(switchTexts()).toEqual(['All 8', 'Study 2', 'Tutor 6']);
+    fireEvent.change(searchBox(), { target: { value: 'deck' } });
+    /* The counts say what the switch would show, not what the query left. */
+    expect(switchTexts()).toEqual(['All 8', 'Study 2', 'Tutor 6']);
   });
 
-  it('marks a finished guide as read and a part-read one by percentage', async () => {
-    await renderGuides();
-    const beta = screen.getByText('Beta Deck').parentElement?.querySelector('.guides-card-meta');
-    expect(beta?.textContent).toContain('read');
-    const gamma = screen.getByText('Gamma').parentElement?.querySelector('.guides-card-meta');
-    // 62 is the high-water mark; 8 is where the reader currently is. The card
-    // reports how far this guide has been read, not which end of it was looked
-    // at last — otherwise glancing back at chapter one walks the board
-    // backwards.
-    expect(gamma?.textContent).toContain('62%');
-    expect(gamma?.textContent).not.toContain('8%');
+  it('narrows to one type when an option is picked, and remembers it', async () => {
+    await renderGuides(BOARD, '/b');
+    act(() => { switchOption('Tutor').click(); });
+    expect(localStorage.getItem('guide-manager.filterType')).toBe('"tutor"');
+    expect(switchOption('Tutor').getAttribute('aria-pressed')).toBe('true');
+    expect(cardTitles().sort()).toEqual(['Beta deck', 'Delta deck', 'Epsilon deck']);
+    expect(texts('.series-row-title')).toEqual(['Storage engine', 'Indexes', 'Replication']);
   });
 
-  it('shows no progress marker for a guide never opened', async () => {
+  /* ------------------------------------------------------------------ continue reading */
+
+  it('lists the in-progress guides last opened first, four at most', async () => {
+    await renderGuides(BOARD, '/b');
+    expect(document.querySelector('.continue .sec-h')?.textContent).toBe('Continue reading last opened first');
+    expect(continueTitles()).toEqual(['Epsilon deck', 'Alpha guide', 'Indexes', 'Gamma notes']);
+  });
+
+  it('marks a lesson with its series and place, and opens the viewer on a click', async () => {
+    await renderGuides(BOARD, '/b');
+    expect(continueTile('Indexes').querySelector('.continue-meta')?.textContent).toBe('Mongo internals · 2 of 3 · Oct 12');
+    /* A loose guide carries the date alone. */
+    expect(continueTile('Gamma notes').querySelector('.continue-meta')?.textContent).toBe('Oct 11');
+    act(() => { continueTile('Indexes').click(); });
+    expect(document.querySelector('.guide-viewer-title')?.textContent).toBe('Indexes');
+  });
+
+  it('hides Continue reading while a query runs, and again while a type is picked', async () => {
+    await renderGuides(BOARD, '/b');
+    fireEvent.change(searchBox(), { target: { value: 'e' } });
+    expect(document.querySelector('.continue')).toBeNull();
+    fireEvent.change(searchBox(), { target: { value: '' } });
+    expect(document.querySelector('.continue')).toBeTruthy();
+    act(() => { switchOption('Study').click(); });
+    expect(document.querySelector('.continue')).toBeNull();
+  });
+
+  it('draws no Continue reading at all when nothing is in progress', async () => {
+    await renderGuides(UNREAD);
+    expect(cardTitles()).toEqual(['One']);
+    expect(document.querySelector('.continue')).toBeNull();
+    expect(screen.queryByText('Continue reading')).toBeNull();
+  });
+
+  /* ------------------------------------------------------------------ tiles */
+
+  it('shows each loose guide with its type pill and short update date', async () => {
+    await renderGuides(BOARD, '/b');
+    expect(tile('Alpha guide').querySelector('.pill')?.className).toBe('pill study');
+    expect(tile('Beta deck').querySelector('.pill')?.className).toBe('pill tutor');
+    expect(tile('Alpha guide').querySelector('.guide-tile-head .meta')?.textContent).toBe('Sep 17');
+  });
+
+  /* Review Focus 5: the percent is a position, completion is the guide's own claim — only the second earns Read. */
+  it('draws a bar and 100% for a guide at 100 that never completed, and Read only for a completed one', async () => {
+    await renderGuides(BOARD, '/b');
+    const alpha = tile('Alpha guide');
+    expect(alpha.querySelector('.guide-tile-pct')?.textContent).toBe('100%');
+    expect(alpha.querySelector('.bar')).toBeTruthy();
+    expect(alpha.querySelector('.pill.read')).toBeNull();
+
+    const beta = tile('Beta deck');
+    expect(beta.querySelector('.pill.read')?.textContent).toBe('Read');
+    expect(beta.querySelector('.bar')).toBeNull();
+  });
+
+  it('prints the high-water mark, not the current position', async () => {
     await renderGuides();
-    const alpha = screen.getByText('Alpha Guide').parentElement?.querySelector('.guides-card-meta');
-    expect(alpha?.textContent).not.toContain('read');
-    expect(alpha?.textContent).not.toContain('%');
+    // 62 is the high-water mark; 8 is where the reader currently is. Glancing back at chapter one must not walk the board backwards.
+    expect(tile('Gamma').querySelector('.guide-tile-pct')?.textContent).toBe('62%');
+  });
+
+  it('heads the series and the loose tiles with their counts', async () => {
+    await renderGuides(BOARD, '/b');
+    expect(texts('.board-sec-h')).toEqual(['Series 1', 'Guides 5']);
   });
 
   it("frames the entry's own href rather than rebuilding it", async () => {
     await renderGuides();
-    act(() => { screen.getByText('Beta Deck').closest('.guides-card')?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    openTile('Beta Deck');
     const frame = document.querySelector('iframe.guide-viewer-frame');
     expect(frame?.getAttribute('src')).toBe('/guide?p=%2Fp%2Fg%2Fdeck.html');
     expect(screen.getByText('Beta Deck')).toBeTruthy();
@@ -167,7 +304,7 @@ describe('GuidesView', () => {
 
   it('locks the scroll chain while a guide is open and releases it on the way out', async () => {
     await renderGuides();
-    act(() => { screen.getByText('Alpha Guide').closest('.guides-card')?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    openTile('Alpha Guide');
     expect(document.documentElement.classList.contains('guide-locked')).toBe(true);
 
     act(() => { screen.getByRole('button', { name: /Guides/ }).click(); });
@@ -175,157 +312,61 @@ describe('GuidesView', () => {
     expect(document.querySelector('iframe.guide-viewer-frame')).toBeNull();
   });
 
+  /* ------------------------------------------------------------------ all projects */
+
   /*
-    The board is unscoped by default: every registered project is listed, each in
-    its own bay under its own header. The list was briefly narrowed to one project
-    by a drawer, which also dropped the heading once a single group was showing —
-    both are gone. The rail's project tree can narrow the board again, but the
-    header stays unconditional even then: it is now where the project's name
-    appears on screen at all, so a one-bay board without it is a board that does
-    not say what you are looking at.
+    Unscoped, the board draws each project's series and guides under the project's name, and the Continue row once, across all of them, above. The
+    per-project fold is gone — narrowing to one project is the rail's job — so nothing on a board without series carries aria-expanded.
   */
-  it('lists every registered project, one bay per project', async () => {
+  it('draws every project under its own heading, with one Continue row above', async () => {
     await renderGuides();
-    expect(document.querySelectorAll('.bay')).toHaveLength(2);
-    expect(bayNames()).toEqual(['guide-manager', 'german-study-partner']);
-    expect(screen.getByText('Alpha Guide')).toBeTruthy();
-    expect(screen.getByText('Gamma')).toBeTruthy();
+    expect(projectNames()).toEqual(['guide-manager', 'german-study-partner']);
+    expect(texts('.board-project-meta')).toEqual(['3 guides · 0 in progress · 1 read', '1 guide · 1 in progress · 0 read']);
+    expect(document.querySelectorAll('.continue')).toHaveLength(1);
+    expect(continueTitles()).toEqual(['Gamma']);
+    expect(document.querySelectorAll('[aria-expanded]')).toHaveLength(0);
+  });
+
+  it('neither reads nor writes the retired collapsedBays key', async () => {
+    const get = jest.spyOn(Storage.prototype, 'getItem');
+    const set = jest.spyOn(Storage.prototype, 'setItem');
+    await renderGuides();
+    act(() => { switchOption('Study').click(); });
+    const touched = [...get.mock.calls, ...set.mock.calls].map((c) => c[0]);
+    expect(touched).not.toContain('guide-manager.collapsedBays');
+    /* The spies are live: the board does read its own keys through them. */
+    expect(touched).toContain('guide-manager.filterType');
+  });
+
+  it('narrows the board to the scoped project, dropping the per-project heading for the band', async () => {
+    await renderGuides(INDEX, '/q');
+    expect(projectNames()).toEqual([]);
+    expect(bandTitle()).toBe('Guides · german-study-partner');
+    expect(cardTitles()).toEqual(['Gamma']);
   });
 
   /*
-    The count is the header's only piece of live data, so it has to agree with the
-    grid under it — and read as English while doing so. "1 guides" is the kind of
-    wrong that makes the whole header look generated rather than written.
+    Fail-open. AppShell resolves a stale path to ALL before it gets here, but the
+    board does not lean on that: a scope naming no registered project shows every
+    project rather than an empty board that looks like the server broke.
   */
-  it('counts the guides in each bay header, singular for a bay of one', async () => {
-    await renderGuides();
-    expect([...document.querySelectorAll('.bay-count')].map((c) => c.textContent))
-      .toEqual(['3 guides', '1 guide']);
+  it('shows every project for a scope the index does not name, rather than blanking the board', async () => {
+    await renderGuides(INDEX, '/gone');
+    expect(bandTitle()).toBe('Guides · All projects');
+    expect(projectNames()).toEqual(['guide-manager', 'german-study-partner']);
   });
 
-  /*
-    The tick is what promotes the project name from a faint caption into a header:
-    without it the name is just bolder text. Asserted per bay because a single
-    shared marker at the top of the board would not mark anything.
-  */
-  it('gives every bay header its own cyan tick', async () => {
-    await renderGuides();
-    expect(document.querySelectorAll('.bay-h .bay-tick')).toHaveLength(2);
-  });
+  /* ------------------------------------------------------------------ empty states */
 
-  /*
-    A grid rather than a stack — one wrapper per bay, holding that bay's cards and
-    no others. The column count is CSS's business (auto-fill), but the nesting is
-    the markup's, and a card in the wrong bay is a card filed under the wrong
-    project name.
-  */
-  it('lays each bay out as its own card grid', async () => {
-    await renderGuides();
-    const grids = document.querySelectorAll('.guides-grid');
-    expect(grids).toHaveLength(2);
-    expect(grids[0].querySelectorAll('.guides-card')).toHaveLength(3);
-    expect(grids[1].querySelectorAll('.guides-card')).toHaveLength(1);
-  });
-
-  /*
-    The header is the disclosure itself, rather than a caret button sitting beside
-    the name: on a phone the whole header row is the tap target, and a caret alone
-    is a target the size of a full stop. The grid is removed rather than hidden
-    with CSS, so a folded bay costs nothing to keep on the board — which is the
-    point of folding at all when a project has grown to thirty guides.
-  */
-  it('folds a bay down to its header when the header is tapped, and unfolds it again', async () => {
-    await renderGuides();
-    expect(headers()[0].getAttribute('aria-expanded')).toBe('true');
-
-    act(() => { headers()[0].click(); });
-    expect(headers()[0].getAttribute('aria-expanded')).toBe('false');
-    expect(document.querySelectorAll('.bay')[0].querySelector('.guides-grid')).toBeNull();
-    expect(screen.queryByText('Alpha Guide')).toBeNull();
-
-    act(() => { headers()[0].click(); });
-    expect(headers()[0].getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByText('Alpha Guide')).toBeTruthy();
-  });
-
-  /*
-    One fold, one bay. The board's whole reason for folding is to get from a
-    scroll wall down to the few projects you are actually working in, which does
-    not happen if the fold is all-or-nothing.
-  */
-  it('folds one bay without touching its neighbours', async () => {
-    await renderGuides();
-    act(() => { headers()[0].click(); });
-    expect(screen.queryByText('Alpha Guide')).toBeNull();
-    expect(screen.getByText('Gamma')).toBeTruthy();
-    expect(headers()[1].getAttribute('aria-expanded')).toBe('true');
-  });
-
-  /*
-    Keyed by path, not by name: two checkouts of one repo register the same
-    project name at two different paths, and a name-keyed fold would collapse both
-    at once. The path is the registry's own key, so a stored path whose project is
-    no longer registered simply never matches and no cleanup pass is needed.
-  */
-  it('remembers a folded bay across a remount, keyed by project path', async () => {
-    const first = await renderGuides();
-    act(() => { headers()[0].click(); });
-    expect(JSON.parse(localStorage.getItem('guide-manager.collapsedBays') ?? '[]')).toEqual(['/p']);
-
-    first.unmount();
-    await renderGuides();
-    expect(headers()[0].getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByText('Alpha Guide')).toBeNull();
-    expect(screen.getByText('Gamma')).toBeTruthy();
-  });
-
-  /*
-    A folded bay that hid its own name would be a row you cannot identify well
-    enough to decide whether to unfold it. Name, count and tick are exactly what
-    survives the fold — the header is unchanged, only its grid is gone.
-  */
-  it('keeps the project name and guide count readable while folded', async () => {
-    await renderGuides();
-    act(() => { headers()[0].click(); });
-    const bay = document.querySelectorAll('.bay')[0];
-    /* Assert the fold actually happened first: without this the rest of the test
-       passes on an un-foldable board, where the header is trivially still there. */
-    expect(bay.querySelector('.guides-grid')).toBeNull();
-    expect(bay.querySelector('.bay-name')?.textContent).toBe('guide-manager');
-    expect(bay.querySelector('.bay-count')?.textContent).toBe('3 guides');
-    expect(bay.querySelector('.bay-tick')).toBeTruthy();
-  });
-
-  /*
-    The caret carries aria-hidden because the state it depicts is already on the
-    button's own aria-expanded, and a screen reader reading out the glyph's
-    Unicode name after "collapsed" is noise. Its direction is CSS's business,
-    keyed off aria-expanded exactly as the old rail caret was — asserted here only
-    as far as jsdom can see it, which is that the hook and the element both exist.
-  */
-  it('marks the fold direction with a caret the assistive layer ignores', async () => {
-    await renderGuides();
-    const caret = headers()[0].querySelector('.bay-caret');
-    expect(caret).toBeTruthy();
-    expect(caret?.getAttribute('aria-hidden')).toBe('true');
-  });
-
-  /*
-    Card layout is a column with the pill and meta in one footer element, which is
-    what `margin-top:auto` can then pin to the bottom of a stretched grid cell.
-    The old named-areas grid put both directly on the card, so the two would drift
-    apart vertically once cards of unequal title length shared a row.
-  */
-  it('holds the pill and the meta line together in the card footer', async () => {
-    await renderGuides();
-    const foot = screen.getByText('Alpha Guide').closest('.guides-card')?.querySelector('.guides-card-foot');
-    expect(foot?.querySelector('.pill')?.textContent).toBe('study');
-    expect(foot?.querySelector('.guides-card-meta')?.textContent).toContain('2026-08-24');
+  it('says Loading… while the index is in flight', () => {
+    (globalThis as { fetch?: unknown }).fetch = jest.fn(() => new Promise(() => {}));
+    render(<Board />);
+    expect(screen.getByText('Loading…')).toBeTruthy();
   });
 
   it('says so when nothing is registered', async () => {
     await renderGuides({ projects: [] });
-    expect(screen.getByText('nothing registered yet')).toBeTruthy();
+    expect(screen.getByText('Nothing registered yet')).toBeTruthy();
   });
 
   it('says so when the server cannot be reached', async () => {
@@ -334,22 +375,32 @@ describe('GuidesView', () => {
     await waitFor(() => expect(screen.getByText('Guides unavailable')).toBeTruthy());
   });
 
+  /*
+    Two empty states, because they ask for two different things: an empty registry
+    is fixed somewhere else entirely (register a guide from a skill), an empty
+    result by clearing the controls two inches above the message.
+  */
+  it('distinguishes an empty registry from filters that matched nothing', async () => {
+    await renderGuides();
+    setControl('Search guides', 'zzz');
+    expect(screen.getByText('No matches')).toBeTruthy();
+    expect(screen.queryByText('Nothing registered yet')).toBeNull();
+    expect(projectNames()).toEqual([]);
+  });
+
   /* ------------------------------------------------------------------ toolbar */
 
   /*
     Order is part of the design, not an accident of JSX: search reads first because
     it is the control you reach for, then narrow before order — type, then sort.
-    There is no project select: the scope is a rail destination. Asserted as a
-    sequence rather than separate existence checks, which would pass on a bar that
-    had silently shuffled itself.
+    There is no project select: the scope is a rail destination.
   */
-  it('puts search, type and sort in the bar, in that order, and no project select', async () => {
+  it('puts search, the type switch and sort in the toolbar, in that order, and no project select', async () => {
     await renderGuides();
-    const bar = document.querySelector('.guides-bar');
-    expect(bar?.querySelector('.guides-title')?.textContent).toBe('Guides');
-    expect([...(bar?.querySelectorAll('.guides-search, .guides-select') ?? [])]
-      .map((el) => el.getAttribute('aria-label')))
-      .toEqual(['Search guides', 'Type', 'Sort']);
+    const bar = document.querySelector('.board-toolbar');
+    expect([...(bar?.children ?? [])].map((el) => el.getAttribute('aria-label'))).toEqual(['Search guides', 'Type', 'Sort']);
+    expect(searchBox().getAttribute('placeholder')).toBe('Search titles');
+    expect(bar?.querySelectorAll('select')).toHaveLength(1);
   });
 
   it('narrows to the guides whose titles match the query', async () => {
@@ -367,151 +418,85 @@ describe('GuidesView', () => {
   });
 
   /*
-    A bay the query emptied goes entirely, header and all — otherwise a two-hit
-    search on a board of a dozen projects returns a screenful of empty headers with
+    A project the query emptied goes entirely, heading and all — otherwise a two-hit
+    search on a board of a dozen projects returns a screenful of empty headings with
     the hits buried among them.
   */
-  it('drops a bay the query emptied, header and all', async () => {
+  it('drops a project the query emptied, heading and all', async () => {
     await renderGuides();
     setControl('Search guides', 'deck');
-    expect(bayNames()).toEqual(['guide-manager']);
-    expect(document.querySelectorAll('.bay')).toHaveLength(1);
-  });
-
-  /*
-    The load-bearing interaction between the toolbar and the fold: without this,
-    typing a query on a board with folded bays looks like a search that found
-    nothing, because the bay it matched in is still shut.
-  */
-  it('opens a folded bay that holds a match, without rewriting the stored fold', async () => {
-    await renderGuides();
-    act(() => { headers()[0].click(); });
-    expect(headers()[0].getAttribute('aria-expanded')).toBe('false');
-
-    setControl('Search guides', 'deck');
-    expect(headers()[0].getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByText('Beta Deck')).toBeTruthy();
-    /* The standing preference is untouched — which is what lets the bay drop back
-       to folded the moment the query is cleared, rather than staying open forever
-       because a search once passed through it. */
-    expect(JSON.parse(localStorage.getItem('guide-manager.collapsedBays') ?? '[]')).toEqual(['/p']);
-
-    setControl('Search guides', '');
-    expect(headers()[0].getAttribute('aria-expanded')).toBe('false');
-  });
-
-  it('narrows to one type when the type select is set', async () => {
-    await renderGuides();
-    setControl('Type', 'tutor');
-    expect(cardTitles()).toEqual(['Beta Deck']);
-    expect(bayNames()).toEqual(['guide-manager']);
-  });
-
-  /*
-    The rail's scope narrows the board *to* a bay rather than filtering inside
-    one, and its header survives being the only thing on screen: the header is the
-    one place the project's name is written, so a headerless single bay is a board
-    that does not say what you are looking at. That was the drawer's bug.
-  */
-  it('narrows the board to the scoped project, keeping that bay’s header', async () => {
-    await renderGuides(INDEX, '/q');
-    expect(bayNames()).toEqual(['german-study-partner']);
-    expect(cardTitles()).toEqual(['Gamma']);
-  });
-
-  /*
-    Fail-open. AppShell resolves a stale path to ALL before it gets here, but the
-    board does not lean on that: a scope naming no registered project shows every
-    project rather than an empty board that looks like the server broke.
-  */
-  it('shows every project for a scope the index does not name, rather than blanking the board', async () => {
-    await renderGuides(INDEX, '/gone');
-    expect(bayNames()).toEqual(['guide-manager', 'german-study-partner']);
+    expect(projectNames()).toEqual(['guide-manager']);
   });
 
   /* Newest first is the default: the point of the board is that the guide you
-     generated ten minutes ago is at the top of the bay you generated it in. */
-  it('sorts a bay by creation date, newest first, by default', async () => {
+     generated ten minutes ago is at the top of the project you generated it in. */
+  it('sorts a project by creation date, newest first, by default', async () => {
     await renderGuides();
     expect(cardTitles()).toEqual(['Beta Deck', 'Omega Notes', 'Alpha Guide', 'Gamma']);
   });
 
-  it('sorts a bay by title when asked', async () => {
+  it('sorts a project by title when asked', async () => {
     await renderGuides();
     setControl('Sort', 'name');
     expect(cardTitles()).toEqual(['Alpha Guide', 'Beta Deck', 'Omega Notes', 'Gamma']);
   });
 
-  it('sorts a bay by type, study before tutor, alphabetically inside each', async () => {
+  it('sorts a project by type, study before tutor, alphabetically inside each', async () => {
     await renderGuides();
     setControl('Sort', 'type');
     expect(cardTitles()).toEqual(['Alpha Guide', 'Omega Notes', 'Beta Deck', 'Gamma']);
   });
 
   /*
-    Sorting is applied inside each bay, never across the board: the bays are the
-    registry's own order, and re-ordering them by their newest guide would make the
-    board's layout jump every time a guide was registered.
+    Sorting is applied inside each project, never across the board: the projects are
+    the registry's own order, and re-ordering them by their newest guide would make
+    the board's layout jump every time a guide was registered.
   */
-  it('leaves the bays themselves in index order whatever the sort', async () => {
+  it('leaves the projects themselves in index order whatever the sort', async () => {
     await renderGuides();
     setControl('Sort', 'name');
-    expect(bayNames()).toEqual(['guide-manager', 'german-study-partner']);
+    expect(projectNames()).toEqual(['guide-manager', 'german-study-partner']);
   });
 
   /* The three controls are an intersection, not a sequence of separate views —
      and the survivors are still sorted by whatever the sort select says. */
   it('composes search, type and sort into one sorted intersection', async () => {
     await renderGuides();
-    setControl('Type', 'study');
+    act(() => { switchOption('Study').click(); });
     setControl('Search guides', 'e');
     setControl('Sort', 'name');
     /* 'e' is in every title here; the type filter is what removes the deck, and
        Gamma has no 'e' at all — so the intersection is the two study guides of the
-       first bay, in title order. */
+       first project, in title order. */
     expect(cardTitles()).toEqual(['Alpha Guide', 'Omega Notes']);
   });
 
   /*
-    Two empty states, because they ask for two different things: an empty registry
-    is fixed somewhere else entirely (register a guide from a skill), an empty
-    result by clearing the controls two inches above the message.
+    The type and sort are remembered per device: a phone picked up mid-session
+    should still be looking at the board it was left looking at. (The project scope
+    is remembered too, but by AppShell for the rail — see app-projects.test.tsx.)
   */
-  it('distinguishes an empty registry from filters that matched nothing', async () => {
-    await renderGuides();
-    setControl('Search guides', 'zzz');
-    expect(screen.getByText('no matches')).toBeTruthy();
-    expect(screen.queryByText('nothing registered yet')).toBeNull();
-    expect(document.querySelectorAll('.bay')).toHaveLength(0);
-  });
-
-  /*
-    The selects are remembered per device for the same reason the fold is: a phone
-    picked up mid-session should still be looking at the board it was left looking
-    at. (The project scope is remembered too, but by AppShell for the rail — see
-    app-projects.test.tsx.)
-  */
-  it('remembers the type and sort selects across a remount', async () => {
+  it('remembers the type and sort across a remount', async () => {
     const first = await renderGuides();
-    setControl('Type', 'study');
+    act(() => { switchOption('Study').click(); });
     setControl('Sort', 'name');
     expect(localStorage.getItem('guide-manager.filterType')).toBe('"study"');
     expect(localStorage.getItem('guide-manager.sort')).toBe('"name"');
 
     first.unmount();
     await renderGuides();
-    expect(control('Type').value).toBe('study');
+    expect(switchOption('Study').getAttribute('aria-pressed')).toBe('true');
     expect(control('Sort').value).toBe('name');
     expect(cardTitles()).toEqual(['Alpha Guide', 'Omega Notes', 'Gamma']);
   });
 
   /*
     The search box is the one control deliberately *not* remembered. A board that
-    opens showing three cards out of forty for no visible reason reads as broken
+    opens showing three tiles out of forty for no visible reason reads as broken
     rather than as filtered — and nobody reads a text field before deciding their
     guides are gone.
   */
-  it('forgets the query on a remount, unlike the selects', async () => {
+  it('forgets the query on a remount, unlike the type and sort', async () => {
     const first = await renderGuides();
     setControl('Search guides', 'deck');
     expect(cardTitles()).toEqual(['Beta Deck']);
@@ -522,17 +507,13 @@ describe('GuidesView', () => {
     expect(cardTitles()).toHaveLength(4);
   });
   /*
-    Reset lives in the viewer head, not on the board's cards. `.guides-card` is a
-    whole-card role="button" in a dense grid, and a nested destructive control
+    Reset lives in the viewer head, not on the board's tiles. A tile is a
+    whole-tile role="button" in a dense grid, and a nested destructive control
     there is one mis-tap from discarding a session on the device this app exists
     for. In the viewer you are looking at the guide you mean to restart.
   */
   describe('resetting one guide', () => {
-    const openViewer = (title: string) => {
-      act(() => {
-        screen.getByText(title).closest('.guides-card')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      });
-    };
+    const openViewer = openTile;
 
     const resetButton = () => screen.getByRole('button', { name: /reset|sure/i });
 
@@ -602,11 +583,7 @@ describe('GuidesView', () => {
     the write that lands after the reader has already tapped back.
   */
   describe('keeping the board current', () => {
-    const openViewer = (title: string) => {
-      act(() => {
-        screen.getByText(title).closest('.guides-card')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      });
-    };
+    const openViewer = openTile;
 
     it('refetches when the reader comes back from a guide', async () => {
       const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
