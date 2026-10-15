@@ -36,7 +36,7 @@
   --card-gap: 16px;
   --card-inner-gap: 12px;
   --group-gap: 24px;
-  --set-pad: 16px 24px;
+  --set-pad: 16px;
 }
 /* Must FOLLOW the :root defaults — both selectors match <html> at the same specificity, so source order is the only thing deciding the winner. */
 [data-density="compact"] {
@@ -46,7 +46,7 @@
   --card-gap: 10px;
   --card-inner-gap: 8px;
   --group-gap: 16px;
-  --set-pad: 10px 16px;
+  --set-pad: 10px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
@@ -535,70 +535,57 @@ code, kbd, samp, pre { font-family: inherit }
 
 .fav-foot { font-size: 12px; color: var(--ink3) } /* meta */
 
-/* ---------------------------------------------- Settings section */
-.mdetail-label {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 11px; font-weight: 600;
-  color: var(--ink3); letter-spacing: .09em; margin-top: 4px;
-}
-.set { display: flex; flex-direction: column; gap: 18px; max-width: 640px }
-.set-group { display: flex; flex-direction: column; gap: 2px }
-.set-group > .mdetail-label { margin-bottom: 6px }
-.set-row {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: var(--set-pad); border: 1px solid var(--hairline); border-radius: 16px;
-  background: var(--strip); box-shadow: inset 0 1px 0 var(--edge);
-}
-/* The theme grid is a .set-row's sibling but not one itself, so the adjacency
-   rule above skips the first row after it — Density would sit flush against the
-   swatches without this. */
-.set-row + .set-row, .set-themes + .set-row { margin-top: 5px }
-.set-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 }
-.set-name { font-size: 12px; font-weight: 600; color: var(--ink) }
-.set-hint { font-size: 11px; color: var(--ink3); line-height: 1.45 }
-.set-hint code { font-size: 11px; color: var(--cyan) }
-.set-control { display: flex; align-items: center; gap: 6px; flex-shrink: 0 }
-.set-control select,
-.set-control input[type=number],
-.set-control input[type=text] {
-  font-size: 11px; color: var(--ink);
-  background: var(--steel); border: 1px solid var(--hairline); border-radius: 12px;
-  padding: 5px 8px;
-}
-.set-control select:focus, .set-control input:focus { outline: none; border-color: var(--cyan) }
-.set-control input[type=number] { width: 84px; font-variant-numeric: tabular-nums }
-.set-unit { font-size: 11px; color: var(--ink3) }
+/* ── Settings ──────────────────────────────────────────────────────────────────
+   Three sheets under the band (spec §6). Two hand-balanced columns from 768 px — Appearance alone on the left, Reading aid over Startup on the right — and
+   one column below. The pairing is two explicit column wrappers in SettingsView, not auto-flow: grid placement or CSS columns would set Reading aid beside
+   Appearance and leave Startup under the taller card, with a hole beside it. `align-items: start` lets each column end where its own cards do. */
+.set-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--card-gap) }
+@media (min-width: 768px) { .set-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start } }
+.set-col { display: flex; flex-direction: column; gap: var(--card-gap); min-width: 0 }
+/* The heading binds to its rows with the inner gap; the rows bring their own vertical padding, so the card's own padding is the only air above the first. */
+.set-card { display: flex; flex-direction: column; gap: var(--card-inner-gap) }
+/* title, not the row-name .sec-h carries over a grid: the rows inside are row-name already, and a heading the size of its own rows does not head them. */
+.set-card > .sec-h { font-size: 19px; line-height: 1.3 } /* title */
 
-.set-seg { display: flex; gap: 4px }
-.set-seg button {
-  font-size: 11px; font-weight: 600;
-  letter-spacing: .07em; color: var(--ink3);
-  background: var(--steel); border: 1px solid var(--hairline); border-radius: 12px;
-  padding: 5px 11px; cursor: pointer; transition: color .15s, border-color .15s;
-}
-.set-seg button:hover:not(:disabled) { color: var(--ink2); border-color: var(--hairline2) }
-.set-seg button:disabled { cursor: default; opacity: .4 }
-.set-seg button.on { color: var(--ink); border-color: var(--cyan); box-shadow: inset 0 -2px 0 var(--cyan) }
+/* Rows are boxless — a sheet already frames them, and a box per row inside it was a frame inside a frame. A hairline separates neighbours instead, and
+   the 16 px vertical padding is the density-tunable --set-pad so compact tightens the stack like every other run of rows. The name is row-name, the
+   hint body-size in --ink3: the name says what the setting is, the hint is there to be read only when that is not enough. */
+.set-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: var(--set-pad) 0 }
+.set-row + .set-row { border-top: 1px solid var(--hairline) }
+.set-card > .set-row:last-child { padding-bottom: 0 }
+.set-card > .sec-h + .set-row { padding-top: 0 }
+/* min-width 180 is the wrap point: in a half-width card at 768 px a row whose label would shrink narrower than that drops its control under it instead,
+   rather than squeezing the hint into a column of one-word lines. */
+.set-label { display: flex; flex-direction: column; gap: 2px; min-width: min(180px, 100%); flex: 1 }
+.set-name { font-size: 15px; font-weight: 500; color: var(--ink) } /* row-name */
+.set-hint { font-size: 13px; color: var(--ink3) } /* body */
+.set-control { display: flex; align-items: center; gap: 8px; flex-shrink: 0; max-width: 100% }
+/* The theme row: the swatches are too wide to share a line with the label, so the control drops under it and takes the row's full width. */
+.set-row.stacked { flex-direction: column; align-items: stretch }
+.set-row.stacked .set-control { flex-shrink: 1 }
+.set-control input[type=number] { width: 84px }
+.set-unit { font-size: 13px; color: var(--ink3) }
 
+/* Five swatch buttons in a row, wrapping when a narrow card cannot hold them. Each is a radio-like `aria-pressed` button rather than a switch: picking one
+   unpicks the rest. The picked one is ringed in --cyan — a 2 px ring drawn by box-shadow so the swatch does not shift by the border's width when picked. */
 .set-themes { display: flex; gap: 8px; flex-wrap: wrap }
 .set-theme {
-  display: flex; flex-direction: column; gap: 6px; width: 104px; padding: 7px;
-  border: 1px solid var(--hairline); border-radius: 12px; background: var(--steel);
-  cursor: pointer; transition: border-color .15s;
+  display: flex; flex-direction: column; gap: 6px; width: 96px; padding: 6px;
+  font-family: var(--font); background: var(--board); border: 0; border-radius: 12px;
+  cursor: pointer; transition: box-shadow .15s;
 }
-.set-theme:hover { border-color: var(--hairline2) }
-.set-theme.on { border-color: var(--cyan); box-shadow: inset 0 0 0 1px var(--cyan) }
-.set-swatch { display: flex; height: 34px; border-radius: 12px; overflow: hidden; border: 1px solid var(--hairline) }
+.set-theme:hover { box-shadow: 0 0 0 1px var(--hairline2) }
+.set-theme.on { box-shadow: 0 0 0 2px var(--cyan) }
+/* The swatch paints a palette that is not applied, so its own edge is a hairline: a Daylight board on the Daylight ground would otherwise vanish. */
+.set-swatch { display: flex; height: 34px; border-radius: 9px; overflow: hidden; border: 1px solid var(--hairline2) }
 .set-swatch i { flex: 1 }
 .set-swatch i:last-child { flex: 0 0 8px }
-.set-theme-name { font-size: 11px; font-weight: 600; color: var(--ink2); text-align: left; line-height: 1.25 }
+.set-theme-name { font-size: 12px; font-weight: 500; color: var(--ink2); text-align: left; line-height: 1.25 } /* meta */
 .set-theme.on .set-theme-name { color: var(--ink) }
 
+/* Phones: no row rules of its own — the label's 180 px floor already drops a control under its name when the two cannot share the width. Only the
+   swatches change, to two a row, so a theme name never wraps inside a 60 px button. */
 @media (max-width: 639px) {
-  .set-row { align-items: flex-start; flex-direction: column; gap: 8px }
-  .set-control { width: 100% }
-  .set-seg { width: 100% }
-  .set-seg button { flex: 1; min-height: 38px }
   .set-theme { width: calc(50% - 4px) }
 }
 
