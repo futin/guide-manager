@@ -196,7 +196,7 @@ skills (study, tutor)  ->  bin/register.js  ->  ~/.guide-manager/registry.json
   the reading-progress reporter, and the favorites capture script (the ☆ in
   the header that lets a reader pick, name and save a piece of the guide).
 - `client/src/` — side rail, Guides board with the guide framed in an iframe,
-  a Favorites tab (saved blocks grouped into per-project bays, searchable,
+  a Favorites tab (saved blocks as sheets, one section per project, searchable,
   reorderable), and Settings.
 
 ## Development

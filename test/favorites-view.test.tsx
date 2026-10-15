@@ -137,20 +137,24 @@ function renderView(favorites: Favorite[] | 'reject' = FAVORITES, scope = 'all')
   return fetchStub;
 }
 
-/** The german bay's cards, title-only, in on-screen order — used by the
+/** The german section's cards, title-only, in on-screen order — used by the
  *  reorder tests to prove the board repaints in the new order at once,
  *  before any request has had a chance to resolve. */
 function germanTitles(): (string | null)[] {
-  const bay = document.querySelectorAll('.bay')[1] as HTMLElement;
-  return [...bay.querySelectorAll('.fav-title')].map((el) => el.textContent);
+  const section = document.querySelectorAll('.fav-project')[1] as HTMLElement;
+  return [...section.querySelectorAll('.fav-title')].map((el) => el.textContent);
 }
 
-/** A bay's own header, found by project name — `.bay-name` rather than the
- *  bare text, because the same name also appears as one of the project
- *  select's own <option> labels and a plain text query would find both. */
+/** A project section's own heading, found by project name — `.fav-project-name` rather than the bare text, because the band names the scoped project
+ *  too and a plain text query would find both. */
 function bayName(project: string): HTMLElement | null {
-  return screen.queryByText(project, { selector: '.bay-name' });
+  return screen.queryByText(project, { selector: '.fav-project-name' });
 }
+
+/** The band's title and its one line, as rendered text. */
+const bandTitle = () => document.querySelector('.fav-band h1')?.textContent;
+const bandLine = () => document.querySelector('.fav-band p')?.textContent;
+const emptyLine = () => document.querySelector('.empty-line')?.textContent;
 
 /** A favorite's card, found by its own title — every FAVORITES-API title is
  *  unique, so this is unambiguous. */
@@ -167,34 +171,66 @@ describe('FavoritesView', () => {
     localStorage.clear();
   });
 
-  it('groups favorites into project bays in server order, each bay counting only its own cards', async () => {
+  /* The bay's `N favorite(s)` count went with its redraw: the band's line counts the scope once, and a section is only its name over its sheets. */
+  it('groups favorites into one section per project in server order, each under its name and with no count of its own', async () => {
     renderView();
     await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
 
-    const bayNames = [...document.querySelectorAll('.bay-name')].map((el) => el.textContent);
-    expect(bayNames).toEqual(['claude-agents-dashboard', 'german-study-partner']);
+    const names = [...document.querySelectorAll('.fav-project-name')].map((el) => el.textContent);
+    expect(names).toEqual(['claude-agents-dashboard', 'german-study-partner']);
+    expect(screen.queryByText(/^\d+ favorites?$/)).toBeNull();
+    /* No collapse: a section heading is not a disclosure. */
+    expect(document.querySelector('.fav-project [aria-expanded]')).toBeNull();
+  });
 
-    const counts = [...document.querySelectorAll('.bay-count')].map((el) => el.textContent);
-    expect(counts[0]).toContain('1');
-    expect(counts[1]).toContain('3');
+  it('names the scope in the band and counts blocks and distinct guides under it, unscoped', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
+
+    expect(bandTitle()).toBe('Favorites · All projects');
+    expect(bandLine()).toBe('4 saved blocks from 3 guides · newest on top');
+  });
+
+  /* M counts distinct guidePaths in scope: german's three favorites come from two guides (pp.html twice, k.html once). */
+  it('names the scoped project in the band and counts its blocks from its distinct guides', async () => {
+    renderView(FAVORITES, 'german-study-partner');
+    await waitFor(() => expect(screen.getByText('Die Tabelle')).toBeTruthy());
+
+    expect(bandTitle()).toBe('Favorites · german-study-partner');
+    expect(bandLine()).toBe('3 saved blocks from 2 guides · newest on top');
+  });
+
+  it('says block and guide in the singular for one of each', async () => {
+    renderView(FAVORITES, 'claude-agents-dashboard');
+    await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
+
+    expect(bandTitle()).toBe('Favorites · claude-agents-dashboard');
+    expect(bandLine()).toBe('1 saved block from 1 guide · newest on top');
+  });
+
+  it('offers search as the only toolbar control, placeholder and label both `Search favorites`', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
+
+    const search = screen.getByLabelText('Search favorites') as HTMLInputElement;
+    expect(search.placeholder).toBe('Search favorites');
+    expect(document.querySelectorAll('.fav-toolbar select, .fav-toolbar button')).toHaveLength(0);
   });
 
   it("orders the german bay's cards ascending by the favorite's own order field", async () => {
     renderView();
     await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
 
-    const germanBay = document.querySelectorAll('.bay')[1] as HTMLElement;
-    const titles = [...germanBay.querySelectorAll('.fav-title')].map((el) => el.textContent);
-    expect(titles).toEqual(['Die Tabelle', 'Quiz', 'Konnektoren']);
+    expect(germanTitles()).toEqual(['Die Tabelle', 'Quiz', 'Konnektoren']);
   });
 
   it('shows the exact empty-state copy when nothing is saved at all', async () => {
     renderView([]);
-    // Both loading and the empty result render .guides-empty, so waiting for
+    // Both loading and the empty result render .empty-line, so waiting for
     // the class alone can catch the "Loading…" render still on screen — wait
     // for the actual final copy instead.
     await waitFor(() =>
-      expect(document.querySelector('.guides-empty')?.textContent).toBe(
+      expect(emptyLine()).toBe(
         'Nothing saved yet — open a guide and tap ☆ in its header to keep a table, a diagram or a paragraph here.'
       )
     );
@@ -202,9 +238,21 @@ describe('FavoritesView', () => {
 
   it("shows the exact error copy when the fetch rejects", async () => {
     renderView('reject');
-    await waitFor(() =>
-      expect(document.querySelector('.guides-empty')?.textContent).toBe("couldn't load favorites")
-    );
+    await waitFor(() => expect(emptyLine()).toBe("Couldn't load favorites"));
+  });
+
+  it('shows `Loading…` until the first answer lands', async () => {
+    renderView();
+    expect(emptyLine()).toBe('Loading…');
+    await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
+  });
+
+  it('shows `No matches` when a search hits nothing', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('Search favorites'), { target: { value: 'zzz-nothing' } });
+    expect(emptyLine()).toBe('No matches');
   });
 
   /*
@@ -240,9 +288,28 @@ describe('FavoritesView', () => {
     renderView();
     await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
 
-    expect(cardFor('Die Tabelle').querySelector('.pill')?.className).toContain('pill-tutor');
-    expect(cardFor('Held socket').querySelector('.pill')?.className).toContain('pill-study');
+    expect(cardFor('Die Tabelle').querySelector('.pill')?.classList.contains('tutor')).toBe(true);
+    expect(cardFor('Held socket').querySelector('.pill')?.classList.contains('study')).toBe(true);
     expect(cardFor('Konnektoren').querySelector('.pill')).toBeNull();
+  });
+
+  /* The capture date, in the shell's one date format. `now` is pinned so the year is the current one and the date prints without it; only Date is
+     faked, so the fetch promises and waitFor's own timers run as usual. */
+  it('signs each sheet off with `Saved <short date>`', async () => {
+    jest.useFakeTimers({
+      now: new Date('2026-10-14T12:00:00Z'),
+      doNotFake: [
+        'hrtime', 'nextTick', 'performance', 'queueMicrotask', 'requestAnimationFrame', 'cancelAnimationFrame', 'requestIdleCallback',
+        'cancelIdleCallback', 'setImmediate', 'clearImmediate', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'
+      ]
+    });
+    try {
+      renderView([{ ...FAVORITES[3], createdAt: '2026-10-11T12:00:00Z' }]);
+      await waitFor(() => expect(screen.getByText('Konnektoren')).toBeTruthy());
+      expect(cardFor('Konnektoren').querySelector('.fav-foot')?.textContent).toBe('Saved Oct 11');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('narrows to matching cards on search, dropping an emptied bay whole', async () => {
@@ -253,7 +320,7 @@ describe('FavoritesView', () => {
 
     expect(bayName('claude-agents-dashboard')).toBeNull();
     expect(bayName('german-study-partner')).toBeTruthy();
-    expect(document.querySelector('.bay-count')?.textContent).toContain('1');
+    expect(document.querySelectorAll('.fav-card')).toHaveLength(1);
     expect(screen.getByText('Konnektoren')).toBeTruthy();
     expect(screen.queryByText('Die Tabelle')).toBeNull();
     expect(screen.queryByText('Quiz')).toBeNull();
@@ -294,11 +361,14 @@ describe('FavoritesView', () => {
   });
 
   /* Picking the scope is the rail's, and is driven through App in app-projects.test.tsx; the board only narrows to what it is handed. */
-  it('narrows to the scoped project bay', async () => {
+  /* Scoped, the band names the project, so no section heading repeats it under the band — the Guides board's rule. */
+  it('narrows to the scoped project, with the band naming it rather than a section heading', async () => {
     renderView(FAVORITES, 'german-study-partner');
-    await waitFor(() => expect(bayName('german-study-partner')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Die Tabelle')).toBeTruthy());
 
-    expect(bayName('claude-agents-dashboard')).toBeNull();
+    expect(screen.queryByText('Held socket')).toBeNull();
+    expect(document.querySelectorAll('.fav-project-name')).toHaveLength(0);
+    expect([...document.querySelectorAll('.fav-title')].map((el) => el.textContent)).toEqual(['Die Tabelle', 'Quiz', 'Konnektoren']);
     expect(screen.queryByLabelText('Project')).toBeNull();
   });
 
@@ -421,12 +491,12 @@ describe('FavoritesView — card controls (Task 8)', () => {
     expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
   });
 
-  it("edits f2's empty note: clicking 'add a note' shows a textarea, blur with a value patches and repaints", async () => {
+  it("edits f2's empty note: clicking 'Add a note' shows a textarea, blur with a value patches and repaints", async () => {
     const { calls } = renderView();
     await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
 
     const card = cardFor('Quiz');
-    expect(card.querySelector('.fav-note')?.textContent).toBe('add a note');
+    expect(card.querySelector('.fav-note')?.textContent).toBe('Add a note');
     expect(card.querySelector('.fav-note')?.className).toContain('empty');
 
     fireEvent.click(card.querySelector('.fav-note') as HTMLElement);
@@ -508,18 +578,30 @@ describe('FavoritesView — card controls (Task 8)', () => {
     expect(card.querySelector('.fav-handle')).toBeNull();
   });
 
-  it("arms f3's ✕ on the first click, sending no request yet", async () => {
+  /* The four keys, in the order the sheet draws them: ⤒ first, because the top is where a new favorite lands and where a kept one is sent back to. */
+  it('draws the keys as 30×30 .key buttons in the order Move to top, Move up, Move down, Remove', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
+
+    const keys = [...cardFor('Quiz').querySelectorAll('.fav-ctls button')];
+    expect(keys.map((k) => k.getAttribute('aria-label'))).toEqual(['Move to top', 'Move up', 'Move down', 'Remove']);
+    expect(keys.every((k) => k.classList.contains('key'))).toBe(true);
+  });
+
+  it("arms f3's remove on the first click to a visible `Remove?`, sending no request yet", async () => {
     const { calls } = renderView();
     await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
 
     const remove = within(cardFor('Konnektoren')).getByLabelText('Remove');
+    expect(remove.textContent).toBe('');
     fireEvent.click(remove);
 
-    expect(remove.textContent).toBe('sure?');
+    expect(remove.textContent).toBe('Remove?');
+    expect(remove.getAttribute('aria-label')).toBe('Confirm remove');
     expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
   });
 
-  it("deletes f3 on the second ✕ tap: DELETEs, drops the card, and the bay count falls to 2", async () => {
+  it("deletes f3 on the second tap: DELETEs, drops the card, and the band recounts", async () => {
     const { calls } = renderView();
     await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
 
@@ -532,11 +614,11 @@ describe('FavoritesView — card controls (Task 8)', () => {
     expect(del?.url).toBe('/api/favorites/f3');
     expect(screen.queryByText('Konnektoren')).toBeNull();
 
-    const germanBay = document.querySelectorAll('.bay')[1] as HTMLElement;
-    expect(germanBay.querySelector('.bay-count')?.textContent).toContain('2');
+    expect(germanTitles()).toEqual(['Die Tabelle', 'Quiz']);
+    expect(bandLine()).toBe('3 saved blocks from 2 guides · newest on top');
   });
 
-  it("disarms f3's ✕ back to idle on blur, without deleting", async () => {
+  it("disarms f3's remove back to idle on blur, without deleting", async () => {
     const { calls } = renderView();
     await waitFor(() => expect(screen.getByText('Held socket')).toBeTruthy());
 
@@ -544,7 +626,7 @@ describe('FavoritesView — card controls (Task 8)', () => {
     fireEvent.click(remove);
     fireEvent.blur(screen.getByLabelText('Confirm remove'));
 
-    expect(within(cardFor('Konnektoren')).getByLabelText('Remove').textContent).toBe('✕');
+    expect(within(cardFor('Konnektoren')).getByLabelText('Remove').textContent).toBe('');
     expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
   });
 
@@ -602,7 +684,7 @@ describe('FavoritesView — card controls (Task 8)', () => {
       let textarea = card.querySelector('.fav-note-input') as HTMLTextAreaElement;
       fireEvent.change(textarea, { target: { value: 'discarded' } });
       fireEvent.keyDown(textarea, { key: 'Escape' });
-      expect(card.querySelector('.fav-note')?.textContent).toBe('add a note');
+      expect(card.querySelector('.fav-note')?.textContent).toBe('Add a note');
 
       // Second edit session: exits via a genuine blur. A stale latch would
       // drop this commit and leave the textarea open.

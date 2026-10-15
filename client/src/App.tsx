@@ -118,7 +118,7 @@ function AppShell() {
         {/* Only the guide list and its viewer need the extra room — Favorites and
             Settings both read better narrow, like a column of cards or of rows. */}
         <div className={current === 'guides' ? 'wrap wide' : 'wrap'}>
-          <Suspense fallback={<div className="guides-empty">Loading…</div>}>
+          <Suspense fallback={<div className="empty-line">Loading…</div>}>
             {current === 'guides' ? (
               <GuidesView guides={guides} scope={guideScope} />
             ) : current === 'favorites' ? (

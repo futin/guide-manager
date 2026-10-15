@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { App } from '../client/src/App';
 import type { Favorite, GuidesIndex } from '../shared/types';
@@ -62,8 +62,10 @@ const treeRow = (label: string) => {
 };
 const current = () => document.querySelector('.rail .rail-sublink[aria-current="true"] .rail-sublabel')?.textContent;
 const cardTitles = () => [...document.querySelectorAll('.guide-tile-title')].map((n) => n.textContent);
-/* Favorites still groups into bays; the Guides board heads each project with its own name only when unscoped — scoped, the band names it instead. */
-const bayNames = () => [...document.querySelectorAll('.bay-name')].map((n) => n.textContent);
+/* Both boards head each project with its own name only when unscoped — scoped, the band names it instead. */
+const favTitles = () => [...document.querySelectorAll('.fav-title')].map((n) => n.textContent);
+const favProjectNames = () => [...document.querySelectorAll('.fav-project-name')].map((n) => n.textContent);
+const favBandTitle = () => document.querySelector('.fav-band h1')?.textContent;
 const projectNames = () => [...document.querySelectorAll('.board-project-name')].map((n) => n.textContent);
 const bandTitle = () => document.querySelector('.board-band h1')?.textContent;
 
@@ -121,7 +123,8 @@ describe('App — the rail owns the project scope', () => {
     mockFetch();
     store('guide-manager.favProject', 'beta');
     await renderOn('favorites', 'Saved beta');
-    expect(bayNames()).toEqual(['beta']);
+    expect(favTitles()).toEqual(['Saved beta']);
+    expect(favBandTitle()).toBe('Favorites · beta');
     expect(current()).toBe('beta');
   });
 
@@ -130,7 +133,9 @@ describe('App — the rail owns the project scope', () => {
     await renderOn('favorites', 'Saved beta');
     act(() => { treeRow('alpha').click(); });
     expect(stored('guide-manager.favProject')).toBe('alpha');
-    expect(bayNames()).toEqual(['alpha']);
+    expect(favBandTitle()).toBe('Favorites · alpha');
+    expect(favTitles()).toEqual(['Saved alpha']);
+    expect(favProjectNames()).toEqual([]);
   });
 
   it('fails a stale stored favorites name open to All projects, without rewriting it', async () => {
@@ -138,8 +143,29 @@ describe('App — the rail owns the project scope', () => {
     store('guide-manager.favProject', 'gone');
     await renderOn('favorites', 'Saved beta');
     expect(current()).toBe('All projects');
-    expect(bayNames()).toEqual(['alpha', 'beta']);
+    expect(favBandTitle()).toBe('Favorites · All projects');
+    expect(favProjectNames()).toEqual(['alpha', 'beta']);
     expect(stored('guide-manager.favProject')).toBe('gone');
+  });
+
+  /*
+    Review Focus 4: removing the last favorite of the scoped project takes its rail row with it, so the scope fails open to All projects — and like any
+    other stale scope it is not rewritten. Save into beta again and the rail comes back to beta on its own.
+  */
+  it('fails open to All projects when the scoped project loses its last favorite, keeping the stored name', async () => {
+    mockFetch();
+    store('guide-manager.favProject', 'beta');
+    await renderOn('favorites', 'Saved beta');
+    expect(treeRow('beta')).toBeTruthy();
+
+    const card = [...document.querySelectorAll<HTMLElement>('.fav-card')].find((c) => c.querySelector('.fav-title')?.textContent === 'Saved beta')!;
+    fireEvent.click(within(card).getByLabelText('Remove'));
+    fireEvent.click(within(card).getByLabelText('Confirm remove'));
+
+    await waitFor(() => expect(favBandTitle()).toBe('Favorites · All projects'));
+    expect([...document.querySelectorAll('.rail .rail-sublabel')].map((n) => n.textContent)).not.toContain('beta');
+    expect(current()).toBe('All projects');
+    expect(stored('guide-manager.favProject')).toBe('beta');
   });
 
   /* ------------------------------------------------------------------ failure is per section */

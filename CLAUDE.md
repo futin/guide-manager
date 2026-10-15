@@ -36,7 +36,7 @@ the tailnet port and the local port cannot drift apart.
   (`GET /guide`, `GET /asset`, served styles/scripts), `registry/`
   (read-only), `static.ts`.
 - `client/src/` — React SPA: side rail, Guides view (iframe per guide), a
-  Favorites view (saved blocks grouped into per-project bays), Settings. The
+  Favorites view (saved blocks as sheets, one section per project), Settings. The
   Guides toolbar filters client-side over the fetched index — no route, no
   proxy entry. Its type switch and sort persist to `guide-manager.*` keys; the search
   query deliberately does not.
