@@ -32,9 +32,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [settings, setStored]
   );
 
-  // Theme, density and text scale are all pure CSS: everything downstream keys
-  // off these three root values, so no component re-renders when they change.
-  // Theme and scale are stamped pre-paint by the inline script in index.html —
+  // Theme, density, content width and text scale are all pure CSS: everything
+  // downstream keys off these root values, so no component re-renders when they
+  // change. All four are stamped pre-paint by the inline script in index.html —
   // and the theme again by the identical script the server injects into every
   // rendered guide page — so this effect only keeps them in step afterwards.
   //
@@ -47,8 +47,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     root.dataset.theme = settings.theme;
     root.dataset.density = settings.density;
+    root.dataset.width = settings.contentWidth;
     root.style.setProperty('--font-scale', String(settings.fontScale / 100));
-  }, [settings.theme, settings.density, settings.fontScale]);
+  }, [settings.theme, settings.density, settings.contentWidth, settings.fontScale]);
 
   // Two keys, one truth. `guide-manager.settings` is this app's state;
   // `guide-manager:bionic` is the contract assets/bionic.js already reads — in

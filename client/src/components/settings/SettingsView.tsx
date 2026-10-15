@@ -1,6 +1,6 @@
 import { Segmented, SettingsGroup, SettingsRow, Switch } from './SettingsRow';
 import { useSettings } from '../../hooks/useSettings';
-import { FONT_SCALES, THEMES, type Landing, type ThemeId } from '../../lib/settings';
+import { FONT_SCALES, THEMES, type ContentWidth, type Landing, type ThemeId } from '../../lib/settings';
 
 /**
  * Preview colors per theme — board / strip / accent, in that order. A mirror of
@@ -19,6 +19,11 @@ const SWATCHES: Record<ThemeId, [string, string, string]> = {
 const DENSITIES = [
   { value: 'comfortable' as const, label: 'Comfortable' },
   { value: 'compact' as const, label: 'Compact' }
+];
+
+const CONTENT_WIDTHS: { value: ContentWidth; label: string }[] = [
+  { value: 'fixed', label: 'Fixed' },
+  { value: 'full', label: 'Full' }
 ];
 
 /**
@@ -103,6 +108,10 @@ export default function SettingsView() {
 
             <SettingsRow name="Density" hint="Compact tightens padding and the gaps between cards — more guides per screen.">
               <Segmented value={settings.density} options={DENSITIES} onChange={(density) => update({ density })} />
+            </SettingsRow>
+
+            <SettingsRow name="Content width" hint="Full lets the board and the open guide use the whole window instead of a fixed column.">
+              <Segmented value={settings.contentWidth} options={CONTENT_WIDTHS} onChange={(contentWidth) => update({ contentWidth })} />
             </SettingsRow>
 
             {/* A select, not four segments (spec §6): four percentages side by side are wider than a half-width card has room for at 768 px. */}
