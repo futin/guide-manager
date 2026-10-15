@@ -286,7 +286,9 @@ code, kbd, samp, pre { font-family: inherit }
      divided: --body-pad is a px length inside the zoomed subtree, so it is
      already scaled by the same factor and dividing it would undo that. */
   .wrap.wide { display: flex; flex-direction: column; height: calc(100vh / var(--font-scale, 1) - 2 * var(--body-pad)) }
-  .wrap.wide .guides { flex: 1; min-height: 0; overflow-y: auto }
+  /* `.board` is the Guides board's root (GuidesView). It was `.guides` until the board redesign renamed it; this selector was left behind, so the board
+     overflowed the fixed-height wrap, the PAGE scrolled instead, and the sticky rail — bounded by the one-viewport-tall .shell — scrolled off with it. */
+  .wrap.wide .board { flex: 1; min-height: 0; overflow-y: auto }
   .wrap.wide .guide-viewer { flex: 1; min-height: 0 }
 }
 
@@ -321,9 +323,10 @@ code, kbd, samp, pre { font-family: inherit }
 .board-project-name { font-size: 19px; font-weight: 500; color: var(--ink) } /* title */
 
 /* Every tappable sheet on the board. No border and no shadow (§1): hover lifts the sheet onto --strip-hi instead, the same fill the rail uses for a
-   row under the pointer's attention. */
+   row under the pointer's attention. Gated on `:not(.scrolling)`: GuidesView sets that class while the board moves, or a resting pointer hovers each
+   row that slides under it and the fill walks down the list. */
 .guide-tile, .continue-tile, .series-row { cursor: pointer; transition: background .15s }
-.guide-tile:hover, .continue-tile:hover, .series-row:hover { background: var(--strip-hi) }
+.board:not(.scrolling) :is(.guide-tile, .continue-tile, .series-row):hover { background: var(--strip-hi) }
 
 /* Continue reading: up to four equal columns — a row of four is the cap the row itself enforces, so the grid never leaves a fifth column empty. Below
    the wide board it wraps to two; four 15/500 titles in a 640 px column would each get a word. */
