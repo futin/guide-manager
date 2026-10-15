@@ -495,36 +495,30 @@ code, kbd, samp, pre { font-family: inherit }
 .pill-study { color: var(--mustard-ink); background: var(--mustard-tint) }
 .pill-tutor { color: var(--magenta-ink); background: var(--magenta-tint) }
 
-/* Viewer pane — .guide-viewer-head is kept as its own element deliberately: it
-   is the exact class name a later companion panel would mount into, so its
-   shape stays stable. */
-.guide-viewer { display: flex; flex-direction: column; min-height: 0; gap: 12px }
-.guide-viewer-head {
-  display: flex; align-items: center; gap: 10px;
-  padding-bottom: 10px; border-bottom: 1px solid var(--hairline);
-}
-.guide-viewer-back {
-  font-family: var(--font); font-size: 11.5px; color: var(--ink2);
-  background: var(--steel); border: 1px solid var(--hairline); border-radius: 12px;
-  padding: 5px 10px; cursor: pointer; transition: color .15s, border-color .15s;
-}
-.guide-viewer-back:hover { color: var(--ink); border-color: var(--hairline2) }
-.guide-viewer-title { font-size: 13px; font-weight: 600; color: var(--ink) }
-/* Reset sits at the far end of the head, pushed there by margin-left:auto rather
-   than by a spacer element: the title is allowed to run, and the two controls
-   should stay pinned to opposite ends however long it runs. Styled as a quiet
-   sibling of the back button until it is armed — an always-loud destructive
-   control trains the eye to ignore it, which is the opposite of what the second
-   tap is for. */
-.guide-viewer-reset {
-  margin-left: auto;
-  font-family: var(--font); font-size: 11.5px; color: var(--ink2);
-  background: var(--steel); border: 1px solid var(--hairline); border-radius: 12px;
-  padding: 5px 10px; cursor: pointer; transition: color .15s, border-color .15s;
-}
-.guide-viewer-reset:hover { color: var(--ink); border-color: var(--hairline2) }
-.guide-viewer-reset.armed { color: var(--bad, #c0392b); border-color: var(--bad, #c0392b) }
-.guide-viewer-body { flex: 1; min-height: 200px; display: flex; flex-direction: column; overflow: hidden }
+/* Viewer pane — .guide-viewer-head (drawn by guides/ViewerHeader.tsx) is kept as its own element deliberately: it is the exact class name a later
+   companion panel would mount into, so its shape stays stable.
+
+   The head is a band on the ground, like the board's, not a sheet: back, the crumb over the title, the furthest pill, Start over. It wraps on a narrow
+   width rather than squeezing — the title block takes the slack (flex 1 with a 200 px basis), so the pill and Start over drop to a second line together
+   before the title is crushed to an ellipsis of three letters. Crumb and title each hold one line and ellipsize: a head whose height depends on how long
+   a title runs would make the tablet floor below a guess. */
+.guide-viewer { display: flex; flex-direction: column; min-height: 0; gap: 16px }
+.guide-viewer-head { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; row-gap: 10px }
+.guide-viewer-back { flex: none; padding: 0 12px 0 8px; gap: 4px }
+.guide-viewer-titles { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column }
+.guide-viewer-crumb, .guide-viewer-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.guide-viewer-crumb { font-size: 13px; color: var(--ink3) } /* body */
+.guide-viewer-title { font-size: 19px; font-weight: 500; line-height: 1.25; color: var(--ink) } /* title */
+.guide-viewer-pct { color: var(--ink2); background: var(--steel) }
+/* Quiet until armed, like every destructive control here: an always-loud one trains the eye to ignore it, which is the opposite of what the second tap
+   is for. Armed is an outline and red ink rather than .btn.danger.armed's solid fill — the button is relabelled `Start over?` at the same moment, and
+   the question is the loud part. */
+.guide-viewer-reset { flex: none; color: var(--ink2) }
+.guide-viewer-reset.armed { color: var(--red); border-color: var(--red) }
+.guide-viewer-reset.armed:hover:not(:disabled) { border-color: var(--red) }
+/* The iframe sits flush inside a 16 px clip with no sheet or border of its own: the guide paints its own background, and a frame around it would be
+   a second edge just inside the one the clip already draws. */
+.guide-viewer-body { flex: 1; min-height: 200px; display: flex; flex-direction: column; overflow: hidden; border-radius: 16px }
 .guide-viewer-frame { flex: 1 1 auto; border: 0; width: 100% }
 
 /* Phones: below 1280px the shell is a plain scrolling page, so .guide-viewer has
@@ -541,16 +535,20 @@ code, kbd, samp, pre { font-family: inherit }
        division the rail gets — otherwise the overlay hangs off two edges. */
     height: calc(100dvh / var(--font-scale, 1)); width: calc(100vw / var(--font-scale, 1));
   }
-  .guide-viewer-head { flex-shrink: 0; padding: 11px 12px; background: var(--strip); box-shadow: inset 0 1px 0 var(--edge) }
-  /* the overlay supplies the height; the 200px floor would now be a floor on nothing */
-  .guide-viewer-body { min-height: 0 }
+  .guide-viewer-head { flex-shrink: 0; padding: 10px 12px; background: var(--strip); box-shadow: inset 0 1px 0 var(--edge) }
+  /* the overlay supplies the height; the 200px floor would now be a floor on nothing, and a rounded clip would leave four corners of the ground
+     showing at the screen's edges */
+  .guide-viewer-body { min-height: 0; border-radius: 0 }
 }
 /* Tablets: same missing height, but the rail is a left column here and the page
    reads fine as a scroller — so keep the viewer in flow and give the body a
    viewport-derived floor instead. Subtrahend is .main's padding (twice) plus the
-   head and the gap above it. */
+   head and the gap under it: 59px = the head's one-line height (measured at 42.6px — the
+   13px crumb over the 19px title, taller than the 36px controls beside them) plus the
+   16px gap. A head wrapped onto two lines makes the page scroll by that second line,
+   the same compromise the old 62px made. */
 @media (min-width: 640px) and (max-width: 1279px) {
-  .guide-viewer-body { min-height: calc(100dvh / var(--font-scale, 1) - 2 * var(--body-pad) - 62px) }
+  .guide-viewer-body { min-height: calc(100dvh / var(--font-scale, 1) - 2 * var(--body-pad) - 59px) }
 }
 /* The framed guide scrolls inside another document, which cannot be given
    `overscroll-behavior` from here — so the scroll chain is refused at the root

@@ -72,7 +72,7 @@ export interface FavoriteCardProps {
  * elsewhere in this app rather than inventing its own:
  *
  * - The delete button's two-tap `sure?` is the same shape as GuidesView's
- *   viewer-header `↺ reset` (see CLAUDE.md's "Starting a guide over has
+ *   viewer-header `Start over` (see CLAUDE.md's "Starting a guide over has
  *   exactly one control" invariant) — a destructive control that is loud
  *   only *after* the first tap, and disarms on blur here rather than on a
  *   tracked "did the target change" effect, because a card's own delete

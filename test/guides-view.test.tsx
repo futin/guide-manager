@@ -507,6 +507,73 @@ describe('GuidesView', () => {
     expect(cardTitles()).toHaveLength(4);
   });
   /*
+    The viewer header (spec §4): `‹ Guides`, a crumb over the title, the furthest pill and `Start over`. The crumb and the pill are read out of the
+    *current* index by the open path rather than frozen at open time, so a refetch while the guide is open repaints them — and a refetch that no longer
+    names the guide leaves the viewer standing with the title alone over it.
+  */
+  describe('viewer header', () => {
+    const crumb = () => document.querySelector('.guide-viewer-crumb')?.textContent;
+    const title = () => document.querySelector('.guide-viewer-title')?.textContent;
+    const pill = () => document.querySelector('.guide-viewer-head .pill');
+
+    it('names a lesson by project, series and place, with its furthest mark', async () => {
+      await renderGuides(BOARD, '/b');
+      openTile('Indexes');
+      expect(crumb()).toBe('board-project · Mongo internals · 2 of 3');
+      expect(title()).toBe('Indexes');
+      expect(pill()?.textContent).toBe('40% furthest');
+    });
+
+    it('names a loose guide by its project alone', async () => {
+      await renderGuides(BOARD, '/b');
+      openTile('Gamma notes');
+      expect(crumb()).toBe('board-project');
+      expect(pill()?.textContent).toBe('62% furthest');
+    });
+
+    it('draws no pill for a guide never read past the top', async () => {
+      await renderGuides();
+      openTile('Alpha Guide');
+      expect(title()).toBe('Alpha Guide');
+      expect(pill()).toBeNull();
+    });
+
+    it('reads Read once the guide reports completion, not a percent', async () => {
+      await renderGuides();
+      openTile('Beta Deck');
+      expect(pill()?.textContent).toBe('Read');
+      expect(pill()?.className).toBe('pill read');
+    });
+
+    it('keeps the viewer open with the title alone when a refetch drops the guide', async () => {
+      const fetchMock = (await renderGuides(BOARD, '/b'), globalThis.fetch as jest.Mock);
+      openTile('Indexes');
+      expect(crumb()).toBe('board-project · Mongo internals · 2 of 3');
+
+      fetchMock.mockResolvedValue({ ok: true, json: () => Promise.resolve(UNREAD) });
+      act(() => {
+        window.dispatchEvent(new MessageEvent('message', { data: { source: 'guide-manager', kind: 'progress' } }));
+      });
+      await waitFor(() => expect(crumb()).toBe('Indexes'));
+      expect(title()).toBe('Indexes');
+      expect(document.querySelector('iframe.guide-viewer-frame')).toBeTruthy();
+      expect(pill()).toBeNull();
+    });
+
+    it('goes back to the board on ‹ Guides, fetching the index exactly once more', async () => {
+      const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
+      openTile('Beta Deck');
+      fetchMock.mockClear();
+
+      act(() => { screen.getByRole('button', { name: 'Guides' }).click(); });
+      await waitFor(() => expect(document.querySelector('.board-band')).toBeTruthy());
+      await waitFor(() => expect(cardTitles().length).toBeGreaterThan(0));
+      expect(document.querySelector('.guide-viewer')).toBeNull();
+      expect(fetchMock.mock.calls.filter((c) => c[0] === '/api/guides')).toHaveLength(1);
+    });
+  });
+
+  /*
     Reset lives in the viewer head, not on the board's tiles. A tile is a
     whole-tile role="button" in a dense grid, and a nested destructive control
     there is one mis-tap from discarding a session on the device this app exists
@@ -515,7 +582,7 @@ describe('GuidesView', () => {
   describe('resetting one guide', () => {
     const openViewer = openTile;
 
-    const resetButton = () => screen.getByRole('button', { name: /reset|sure/i });
+    const resetButton = () => screen.getByRole('button', { name: /start over/i });
 
     it('needs two taps, and sends nothing on the first', async () => {
       const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
@@ -526,7 +593,8 @@ describe('GuidesView', () => {
       // The first tap only arms the control. A single-tap DELETE beside the back
       // link is a mis-tap away from throwing a reading session away.
       expect(fetchMock).not.toHaveBeenCalled();
-      expect(resetButton().textContent).toMatch(/sure/i);
+      expect(resetButton().textContent).toBe('Start over?');
+      expect(resetButton().className).toMatch(/\barmed\b/);
 
       act(() => { resetButton().click(); });
       expect(fetchMock).toHaveBeenCalledWith(
@@ -550,6 +618,33 @@ describe('GuidesView', () => {
       });
     });
 
+    it('reloads the frame only once the DELETE has resolved, never before', async () => {
+      const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
+      openViewer('Beta Deck');
+      /* The DELETE is held open by hand, so the window between "sent" and "answered" is one the test can stand in. A frame remounted inside it would
+         report its old position and re-create the row the reset was removing. */
+      let answer!: () => void;
+      const deleting = new Promise<{ ok: boolean; json: () => Promise<unknown> }>((resolve) => {
+        answer = () => resolve({ ok: true, json: () => Promise.resolve(null) });
+      });
+      const fallback = fetchMock.getMockImplementation();
+      fetchMock.mockImplementation((url: string, init?: { method?: string }) =>
+        init?.method === 'DELETE' ? deleting : fallback!(url, init));
+
+      const before = document.querySelector('iframe.guide-viewer-frame');
+      act(() => { resetButton().click(); });
+      act(() => { resetButton().click(); });
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/progress?guidePath=${encodeURIComponent('/p/g/deck.html')}`,
+        expect.objectContaining({ method: 'DELETE' })
+      );
+      await act(async () => { await Promise.resolve(); });
+      expect(document.querySelector('iframe.guide-viewer-frame')).toBe(before);
+
+      await act(async () => { answer(); await deleting; });
+      await waitFor(() => expect(document.querySelector('iframe.guide-viewer-frame')).not.toBe(before));
+    });
+
     it('refetches the board, so the card stops claiming a position the server forgot', async () => {
       const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
       openViewer('Beta Deck');
@@ -563,13 +658,13 @@ describe('GuidesView', () => {
       await renderGuides();
       openViewer('Beta Deck');
       act(() => { resetButton().click(); });
-      expect(resetButton().textContent).toMatch(/sure/i);
+      expect(resetButton().textContent).toBe('Start over?');
 
       act(() => { screen.getByRole('button', { name: /Guides/ }).click(); });
       openViewer('Gamma');
       // An armed control must not still be armed over a different guide: the
       // next tap would then reset something the reader never aimed at.
-      expect(resetButton().textContent).toMatch(/reset/i);
+      expect(resetButton().textContent).toBe('Start over');
     });
   });
   /*

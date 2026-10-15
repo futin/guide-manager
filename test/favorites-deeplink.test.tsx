@@ -24,7 +24,7 @@ function Board() {
  * The crumb used to link straight at `GET /guide`, which is the inner page: its
  * shell exists to be framed by the app's viewer, and `body.deck-host main` drops
  * its max-width on that assumption. At the top level nothing constrains it, so a
- * favorite opened full-bleed with no rail, no `‹ Guides` and no `↺ reset` —
+ * favorite opened full-bleed with no rail, no `‹ Guides` and no `Start over` —
  * visibly a different app from the one the board opens. The link now names the
  * app, and the app opens its ordinary viewer.
  *
@@ -159,8 +159,8 @@ describe('GuidesView — arriving on a deep link', () => {
     render(<Board />);
 
     await waitFor(() => expect(document.querySelector('.guide-viewer')).toBeTruthy());
-    expect(document.querySelector('.guide-viewer-back')?.textContent).toBe('‹ Guides');
-    expect(document.querySelector('.guide-viewer-reset')?.textContent).toBe('↺ reset');
+    expect(document.querySelector('.guide-viewer-back')?.textContent).toBe('Guides');
+    expect(document.querySelector('.guide-viewer-reset')?.textContent).toBe('Start over');
     expect(document.querySelector('.guide-viewer-title')?.textContent).toBe('Beta Deck');
     // The board's own scroll-chain lock, exactly as an ordinary open sets it.
     expect(document.documentElement.classList.contains('guide-locked')).toBe(true);

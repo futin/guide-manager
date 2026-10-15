@@ -105,7 +105,8 @@ the tailnet port and the local port cannot drift apart.
   message carries no numbers: any frame can post to top, so a stated percent
   could lie.
 - **Starting a guide over has exactly one control**: the viewer header's
-  `↺ reset` in `GuidesView`. It DELETEs the row, refetches, then bumps the
+  `Start over` (`ViewerHeader`; its armed state is held by `GuidesView`, which
+  disarms it on every change of guide). It DELETEs the row, refetches, then bumps the
   iframe key — the reload strictly after the `DELETE` resolves, or the frame
   reports its old position and re-creates the row. The in-guide notice carries
   no second button on purpose.
@@ -129,7 +130,7 @@ the tailnet port and the local port cannot drift apart.
   shell is built to be framed — `body.deck-host main` drops its `max-width`
   because the app's `.wrap.wide` around the iframe is what constrains it — so
   linked at the top level it opened full-bleed with no rail, no `‹ Guides` and
-  no `↺ reset`. `deeplink.ts` is the one place that spells the query out; App
+  no `Start over`. `deeplink.ts` is the one place that spells the query out; App
   picks the section from it, `GuidesView` opens the viewer once the index names
   the guide, and clears it from the address bar — the link is an arrival, not
   state. An unknown path drops to the board, like every other moved guide.
