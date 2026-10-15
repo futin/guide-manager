@@ -35,8 +35,9 @@ the tailnet port and the local port cannot drift apart.
   (`GET`/`POST`/`PATCH`/`PUT order`/`DELETE /api/favorites`), `render/`
   (`GET /guide`, `GET /asset`, served styles/scripts), `registry/`
   (read-only), `static.ts`.
-- `client/src/` — React SPA: side rail, Guides view (iframe per guide), a
-  Favorites view (saved blocks as sheets, one section per project), Settings. The
+- `client/src/` — React SPA: side rail (per-project trees under Guides and Favorites; a 60 px top bar and menu under 640 px), Guides view (iframe per
+  guide), a Favorites view (saved blocks as sheets, one section per project), Settings. `App` owns `useGuides`/`useFavorites` so the rail counts both
+  indexes. Neither toolbar carries a project select — the scope is the rail's. The
   Guides toolbar filters client-side over the fetched index — no route, no
   proxy entry. Its type switch and sort persist to `guide-manager.*` keys; the search
   query deliberately does not.
@@ -110,6 +111,11 @@ the tailnet port and the local port cannot drift apart.
   iframe key — the reload strictly after the `DELETE` resolves, or the frame
   reports its old position and re-creates the row. The in-guide notice carries
   no second button on purpose.
+- **The project scope is a rail destination.** Only the rail writes `guide-manager.project` (a path, or `'all'`) and `guide-manager.favProject` (a name,
+  or `'all'`). A stored value the data does not name fails open: the view renders `All projects` and the key is not rewritten — a project whose guides
+  are briefly unregistered comes back scoped as it was. `guide-manager.collapsedBays` is no longer read or written.
+- **`--mono` stays in `shared/theme.css` for one reader: a favorite's snapshot `<pre>`/`code`** (`.fav-body pre, .fav-body code`). The snapshot shows
+  what the reader saw, and the guide showed its code in a monospace. Everything else in the shell is one face (Hanken Grotesk); `--display` is gone.
 - **A deck resumes by clicking its own `Next`, never by setting `.active`** —
   the deck owns the card index, tally, progress bar and button state. An
   unanswered quiz card legitimately gates the walk; the target stays pending
