@@ -189,5 +189,5 @@ the tailnet port and the local port cannot drift apart.
 - **The PR title must pass `ci / pr-title`** — it becomes the squash commit once squash-only merges are applied: `feat|fix|perf` (`!` allowed) or
   `docs|chore|test|refactor|ci|build`, optional lowercase `(scope)`, `: `, a description. Bodies follow `.github/pull_request_template.md`.
 - **`ci.yml`'s job id stays `ci` and no job sets `name:`** — the `main-pr-only` ruleset requires `ci / checks`, `ci / pr-title`, `ci / skills` by
-  exactly those names, and a required context that never reports locks `main` (no bypass). Once that ruleset is applied (README §CI says whether it
-  is), `main` takes no direct push: backlog merges, docs commits and plugin-sync changes all land through a PR.
+  exactly those names, and a required context that never reports locks `main` (no bypass). The ruleset is applied (README §CI), so `main` takes no
+  direct push: backlog merges, docs commits and plugin-sync changes all land through a PR.

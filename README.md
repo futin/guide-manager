@@ -234,8 +234,9 @@ ruleset requiring a context that never reports leaves every PR pending, with no 
 **The ruleset.** `main-pr-only` (PR required, the three contexts above, branch up to date, linear history, no force push or deletion, no bypass actor)
 and squash-only merges (title = PR title, body = PR body, head branch deleted on merge) are applied by release-kit's
 `scripts/apply-repo-settings.sh futin/guide-manager`, dry run first, and only after a real PR has reported all three contexts green
-(`gh pr checks <n>`). **Not applied yet.** Once it is, nothing pushes to `main` directly — a backlog-orchestrate merge, a docs commit and a `git push`
-from `main` all go through a PR, and `pnpm run plugin:sync` runs after the merge has been pulled.
+(`gh pr checks <n>`). **Applied on 2026-10-15** (ruleset id 25169300), after PR #32 reported all three contexts green. Re-running the script updates
+the ruleset in place. Nothing pushes to `main` directly any more — a backlog-orchestrate merge, a docs commit and a `git push` from `main` are all
+refused and go through a PR instead, and `pnpm run plugin:sync` runs after the merge has been pulled.
 
 ## Repo layout
 
