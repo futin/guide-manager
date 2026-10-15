@@ -312,6 +312,30 @@ describe('GuidesView', () => {
     expect(document.querySelector('iframe.guide-viewer-frame')).toBeNull();
   });
 
+  /*
+    A pointer resting still while the board scrolls under it hovers whichever row passes beneath it, so the hover fill flickered down the list. The board
+    carries `scrolling` while either scroller moves — the page below 1280 px, the board itself above — and drops it once scrolling settles.
+  */
+  it('mutes hover while the page or the board scrolls, and restores it once scrolling settles', async () => {
+    await renderGuides();
+    const board = document.querySelector('.board') as HTMLElement;
+    jest.useFakeTimers();
+    try {
+      // A browser fires the viewport's scroll at `document` (it bubbles on to window); fired at `window` it would never pass through document's capture.
+      fireEvent.scroll(document);
+      expect(board.classList.contains('scrolling')).toBe(true);
+      act(() => { jest.advanceTimersByTime(200); });
+      expect(board.classList.contains('scrolling')).toBe(false);
+
+      fireEvent.scroll(board);
+      expect(board.classList.contains('scrolling')).toBe(true);
+      act(() => { jest.advanceTimersByTime(200); });
+      expect(board.classList.contains('scrolling')).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   /* ------------------------------------------------------------------ all projects */
 
   /*

@@ -24,15 +24,16 @@ describe('SettingsView', () => {
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
     document.documentElement.removeAttribute('data-density');
+    document.documentElement.removeAttribute('data-width');
     document.documentElement.style.removeProperty('--font-scale');
   });
 
-  it('offers all five themes and the six setting rows', () => {
+  it('offers all five themes and the seven setting rows', () => {
     renderSettings();
     for (const label of ['Midnight Radar', 'Graphite', 'Amber CRT', 'Nightshift', 'Daylight']) {
       expect(screen.getByRole('button', { name: new RegExp(label) })).toBeTruthy();
     }
-    for (const row of ['Density', 'Text size', 'Opens on', 'Bionic reading', 'Fixation', 'Every']) {
+    for (const row of ['Density', 'Content width', 'Text size', 'Opens on', 'Bionic reading', 'Fixation', 'Every']) {
       expect(screen.getByText(row)).toBeTruthy();
     }
   });
@@ -53,6 +54,21 @@ describe('SettingsView', () => {
     act(() => { screen.getByRole('button', { name: 'Compact' }).click(); });
     expect(document.documentElement.dataset.density).toBe('compact');
     expect(stored(SETTINGS_STORAGE_KEY).density).toBe('compact');
+  });
+
+  it('stamps the content width on <html> and persists the pick', () => {
+    // The stamp is the whole effect — the rule that releases the measure keys off
+    // `data-width` (content-width-css.test.ts), so no component re-renders for it.
+    renderSettings();
+    expect(document.documentElement.dataset.width).toBe('fixed');
+
+    act(() => { screen.getByRole('button', { name: 'Full' }).click(); });
+    expect(document.documentElement.dataset.width).toBe('full');
+    expect(stored(SETTINGS_STORAGE_KEY).contentWidth).toBe('full');
+
+    act(() => { screen.getByRole('button', { name: 'Fixed' }).click(); });
+    expect(document.documentElement.dataset.width).toBe('fixed');
+    expect(stored(SETTINGS_STORAGE_KEY).contentWidth).toBe('fixed');
   });
 
   it('sets --font-scale as a fraction, not a percentage', () => {

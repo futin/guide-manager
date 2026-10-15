@@ -26,6 +26,11 @@ export const THEMES = [
 export type ThemeId = (typeof THEMES)[number]['id'];
 export type Density = 'comfortable' | 'compact';
 /**
+ * `fixed` keeps each section on the measure it was laid out against (820 px, the Guides board 1280 px); `full` releases both caps so a wide monitor
+ * stops framing the board in empty margin. A device preference like the theme: the laptop and the phone want different answers.
+ */
+export type ContentWidth = 'fixed' | 'full';
+/**
  * Which section opens on load. `last` restores whatever you were on, which is
  * the default because a reading tool you come back to should still be showing
  * the guide list you left. Built on `Section` rather than a parallel string
@@ -37,6 +42,8 @@ export interface Settings {
   theme: ThemeId;
   /** Spacing only — never a colour, never a font size, so it composes with every theme. */
   density: Density;
+  /** Pure CSS, keyed off `<html data-width>` — see the `.wrap` rules in styles.css. */
+  contentWidth: ContentWidth;
   /** Percent. Applied as a `zoom` factor on `.shell`. */
   fontScale: number;
   landing: Landing;
@@ -51,6 +58,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'midnight',
   density: 'comfortable',
+  contentWidth: 'fixed',
   fontScale: 100,
   landing: 'last',
   bionicOn: false,
@@ -109,6 +117,7 @@ function clampInt(value: unknown, fallback: number, min: number, max: number): n
 
 const THEME_IDS = THEMES.map((t) => t.id);
 const DENSITIES = ['comfortable', 'compact'] as const;
+const CONTENT_WIDTHS = ['fixed', 'full'] as const;
 /**
  * Every value `landing` may hold. Listed rather than derived because `Section`
  * is a type and has no runtime members to iterate — so a section added to the
@@ -131,6 +140,7 @@ export function clampSettings(raw: unknown): Settings {
   return {
     theme: pickOne(s.theme, THEME_IDS, DEFAULT_SETTINGS.theme),
     density: pickOne(s.density, DENSITIES, DEFAULT_SETTINGS.density),
+    contentWidth: pickOne(s.contentWidth, CONTENT_WIDTHS, DEFAULT_SETTINGS.contentWidth),
     fontScale: clampInt(
       s.fontScale, DEFAULT_SETTINGS.fontScale,
       LIMITS.fontScale.min, LIMITS.fontScale.max

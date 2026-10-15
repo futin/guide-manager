@@ -64,20 +64,27 @@ describe('clampSettings', () => {
 
   it('falls back per field across the display knobs too', () => {
     // One bad display value must not take the other two — or the reading knobs —
-    // down with it. Three separate pickers, three independent fallbacks.
+    // down with it. Separate pickers, independent fallbacks.
     expect(clampSettings({
-      density: 'roomy', fontScale: 'huge', landing: 'analytics', theme: 'amber'
+      density: 'roomy', fontScale: 'huge', landing: 'analytics', contentWidth: 'wide', theme: 'amber'
     })).toEqual({
       ...DEFAULT_SETTINGS,
       theme: 'amber'
     });
   });
 
+  it('defaults the content width to fixed', () => {
+    // Fixed is the measure every section was laid out against; full is the opt-in.
+    expect(DEFAULT_SETTINGS.contentWidth).toBe('fixed');
+    expect(clampSettings({}).contentWidth).toBe('fixed');
+  });
+
   it('keeps each display knob when it is valid', () => {
-    const s = clampSettings({ density: 'compact', fontScale: 120, landing: 'settings' });
+    const s = clampSettings({ density: 'compact', fontScale: 120, landing: 'settings', contentWidth: 'full' });
     expect(s.density).toBe('compact');
     expect(s.fontScale).toBe(120);
     expect(s.landing).toBe('settings');
+    expect(s.contentWidth).toBe('full');
   });
 
   it('clamps the text scale to 80-130 and rounds it to an integer', () => {

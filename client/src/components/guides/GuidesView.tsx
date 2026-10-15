@@ -312,6 +312,39 @@ export default function GuidesView({ guides, scope }: Props) {
   }, [viewing, refetch]);
 
   /*
+    Hover fills are muted while the board moves under a still pointer.
+
+    Scrolling does not move the pointer, but the browser re-hit-tests after every
+    scroll step, so whichever row slides under a resting cursor takes the
+    `--strip-hi` fill for a frame or two and drops it again — the highlight walks
+    down the list and reads as rows changing colour at random. `scrolling` on the
+    board switches the fill off until scrolling has been quiet for 150 ms; the CSS
+    gates every board hover on `:not(.scrolling)`.
+
+    One capturing listener on `document` rather than one per scroller: `scroll`
+    does not bubble, but it does pass through the capture phase, so this hears the
+    page (below 1280 px the window scrolls) and `.board` (above it the board is
+    its own scroller) alike. The class is toggled on the element directly, not
+    through state — a re-render of the whole board on every scroll event would
+    cost far more than the flicker it removes. The ref is read at event time, so
+    the board unmounting under the viewer and coming back needs no re-subscribe.
+  */
+  const boardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    const onScroll = () => {
+      boardRef.current?.classList.add('scrolling');
+      clearTimeout(settle);
+      settle = setTimeout(() => boardRef.current?.classList.remove('scrolling'), 150);
+    };
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener('scroll', onScroll, { capture: true });
+      clearTimeout(settle);
+    };
+  }, []);
+
+  /*
     Reset one guide, then ask for the board again.
 
     The refetch is not optional: the card's meta line is a claim about stored
@@ -510,7 +543,7 @@ export default function GuidesView({ guides, scope }: Props) {
   );
 
   return (
-    <div className="board">
+    <div className="board" ref={boardRef}>
       {/* A band on the ground, not a card: it names the page and says what the
           scope holds, over the scope before any filter — the counts below the
           toolbar's switch are the ones that answer to the filters. */}
