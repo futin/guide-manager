@@ -80,8 +80,9 @@ restated; this document covers only what differs here.
   `AppShell`, outside the rail, so no ancestor of the rail can become the fixed panel's containing block. Opening it refreshes first.
 - **Entry**: version, type badge, separate Breaking badge, date, `displayTitle`, notes (D5) when non-empty, `PR #N` link when the origin is on GitHub. The
   baseline is a divider: `Versioning starts here · v0.1.0` and its date. Head: `What's new` and `running v0.2.0+1`.
-- **Badges**: `feat` → green, `fix` → amber, `perf` → cyan, Breaking → red, each its `*-ink` text on its `*-tint` background. Only amber has both today
-  (`shared/theme.css:55-60`), so every theme block gains literal `--green-ink`, `--cyan-tint`, `--cyan-ink`, `--red-tint`, `--red-ink` — no `color-mix()`,
+- **Badges**: `feat` → green, `fix` → amber, `perf` → magenta, Breaking → red, each its `*-ink` text on its `*-tint` background. Not cyan for `perf`, as
+  backlog-manager has it: Daylight's `--cyan` is a green and Amber's an amber, so it would collide with Feature or Fix. Amber and magenta have both tokens
+  today (`shared/theme.css:55-60`), so every theme block gains literal `--green-ink`, `--red-tint`, `--red-ink` — no `color-mix()`,
   no `var()`, the `--magenta-ink` rule: the hue itself where it clears 4.5:1 on its tint over `--strip`, else mixed toward `--ink` just far enough.
   `test/theme-tokens.test.ts` gains a row asserting ≥ 4.5:1 for each of the four badge pairs on every palette.
 

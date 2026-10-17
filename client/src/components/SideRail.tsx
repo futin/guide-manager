@@ -24,6 +24,11 @@ interface Props {
   guideScope: string;
   favScope: string;
   onScope: (section: Scoped, scope: string) => void;
+  /**
+   * The version chip: the running version's label, whether a release has landed since this browser last opened What's new, and the open. Absent, no
+   * chip — the checkout has no version yet, or the read has not answered. The drawer itself is AppShell's, rendered outside this nav.
+   */
+  releases?: { label: string; dot: boolean; onOpen: () => void };
 }
 
 /**
@@ -42,7 +47,7 @@ interface Props {
  * hold. The one disclosure in the whole nav is the phone bar's ☰, which does hold one (the menu), and it lives in `.mnav`, outside `.rail`, so the
  * rule stays checkable as "nothing inside `.rail`".
  */
-export function SideRail({ section, onChange, guideRows, favRows, guideScope, favScope, onScope }: Props) {
+export function SideRail({ section, onChange, guideRows, favRows, guideScope, favScope, onScope, releases }: Props) {
   /* Phone only — `.mnav` is `display:none` from 640 px up, so on a desktop this stays false and the rail never sees the open modifier. */
   const [open, setOpen] = useState(false);
 
@@ -122,6 +127,20 @@ export function SideRail({ section, onChange, guideRows, favRows, guideScope, fa
             </div>
           );
         })}
+        {/* The rail's last element, sunk to its foot on the desktop; in the phone menu its last row, and like every row there a tap closes the menu. */}
+        {releases && (
+          <button
+            className="rail-version"
+            aria-label={releases.dot ? `What's new — ${releases.label}, new release` : `What's new — ${releases.label}`}
+            onClick={() => {
+              releases.onOpen();
+              setOpen(false);
+            }}
+          >
+            <span className="rail-version-label">{releases.label}</span>
+            {releases.dot && <span className="rail-version-dot" aria-hidden="true" />}
+          </button>
+        )}
       </nav>
     </>
   );

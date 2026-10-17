@@ -39,7 +39,7 @@ the tailnet port and the local port cannot drift apart.
   (`GET`/`POST`/`DELETE /api/progress`), `favorites/`
   (`GET`/`POST`/`PATCH`/`PUT order`/`DELETE /api/favorites`), `render/`
   (`GET /guide`, `GET /asset`, served styles/scripts), `registry/`
-  (read-only), `static.ts`.
+  (read-only), `releases/` (`GET /api/releases`, the app's own release tags), `static.ts`.
 - `client/src/` — React SPA: side rail (per-project trees under Guides and Favorites; a 60 px top bar and menu under 640 px), Guides view (iframe per
   guide), a Favorites view (saved blocks as sheets, one section per project), Settings. `App` owns `useGuides`/`useFavorites` so the rail counts both
   indexes. Neither toolbar carries a project select — the scope is the rail's. The
@@ -177,6 +177,12 @@ the tailnet port and the local port cannot drift apart.
   as the web port — it answers the render routes and the built bundle.
   `test/tailnet-script.test.ts` asserts the general form, not three named
   ports, so a later service cannot quietly reopen the hole.
+- **The release tag is the record; the version chip is a convenience.** The app's version exists only as annotated `vX.Y.Z` tags, cut by
+  `release.yml` from the PR title and the PR body's `## What's new` (README §Releases) — `package.json` `version` is never read, `plugin.json` is bumped
+  by hand. `GET /api/releases` calls release-kit's `readReleases` on this checkout, raced against 10 s, and always answers 200: every failure is
+  `{ current: null, releases: [] }`, which is also what "no tags" looks like, so only an answer with releases in it is memoised. In the stack it needs the
+  image's `git` and `safe.directory '*'` (Dockerfile) — without them the chip silently never appears. The unseen dot is `localStorage`
+  `guide-manager.releases-last-seen`, a raw version, never written below what is stored.
 - **pnpm only**, pinned by `packageManager` and enforced via corepack in the
   image. `pnpm-workspace.yaml`'s `allowBuilds` gates install scripts —
   `esbuild` and `mongodb-memory-server` need theirs, and a skipped one

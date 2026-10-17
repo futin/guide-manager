@@ -190,6 +190,8 @@ skills (study, tutor)  ->  bin/register.js  ->  ~/.guide-manager/registry.json
 - `server/src/favorites/` — `GET`/`POST`/`PATCH`/`PUT /order`/
   `DELETE /api/favorites`: a saved block of a guide (its rendered HTML, an
   address, a note), stored in Mongo, grouped and manually ordered per project.
+- `server/src/releases/` — `GET /api/releases`: this checkout's own release tags (README §Releases), behind the version chip at the foot of the rail
+  and its **What's new** drawer.
 - `assets/` — three scripts spliced into every guide the app frames: the
   bionic reading aid (bold word-openings; the Settings page and a guide's own
   panel, where it has one, write the same key, and the guide repaints live),

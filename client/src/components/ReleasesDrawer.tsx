@@ -1,0 +1,61 @@
+import type { Release, ReleasesResponse } from '../../../shared/types';
+import { TYPE_LABEL, chipLabel, displayTitle, formatReleaseDate, renderNotes } from '../lib/releases';
+import { Drawer } from './ui/Drawer';
+
+/**
+ * The What's new drawer: every release this checkout carries, newest first, behind the rail's version chip (README §Releases,
+ * docs/superpowers/specs/2026-10-17-release-versioning-design.md). The order is the route's — `GET /api/releases` already sorts — and nothing here
+ * re-sorts it.
+ *
+ * Rendered by `AppShell`, never inside the rail: the phone menu is a `position: fixed` `.rail`, and nesting the drawer's own fixed scrim in it would tie
+ * the drawer to the menu's box and its `display: none`.
+ */
+
+function Entry({ r }: { r: Release }) {
+  // The baseline is where numbering starts, not something that shipped: a divider with its words in the gap, no badge, no title — but its date, as every
+  // entry has, so the list says when versioning began.
+  if (r.type === 'baseline') {
+    return (
+      <div className="releases-entry" data-testid={`release-${r.version}`}>
+        <div className="releases-base">
+          <span>Versioning starts here · v{r.version}</span>
+          <span className="releases-date">{formatReleaseDate(r.date)}</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="releases-entry" data-testid={`release-${r.version}`}>
+      <div className="releases-row">
+        <span className="releases-ver">v{r.version}</span>
+        <span className={`releases-badge releases-badge-${r.type}`}>{TYPE_LABEL[r.type]}</span>
+        {r.breaking && <span className="releases-badge releases-badge-breaking">Breaking</span>}
+        <span className="releases-date">{formatReleaseDate(r.date)}</span>
+      </div>
+      <div className="releases-title">{displayTitle(r.title)}</div>
+      {/* renderNotes escapes first and sanitises after (lib/releases.ts), so notes written by whoever opened the PR are safe to set as HTML. */}
+      {r.notes !== '' && <div className="releases-notes" dangerouslySetInnerHTML={{ __html: renderNotes(r.notes) }} />}
+      {r.url && r.pr !== undefined && (
+        <a className="releases-pr" href={r.url} target="_blank" rel="noopener noreferrer">
+          PR #{r.pr}
+        </a>
+      )}
+    </div>
+  );
+}
+
+export function ReleasesDrawer({ data, onClose }: { data: ReleasesResponse; onClose: () => void }) {
+  return (
+    <Drawer label="What's new" onClose={onClose}>
+      <div className="releases-head">
+        <h2 className="releases-head-t">What's new</h2>
+        {data.current && <span className="releases-head-s">running {chipLabel(data.current)}</span>}
+      </div>
+      <div className="releases-list">
+        {data.releases.map((r) => (
+          <Entry key={r.version} r={r} />
+        ))}
+      </div>
+    </Drawer>
+  );
+}

@@ -249,6 +249,57 @@ code, kbd, samp, pre { font-family: inherit }
 /* The picked project: --ink and 500, no fill — the fill and bar mark the section row only, so two filled rows never ask which one you are on. */
 .rail-sublink.on { color: var(--ink); font-weight: 500 }
 
+/* The version chip: the rail's last element, `margin-top: auto` sinking it to the foot of the full-height desktop rail (the phone menu's rail has no fixed
+   height, so there it is simply the last row). Meta-sized --ink3 like the counts, because it is a fact about the app and not a destination — until a
+   release lands that this browser has not opened, when the --accent dot says so. */
+.rail-version {
+  margin-top: auto; display: flex; align-items: center; gap: 8px; align-self: flex-start; min-height: 32px;
+  font-family: var(--font); font-size: 12px; font-weight: 400; color: var(--ink3);
+  background: none; border: 0; border-radius: 12px; padding: 0 16px; cursor: pointer; transition: color .15s;
+}
+.rail-version:hover { color: var(--ink) }
+.rail-version-dot { flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--accent) }
+
+/* ── What's new drawer ─────────────────────────────────────────────────────────
+   The shell's one overlay (components/ui/Drawer.tsx): the --scrim over everything, the phone bar included (z 30), and a 400 px --strip panel flush with
+   the window's right edge, full height, scrolling on its own. Under 640 px it is the whole screen. Heights divided by --font-scale for the reason the rail
+   gives: .shell{zoom} leaves dvh resolving against the unzoomed viewport. */
+.ui-drawer-scrim { position: fixed; inset: 0; z-index: 40; background: var(--scrim); display: flex; justify-content: flex-end }
+.ui-drawer {
+  position: relative; width: 400px; max-width: 100%; height: calc(100dvh / var(--font-scale, 1)); overflow-y: auto;
+  background: var(--strip); box-shadow: -12px 0 24px var(--shadow); padding: 24px; outline: none;
+}
+.ui-drawer-close {
+  position: absolute; top: 16px; right: 16px; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;
+  color: var(--ink2); background: none; border: 0; border-radius: 12px; cursor: pointer;
+}
+.ui-drawer-close:hover { color: var(--ink); background: var(--strip-hi) }
+.releases-head { display: flex; align-items: baseline; gap: 12px; padding: 4px 44px 20px 0 }
+.releases-head-t { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.02em; color: var(--ink) }
+.releases-head-s { font-size: 12px; color: var(--ink3) }
+.releases-list { display: flex; flex-direction: column }
+.releases-entry { padding: 16px 0; border-top: 1px solid var(--hairline) }
+.releases-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px }
+.releases-ver { font-size: 14px; font-weight: 600; color: var(--ink) }
+.releases-date { margin-left: auto; font-size: 12px; color: var(--ink3) }
+/* Each type on its own tint, the ink chosen per theme to clear 4.5:1 on it (shared/theme.css, test/theme-tokens.test.ts). Breaking is a second badge,
+   never a fourth type. */
+.releases-badge { font-size: 11px; font-weight: 600; line-height: 1; padding: 4px 8px; border-radius: 999px }
+.releases-badge-feat { color: var(--green-ink); background: var(--green-tint) }
+.releases-badge-fix { color: var(--amber-ink); background: var(--amber-tint) }
+.releases-badge-perf { color: var(--magenta-ink); background: var(--magenta-tint) }
+.releases-badge-breaking { color: var(--red-ink); background: var(--red-tint) }
+.releases-title { margin-top: 8px; font-size: 14px; font-weight: 500; color: var(--ink) }
+.releases-notes { margin-top: 6px; font-size: 14px; line-height: 1.5; color: var(--ink2) }
+.releases-notes p, .releases-notes ul { margin: 6px 0 0 }
+.releases-notes ul { padding-left: 20px }
+.releases-notes code { font-size: .92em; padding: 1px 4px; border-radius: 4px; background: var(--steel) }
+.releases-notes a, .releases-pr { color: var(--accent) }
+.releases-pr { display: inline-block; margin-top: 8px; font-size: 12px }
+/* The baseline: a divider with its words in the gap — where numbering starts, not something that shipped. */
+.releases-base { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink3) }
+.releases-base .releases-date { margin-left: auto }
+
 /* ── Phone bar ────────────────────────────────────────────────────────────────
    Below 640 the rail does not lie down into a strip: as the dashboard does it, a 60 px top bar carries the wordmark left and a 44 × 44 ☰ right, and the
    *same* `.rail` element drops down under it as a full-width menu. One nav, repositioned — the trees come with it, and in the menu every tree is drawn
@@ -284,6 +335,8 @@ code, kbd, samp, pre { font-family: inherit }
   .rail .rail-brand { display: none }
   /* thumb targets, not pointer ones — every row in the menu, tree rows included */
   .rail-link, .rail-sublink { min-height: 44px }
+  .rail-version { min-height: 44px }
+  .ui-drawer { width: 100%; padding: 20px 16px }
 }
 
 /* Desktop: the tab becomes the scroller rather than the page, so the guide
