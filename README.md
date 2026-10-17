@@ -238,6 +238,48 @@ and squash-only merges (title = PR title, body = PR body, head branch deleted on
 the ruleset in place. Nothing pushes to `main` directly any more — a backlog-orchestrate merge, a docs commit and a `git push` from `main` are all
 refused and go through a PR instead, and `pnpm run plugin:sync` runs after the merge has been pulled.
 
+### Releases
+
+`.github/workflows/release.yml` is a thin caller of release-kit's reusable `release.yml` (`@v1`, with `kit-ref: v1` kept equal to that ref), run on every
+push to `main` and on `workflow_dispatch` — the same caller backlog-manager and the dashboard have. It is not one of the ruleset's required contexts.
+Design: `docs/superpowers/specs/2026-10-17-release-versioning-design.md`.
+
+**The tag is the record.** The version exists only as an annotated `vX.Y.Z` tag whose message carries the PR title, the notes and `Release-*` trailers.
+`package.json` `version` is not read and is not bumped, and `.claude-plugin/plugin.json` keeps its own hand-bumped version. The same tags feed the GitHub
+Release and the app's version chip and **What's new** drawer at the foot of the side rail.
+
+**What cuts one.** The PR title decides — it is the squash commit — and the version is bumped from the newest `vX.Y.Z` tag reachable from the commit:
+
+| Title | While major = 0 | From 1.0.0 |
+|---|---|---|
+| `feat` | minor | minor |
+| `fix`, `perf` | patch | patch |
+| `!` after the type or scope, or a `BREAKING CHANGE: ` line in the PR body | minor | major |
+
+`docs`, `chore`, `test`, `refactor`, `ci` and `build` cut nothing, and a `BREAKING CHANGE:` line on one of them is ignored. A commit on `main` with no PR
+is skipped with the warning `no PR for <sha>` — with the ruleset applied there should be none.
+
+**Where the notes come from.** The `## What's new` section of the PR body (`.github/pull_request_template.md` carries it right under the lead), up to the
+next `## ` heading, with HTML comments stripped first. Write it in reader terms: it is what the What's new drawer shows. A missing or empty section — which
+is what the untouched template yields — means the title alone is the entry. Delete it from PRs with nothing user-visible.
+
+**Baseline.** Until a `vX.Y.Z` tag exists the workflow releases nothing and ends green with the warning `no baseline tag — see Baseline`. `v0.1.0` is tagged
+once, by hand, on the `main` commit that contains the workflow:
+
+```bash
+git pull
+git tag -a v0.1.0 <sha> -m "Baseline — versioning starts here" --cleanup=verbatim
+git push origin v0.1.0
+gh workflow run release.yml -f sha=<sha>
+```
+
+The dispatch gives the baseline its GitHub Release. Every later version is cut from it.
+
+**Re-running.** `gh workflow run release.yml -f sha=<sha>` releases that commit and every unreleased commit before it; with no `sha` it uses the branch
+head. It is idempotent: a commit with its tag and its Release is left alone, and a tag whose Release is missing only gets the Release. A dispatch whose
+target has a later version tag fails with `a newer release exists: <tag>`; a dispatch `sha` that is not on `main` fails with
+`target <sha> is not on origin/main`, and nothing is tagged.
+
 ## Repo layout
 
 | Path | Contents |

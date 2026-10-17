@@ -1,0 +1,33 @@
+# Tags every unreleased feat|fix|perf PR merged to main and publishes its GitHub Release (README §Releases). The tag is the record: the version lives in
+# the annotated `vX.Y.Z` tag message and nowhere else (docs/superpowers/specs/2026-10-17-release-versioning-design.md D1, adopting backlog-manager's and
+# the dashboard's pipeline unchanged), so there is no file to bump and nothing to commit back to main — which matters here, because the ruleset refuses
+# every direct push to main. Not a required check: the ruleset's contexts stay exactly `ci / checks`, `ci / pr-title`, `ci / skills`.
+# The caller keeps both permissions — setting `contents` alone drops `pull-requests` to none and the PR lookup then fails on a private repo — and
+# `kit-ref` must equal the `@` ref on `uses:`.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: The commit to release up to (a re-run of a missed or failed release); the branch head when empty
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: read
+
+# Not cancelled: a run releases the whole range since the last tag, but cancelling one mid-push could leave a tag without its Release.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    uses: futin/release-kit/.github/workflows/release.yml@v1
+    with:
+      sha: ${{ inputs.sha }}
+      kit-ref: v1
