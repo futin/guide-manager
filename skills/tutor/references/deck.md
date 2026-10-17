@@ -268,7 +268,7 @@ Here is that contract:
 
 That's SKILL.md's Hard guardrail 5, the Answer-leak ban, restated here verbatim
 because it governs a different moment for a deck than for the in-chat loop: there it's
-a live `AskUserQuestion` call; here it's the generating agent's own authoring
+a question posed live in chat; here it's the generating agent's own authoring
 decision — which option gets `data-correct="true"` in the markup above, chosen before
 the file is ever opened by a learner. "No pattern" applies across a deck's own sequence
 of quiz cards exactly as it does across a lesson's in-chat questions — a fixed rotation
@@ -602,7 +602,7 @@ deck done. Every item is a command or an observable condition, not an impression
    split on whitespace. On either measurement, the correct option must not be the
    *sole* longest among that card's options — tied for longest, or short, is fine;
    uniquely longest is the failure. This is the same length-based leak SKILL.md's
-   answer-leak ban (guardrail 5) already warns about for `AskUserQuestion` options, it
+   answer-leak ban (guardrail 5) already warns about for in-chat quiz options, it
    has shipped in this project before, and §3's placement rule does nothing to stop
    it — position and length are independent signals and both need their own check. A
    plain per-option word count, run per quiz card, is enough to catch it.

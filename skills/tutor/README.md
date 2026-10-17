@@ -58,7 +58,7 @@ Three files ship, and they are the whole skill:
 
 | File | Loaded | What it holds |
 |---|---|---|
-| `SKILL.md` | always | Guardrails, session flow, pedagogy (chunk/section/lesson sizes), mode dispatch, the no-AskUserQuestion fallback. |
+| `SKILL.md` | always | Guardrails, session flow, pedagogy (chunk/section/lesson sizes), mode dispatch, where each question is asked (setup on `AskUserQuestion`, quiz as plain chat). |
 | `references/in-chat.md` | only when the mode is in-chat or both | The quiz loop: question types, the wrong/right-answer protocol, scorekeeping, the answer-leak checks. |
 | `references/deck.md` | only when the mode is deck or both | The deck file contract, card types, the provenance stamp schema, the incremental update flow, and a pre-handover checklist. |
 
@@ -73,10 +73,10 @@ never reads them, and you can delete them without changing behaviour:
 
 ## What the harness needs
 
-- **`AskUserQuestion`** — used for the mode ask, the syllabus confirmation, the
-  deck-write confirmation, and every in-chat quiz question. If the tool is not
-  available, SKILL.md's Fallback section degrades all of them to numbered options typed
-  in plain chat, with the same rules underneath.
+- **`AskUserQuestion` — optional.** Used for the three setup questions only: the mode ask, the syllabus confirmation and the deck-write confirmation. Quiz
+  questions are never asked through it — they are numbered options at the end of the chat message that carries the chunk, because prose written before a
+  question card is not seen in the Claude Desktop Code tab, and a lesson inside the card is unreadable (SKILL.md, *Where each question is asked*). Without the
+  tool, the setup questions take that same plain-chat shape.
 - **git — optional.** Without a repo, a deck still generates; its stamp records no
   commit and its recap line says so instead of showing a SHA. Incremental updates do
   need a resolvable commit: with no usable stamp, refreshing a deck escalates to a full

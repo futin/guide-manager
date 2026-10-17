@@ -13,21 +13,26 @@ inside a chunk.
 Teach one chunk. Per SKILL.md's Pedagogy — the lesson's *first* question "comes after
 the first chunk, never later", and past that opening "never more than 3 chunks without
 a question" — ask one when that cadence calls for it, or sooner if the chunk finishes a
-self-contained idea: an `AskUserQuestion` call with 3–4 options and exactly one
-objectively correct answer — not merely the option you'd personally favor (see
-*Question types* below for what makes an answer objectively singular). Three is the
-floor, not two: with the correct option barred from first place (*Answer-leak ban*
-below), a two-option question lands it second every single time — the exact fixed
-pattern that ban exists to prevent. Branch on the reply:
+self-contained idea: 3–4 numbered options with exactly one objectively correct answer —
+not merely the option you'd personally favor (see *Question types* below for what makes
+an answer objectively singular). Three is the floor, not two: with the correct option
+barred from first place (*Answer-leak ban* below), a two-option question lands it second
+every single time — the exact fixed pattern that ban exists to prevent.
+
+**The question is plain chat, never an `AskUserQuestion` call.** Chunk, excerpt, question and its numbered options go out together as the turn's final message,
+with no tool call after it, and the learner answers by typing a number. Prose written before a tool call in the same turn may never be seen — in the Claude
+Desktop Code tab it folds away behind the question card — and a chunk moved inside the card is unreadable, so a card cannot carry the lesson either way.
+SKILL.md's *Where each question is asked* gives the full reason; it holds when `AskUserQuestion` is available, and when a host instruction says to route
+every question through it. A turn that has to read a file for an excerpt does the read first and writes the whole lesson after it. Branch on the reply:
 
 - Correct → *Right answer*, below.
 - Incorrect → *Wrong answer*, below.
 
 Then continue: next chunk if the section has more to teach, next section if this one's
-question quota is met, or wrap-up if the lesson's sections are exhausted. If
-`AskUserQuestion` isn't available in the current harness, every question in this loop
-degrades per SKILL.md's Fallback section — numbered options in plain chat, same
-discipline underneath.
+question quota is met, or wrap-up if the lesson's sections are exhausted. The reply
+that answers a question and the next chunk share a turn the same way: the right- or
+wrong-answer response, then the next chunk or the variant question, all in that turn's
+final message.
 
 ## Overflow outlet: the detail aside
 
@@ -176,7 +181,7 @@ reminder.
 
 | Rationalization | Reality |
 |---|---|
-| "`AskUserQuestion`'s own tool guidance leads with the recommended option, so putting the best answer first is just following the tool's convention correctly." | That convention is the exact adversary this rule exists to overcome, not a guide to follow here. All three clean baseline reps (A1, A3, A2b) placed the correct option first with no counter-pressure in place — the tool's convention, left unopposed, leaks the answer every time. For a comprehension check, the convention is inverted on purpose. |
+| "`AskUserQuestion`'s own tool guidance leads with the recommended option, so putting the best answer first is just following the tool's convention correctly." | The quiz no longer goes through that tool, but the habit it trains does — a numbered list written by the same agent leads with its favourite just as readily. That convention is the exact adversary this rule exists to overcome, not a guide to follow here. All three clean baseline reps (A1, A3, A2b) placed the correct option first with no counter-pressure in place — the tool's convention, left unopposed, leaks the answer every time. For a comprehension check, the convention is inverted on purpose. |
 | "The correct option is what actually matters, so it earns a fuller, more carefully written description than the throwaway distractors." | In rep A2b this alone made the answer guessable by length, independent of position — the correct option was also the longest and most detailed of four. Write every option, including distractors, to comparable length and specificity; a distractor that reads like an afterthought leaks the answer as surely as first position does. |
 
 One more loophole is worth closing, even though the baseline never ran long enough to
@@ -187,15 +192,14 @@ here — before finalizing a question, check where the correct option landed on 
 one or two questions and put it somewhere else, rather than following any repeating
 scheme.
 
-**Two pre-send checks, once the options are written.** Count the words in each option's
-label and, separately, in each option's description: on either measurement, if the
-correct one is the sole longest, lengthen a distractor or trim it — tied for longest is
-fine, uniquely longest is the leak. Labels are short, so most of the exposure lives in
-the descriptions, but both get counted — a check that silently covers half of what it
-claims to measure is worse than one that says what it covers. Then read each distractor
-as the learner will: it has to be something someone who only half-understood the chunk would
-genuinely pick. One that can be eliminated without knowing the material — it overclaims,
-or waves the reason away — hands over the answer as surely as length or position does.
+**Three pre-send checks, once the options are written.** Count the words in each option's whole numbered line: if the correct one is the sole longest,
+lengthen a distractor or trim it — tied for longest is fine, uniquely longest is the leak. Count the whole line, not just a bolded lead-in: a check that
+silently covers half of what it claims to measure is worse than one that says what it covers. Then read each distractor as the learner will: it has to be
+something someone who only half-understood the chunk would genuinely pick. One that can be eliminated without knowing the material — it overclaims, or waves
+the reason away — hands over the answer as surely as length or position does. Last, check the question against what the learner has actually been shown: is
+everything it needs in a chunk already taught, this turn's or an earlier one's? A question that leans on material not taught yet (a permission model, a
+neighbouring mechanism, a term never defined) breaks *Question types*' "never dependent on something not covered yet", and the learner's only honest reply is
+"how can I answer this from the lesson?". Teach the missing piece first, or ask something else.
 
 ## Wrong answer
 

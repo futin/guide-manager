@@ -192,3 +192,20 @@ Scenario B's scoring criterion uses the first **comprehension check** as the mea
 **3. green-B6 labelling deviation:**
 
 Rep green-B6 folds its mental model explanation under the "Section 1" heading rather than standing it before the first section as a separate intro paragraph. The substance and word count are correct; only the labelling deviates from B4 and B5. Recorded as an observation, not a failure.
+
+---
+
+## Scenario C: Quiz Question Placement (backlog #33)
+
+**Timestamp:** October 17, 2026
+**Method:** Fresh single-shot agents (general-purpose, Sonnet), given the skill text to read: RED against `SKILL.md` + `references/in-chat.md` at `a37e23c0`,
+GREEN against the working tree with the #33 change. Prompt identical apart from `<skill dir>`.
+
+**RED — 3 reps, 3 FAIL.** Every rep wrote the opener and chunk 1 as text elements and then made an `AskUserQuestion` call for Q1 — the shape that hides the
+lesson in the Desktop Code tab. Two reps split opener and chunk into separate text elements before the call; one also inserted a `Read` before teaching.
+Answer-leak was clean in all three (correct option third of four, comparable lengths): the old text produced well-formed questions in the wrong channel.
+
+**GREEN — 3 reps, 3 PASS.** No rep called `AskUserQuestion`. Each turn's last element was one text element holding the opener, chunk 1, the question and four
+numbered options, ending "Reply with a number." Three reps made a `Read` first, before any lesson text — the order the new rule asks for. Correct option third
+of four in all three; option lengths comparable. One GREEN rep quoted an excerpt with a `file:line` label from a file the scenario only describes — a grounding
+issue that comes from the scenario being hypothetical, not something this scenario scores.
