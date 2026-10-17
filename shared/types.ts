@@ -167,3 +167,35 @@ export type FavoriteDraft = Pick<
   Favorite,
   'guidePath' | 'project' | 'guideTitle' | 'anchor' | 'crumb' | 'html' | 'text' | 'title' | 'note'
 >;
+
+/** `baseline` is the hand-cut tag versioning starts from — where numbering begins, not a release of anything (README §Releases). */
+export type ReleaseType = 'feat' | 'fix' | 'perf' | 'baseline';
+
+/**
+ * One annotated `vX.Y.Z` tag of this app's own checkout, as release-kit's `readReleases` returns it. Spelled out here rather than imported so the client
+ * bundle never reaches into a server dependency; `test/releases.e2e.test.ts` holds the route to release-kit's own answer, so the two cannot drift.
+ */
+export interface Release {
+  /** No leading `v`: `0.2.0`. */
+  version: string;
+  /** Tag creation time, ISO. */
+  date: string;
+  /** The PR title, `type(scope)!: ` prefix included — the drawer strips it, because the badge already says it. */
+  title: string;
+  type: ReleaseType;
+  scope?: string;
+  pr?: number;
+  breaking: boolean;
+  /** The PR body's `## What's new` section, Markdown, `''` when it was empty or missing. */
+  notes: string;
+  /** The PR's page, only when the origin is on GitHub. */
+  url?: string;
+}
+
+/** `GET /api/releases`. Always this shape, never an error status: a checkout with no tags, or no checkout at all, is `{ current: null, releases: [] }`. */
+export interface ReleasesResponse {
+  /** The newest release tag reachable from HEAD, and how many commits HEAD is past it. `null` before the baseline. */
+  current: { version: string; ahead: number } | null;
+  /** Newest first. */
+  releases: Release[];
+}
