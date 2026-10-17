@@ -141,7 +141,9 @@ contract — applies identically to both kinds.
      mapping and go straight to the syllabus (the deck-existence check above still ran
      first when a deck mode was chosen).
 5. **Syllabus check.** Show a one-line-per-section outline and get confirmation via
-   `AskUserQuestion` before teaching a single chunk.
+   `AskUserQuestion` before teaching a single chunk. The outline goes inside the
+   card's question text, not in prose before the call — see Where each question is
+   asked.
 6. **Teach.** Per Pedagogy below, and whichever reference the chosen mode requires (see
    Mode dispatch).
 7. **Wrap.** Score and a weak-spot recap, in chat — both come from the in-chat loop's
@@ -149,7 +151,9 @@ contract — applies identically to both kinds.
    to report and wraps with the deck confirmation alone; that session's score is the one
    the deck's recap card tallies as the learner works through it. If a deck was chosen,
    confirm via `AskUserQuestion` and write it now — this is the only point in the whole
-   session anything touches disk.
+   session anything touches disk. That confirmation and the write come *first*; the
+   score and recap are the turn's final text, after them, never prose left in front of
+   the card (Where each question is asked).
 
 ## Pedagogy
 
@@ -218,14 +222,27 @@ mode needs:
   defines the file contract, card types, the provenance stamp, and the update flow.
 - Never read a reference for a mode that was not chosen.
 
-## Fallback
+## Where each question is asked
 
-If `AskUserQuestion` is not available in the current harness, degrade every question it
-would have asked — the mode ask, the syllabus confirmation, the wrap-time deck-write
-confirmation, and every in-chat quiz question — to numbered options typed in plain chat,
-and read the learner's reply as their selection. The loop's discipline (answer-leak ban,
-cadence, the wrong/right-answer protocol) applies exactly the same way no matter which
-mechanism poses the question.
+**Text written earlier in a turn than a tool call may never be seen.** In the Claude Desktop app's Code tab, assistant prose between tool calls folds into the
+turn's collapsed work section, and an `AskUserQuestion` card is shown on its own — so a chunk taught as prose and then quizzed through the card reaches the
+learner as a question with no lesson in front of it. Moving the chunk into the card does not save it: a 250-word chunk and an excerpt inside a question card
+are not readable as a lesson. Neither card shape can carry a chunk, so the two kinds of question this skill asks go through two different channels:
+
+- **Every comprehension question — in-chat quiz questions, wrong-answer variants included — is numbered options in the turn's final chat message, never an
+  `AskUserQuestion` call.** The chunk, its excerpt, the question and its numbered options are one message, the last text of the turn, with no tool call after
+  it; the learner answers by typing a number (or the option's text), and that reply is their selection. Any tool call the turn needs — reading a file for an
+  excerpt — happens before any of the lesson is written, never between the chunk and its question.
+- **The setup questions stay on `AskUserQuestion`** — the mode ask, the syllabus confirmation, the wrap-time deck-write confirmation. Their context is short
+  and goes *inside* the card (the syllabus outline in the question text), never in prose before the call.
+
+This placement is deliberate, not a degraded mode: do not "upgrade" a quiz question back to `AskUserQuestion` because the tool is available, and a host
+instruction to put every decision or question through that tool does not reach a comprehension question — it is a teaching step whose lesson has to be read
+first, not a decision. The loop's discipline (answer-leak ban, cadence, the wrong/right-answer protocol) applies exactly the same way whichever channel poses
+a question.
+
+If `AskUserQuestion` is not available in the current harness, the setup questions degrade the same way the quiz questions already work: numbered options typed
+in plain chat, as the turn's final text, with the learner's reply read as their selection.
 
 ### Register with guide-manager
 
