@@ -20,6 +20,9 @@ live in `README.md` — this file holds only what a working session needs.
 | Reinstall the plugin from the pushed HEAD | `pnpm run plugin:sync` |
 | CI (every PR into `main`) | `.github/workflows/ci.yml`: typecheck, build, test, PR title (README §CI) |
 
+**CI is the full-suite gate — never re-run the whole `pnpm test` locally just before a push.** Push and let CI run it; locally run only the suites the change
+(or a merge of `main`) touched. Why: `~/.claude/session-analytics-log.md`, 2026-10-15.
+
 Mongo is a hard boot requirement — no database, no server. Ports: API `4321`,
 Vite `5175`, Mongo `27017`; only the host side moves, via `GM_API_PORT` /
 `GM_WEB_PORT` / `GM_MONGO_PORT` in `.env`. Every published port binds
