@@ -179,8 +179,9 @@ the tailnet port and the local port cannot drift apart.
   ports, so a later service cannot quietly reopen the hole.
 - **The release tag is the record; the version chip is a convenience.** The app's version exists only as annotated `vX.Y.Z` tags, cut by
   `release.yml` from the PR title and the PR body's `## What's new` (README §Releases) — `package.json` `version` is never read, `plugin.json` is bumped
-  by hand. `GET /api/releases` calls release-kit's `readReleases` on this checkout, raced against 10 s, and always answers 200: every failure is
-  `{ current: null, releases: [] }`, which is also what "no tags" looks like, so only an answer with releases in it is memoised. In the stack it needs the
+  by hand. `GET /api/releases` is release-kit's `createReleasesReader` on this checkout (`GM_RELEASES_ROOT` overrides it, read per request) — the git,
+  its bound and the memo all live there — and always answers 200: every failure is `{ current: null, releases: [] }`. The reader memoises only a
+  complete answer, so a checkout with no tags is kept but a failed read is not. In the stack it needs the
   image's `git` and `safe.directory '*'` (Dockerfile) — without them the chip silently never appears. The unseen dot is `localStorage`
   `guide-manager.releases-last-seen`, a raw version, never written below what is stored.
 - **pnpm only**, pinned by `packageManager` and enforced via corepack in the
