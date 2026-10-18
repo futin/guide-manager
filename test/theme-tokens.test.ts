@@ -97,15 +97,19 @@ describe('palette aliases', () => {
     }
   });
 
+  // ui-kit paints each badge from a --uk-<type>-ink / --uk-<type>-tint pair, so the pair under test is whatever the mapping block forwards those to. The
+  // expected targets are pinned too: the contrast check alone would still pass if a badge were remapped onto some other pair that happens to clear 4.5.
   it.each([
-    ['Feature', 'green-ink', 'green-tint'],
-    ['Fix', 'amber-ink', 'amber-tint'],
-    ['Performance', 'magenta-ink', 'magenta-tint'],
-    ['Breaking', 'red-ink', 'red-tint']
-  ])('clears 4.5:1 for the %s release badge (--%s on --%s, over the card surface) on every palette', (_label, ink, tint) => {
+    ['Feature', 'feat', 'green-ink', 'green-tint'],
+    ['Fix', 'fix', 'amber-ink', 'amber-tint'],
+    ['Performance', 'perf', 'magenta-ink', 'magenta-tint'],
+    ['Breaking', 'breaking', 'red-ink', 'red-tint']
+  ])('clears 4.5:1 for the %s release badge (--uk-%s-* mapped onto --%s on --%s, over the card surface) on every palette', (_label, kind, ink, tint) => {
+    expect(aliasTarget(`uk-${kind}-ink`)).toBe(ink);
+    expect(aliasTarget(`uk-${kind}-tint`)).toBe(tint);
     const strips = tokenByTheme('strip');
-    const tints = tokenByTheme(tint);
-    const inks = tokenByTheme(ink);
+    const tints = tokenByTheme(aliasTarget(`uk-${kind}-tint`) as string);
+    const inks = tokenByTheme(aliasTarget(`uk-${kind}-ink`) as string);
     expect(Object.keys(tints)).toEqual(THEME_IDS);
     expect(Object.keys(inks)).toEqual(THEME_IDS);
     for (const theme of THEME_IDS) {
