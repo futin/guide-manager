@@ -190,8 +190,8 @@ skills (study, tutor)  ->  bin/register.js  ->  ~/.guide-manager/registry.json
 - `server/src/favorites/` — `GET`/`POST`/`PATCH`/`PUT /order`/
   `DELETE /api/favorites`: a saved block of a guide (its rendered HTML, an
   address, a note), stored in Mongo, grouped and manually ordered per project.
-- `server/src/releases/` — `GET /api/releases`: this checkout's own release tags (README §Releases), behind the version chip at the foot of the rail
-  and its **What's new** drawer.
+- `server/src/releases/` — `GET /api/releases`: this checkout's own release tags via release-kit's reader (README §Releases), behind ui-kit's version
+  chip at the foot of the rail and its **What's new** drawer.
 - `assets/` — three scripts spliced into every guide the app frames: the
   bionic reading aid (bold word-openings; the Settings page and a guide's own
   panel, where it has one, write the same key, and the guide repaints live),
@@ -249,6 +249,14 @@ Design: `docs/superpowers/specs/2026-10-17-release-versioning-design.md`.
 **The tag is the record.** The version exists only as an annotated `vX.Y.Z` tag whose message carries the PR title, the notes and `Release-*` trailers.
 `package.json` `version` is not read and is not bumped, and `.claude-plugin/plugin.json` keeps its own hand-bumped version. The same tags feed the GitHub
 Release and the app's version chip and **What's new** drawer at the foot of the side rail.
+
+**Shared code.** Nothing about releases is written here any more. `GET /api/releases` is release-kit's `createReleasesReader` over this checkout: it
+bounds every git read itself, never rejects, and memoises only a complete answer (an empty tag list counts; a failed read does not). The chip, the drawer
+and the unseen-release dot are ui-kit's `VersionChip`, `ReleasesDrawer` and `useWhatsNew`. ui-kit ships one stylesheet whose colours and fonts are all
+`--uk-*` custom properties; `shared/theme.css` maps them onto this app's palette in one block, so every theme — light and dark — themes the drawer, and the
+badge contrast tests stay in `test/theme-tokens.test.ts` over this app's values. Moving to a newer release-kit or ui-kit is a tag bump in `package.json`
+(both are `github:futin/…#vX.Y.Z` dependencies), then `pnpm run docker:sync`: the stack's `node_modules` lives in a named volume that only that rebuild
+drops.
 
 **What cuts one.** The PR title decides — it is the squash commit — and the version is bumped from the newest `vX.Y.Z` tag reachable from the commit:
 
