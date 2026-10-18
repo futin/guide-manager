@@ -7,6 +7,8 @@ import { createRoot } from 'react-dom/client';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/600.css';
 
+// ui-kit's chip and drawer rules first, so the app's own stylesheet — which places the chip in the rail — wins any tie on specificity.
+import 'ui-kit/styles.css';
 import './styles.css';
 import { App } from './App';
 
