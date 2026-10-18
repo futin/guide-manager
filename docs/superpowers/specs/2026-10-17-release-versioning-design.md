@@ -74,14 +74,16 @@ restated; this document covers only what differs here.
 - **Chip** — the rail's last element, sunk to its foot; in the phone menu the last row, and tapping it closes the menu like every rail entry. No chip while
   `current` is null (no baseline reachable, or the read has not answered). The dot is the shell's `--accent`.
 - **Drawer** — `components/ui/Drawer.tsx` (scrim + right-hand 400 px panel, full screen under 640 px; Escape, ✕ and a scrim click close it; `role="dialog"`,
-  `aria-modal`, `aria-label`; focus moves to the panel on open and, on close, back to the element focused before it if that is still rendered — else, under
+  `aria-modal`, `aria-label`; focus moves to the panel on open and, on close, back to the element focused before it if it is still in the document and not inside a closed phone menu (`.rail:not(.open)` while the
+  640 px query matches — the nav stays mounted, so `isConnected` alone would find the chip and `.focus()` on a `display: none` element does nothing) — else, under
   640 px where tapping the chip closed the menu and hid it, the ☰ `.mnav-burger`. The focus handling is this spec's addition; backlog-manager's `Drawer`
   moves none) and `components/ReleasesDrawer.tsx` (the content). Rendered by
   `AppShell`, outside the rail, so no ancestor of the rail can become the fixed panel's containing block. Opening it refreshes first.
 - **Entry**: version, type badge, separate Breaking badge, date, `displayTitle`, notes (D5) when non-empty, `PR #N` link when the origin is on GitHub. The
   baseline is a divider: `Versioning starts here · v0.1.0` and its date. Head: `What's new` and `running v0.2.0+1`.
-- **Badges**: `feat` → green, `fix` → amber, `perf` → cyan, Breaking → red, each its `*-ink` text on its `*-tint` background. Only amber has both today
-  (`shared/theme.css:55-60`), so every theme block gains literal `--green-ink`, `--cyan-tint`, `--cyan-ink`, `--red-tint`, `--red-ink` — no `color-mix()`,
+- **Badges**: `feat` → green, `fix` → amber, `perf` → magenta, Breaking → red, each its `*-ink` text on its `*-tint` background. Not cyan for `perf`, as
+  backlog-manager has it: Daylight's `--cyan` is a green and Amber's an amber, so it would collide with Feature or Fix. Amber and magenta have both tokens
+  today (`shared/theme.css:55-60`), so every theme block gains literal `--green-ink`, `--red-tint`, `--red-ink` — no `color-mix()`,
   no `var()`, the `--magenta-ink` rule: the hue itself where it clears 4.5:1 on its tint over `--strip`, else mixed toward `--ink` just far enough.
   `test/theme-tokens.test.ts` gains a row asserting ≥ 4.5:1 for each of the four badge pairs on every palette.
 
@@ -101,7 +103,7 @@ Behaviour and cases, not code:
   shape; only a lightweight `v9.9.9` and an annotated `v1` → empty shape; baseline + two releases → newest first, baseline `type: 'baseline'`; HEAD on a tag →
   `ahead: 0`; a commit after the first read → `ahead: 1` (the key moved); a tag cut without moving HEAD → appears (common-dir mtimes); a non-GitHub origin →
   no `url`; a GitHub origin → `url` `https://github.com/<o>/<r>/pull/<n>`.
-- **lib (jest)**: `dotState` — no newest; first visit seeds; junk stored seeds; newer → dot; equal → none; open with newer → seed newest; open with older
+- **lib (jest, `@jest-environment jsdom` — `renderNotes` ends in `sanitizeSnapshot`, which needs `DOMParser`)**: `dotState` — no newest; first visit seeds; junk stored seeds; newer → dot; equal → none; open with newer → seed newest; open with older
   newest → no seed. `compareVersions('0.10.0','0.9.0') > 0`. `chipLabel` with and without `ahead`. `displayTitle` on `feat(rail)!: x`, `fix: y`, and a
   baseline title with no prefix. Notes renderer: `<script>` and `<img onerror>` arrive as text; `javascript:` link is not a link; an `https://` link comes out with `target="_blank"` and `rel="noopener"`; bullets become `<li>`;
   inline code and bold; a bare paragraph.

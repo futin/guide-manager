@@ -25,10 +25,19 @@ WORKDIR /app
 # The dev script also passes --no-shell, which makes the server the CLI's direct
 # child and is what actually fixes that. This is the second layer: it keeps the
 # failure from coming back silently if the spawn ever grows a wrapper again.
+#
+# git, for `GET /api/releases` (server/src/releases/): the version chip reads this
+# checkout's own release tags through the bind mount. `safe.directory '*'`
+# because the mount is owned by the host uid and the container runs as root, and
+# git refuses a repository owned by someone else ("dubious ownership") — which
+# release-kit swallows into an empty answer, i.e. a chip that silently never
+# appears. Every repo this container can see is a read of the developer's own
+# checkout, so trusting all of them widens nothing.
 # Installed before the dependency layers so a package.json edit does not redo it.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends procps \
-  && rm -rf /var/lib/apt/lists/*
+  && apt-get install -y --no-install-recommends procps git \
+  && rm -rf /var/lib/apt/lists/* \
+  && git config --system --add safe.directory '*'
 
 # pnpm, via corepack, so the version the image installs with is the one
 # package.json's `packageManager` field names rather than whatever npm happens

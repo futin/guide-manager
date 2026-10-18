@@ -1,12 +1,15 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 
+import { ReleasesDrawer } from './components/ReleasesDrawer';
 import { SideRail, type Section } from './components/SideRail';
 import { useFavorites } from './hooks/useFavorites';
 import { useGuides } from './hooks/useGuides';
+import { useReleases } from './hooks/useReleases';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
 import { usePersistedState } from './hooks/usePersistedState';
 import { readDeeplink } from './lib/deeplink';
 import { ALL, favoriteTree, guideTree, resolveScope } from './lib/rail';
+import { chipLabel, dotState, readLastSeen, writeLastSeen } from './lib/releases';
 
 // Lazy: each section's chunk loads only when it is opened. Only the data hooks moved up here (below); the views' code still waits for their section.
 const GuidesView = lazy(() => import('./components/guides/GuidesView'));
@@ -97,6 +100,34 @@ function AppShell() {
   const pickScope = (s: 'guides' | 'favorites', scope: string): void =>
     s === 'guides' ? setGuideStored(scope) : setFavStored(scope);
 
+  /*
+    The version chip and the What's new drawer (README §Releases). The shell owns all of it: the read, the unseen dot over `localStorage`, and the drawer,
+    which renders here rather than in the rail so the phone menu's fixed box never holds it. `lastSeen` mirrors the stored value in memory, so a storage
+    that throws still settles the dot once the seed has been "written" — otherwise a private window would re-seed on every render and never show a dot
+    honestly. Every write goes through `dotState`, which never writes a version below the stored one.
+  */
+  const releases = useReleases();
+  const [whatsNew, setWhatsNew] = useState(false);
+  const [lastSeen, setLastSeen] = useState<string | null>(readLastSeen);
+  const newest = releases.data?.releases[0]?.version ?? null;
+  const dot = dotState(newest, lastSeen, whatsNew);
+  useEffect(() => {
+    if (dot.seed === null) return;
+    writeLastSeen(dot.seed);
+    setLastSeen(dot.seed);
+  }, [dot.seed]);
+  const running = releases.data?.current ?? null;
+  const releaseChip = running
+    ? {
+        label: chipLabel(running),
+        dot: dot.dot,
+        onOpen: () => {
+          releases.refresh();
+          setWhatsNew(true);
+        }
+      }
+    : undefined;
+
   // Guard a hand-edited or stale stored value — an unknown section would render
   // nothing at all. 'settings' and 'favorites' map to themselves; anything else
   // (including a value from a rail this app no longer has) falls back to 'guides'.
@@ -113,7 +144,9 @@ function AppShell() {
         guideScope={guideScope}
         favScope={favScope}
         onScope={pickScope}
+        releases={releaseChip}
       />
+      {whatsNew && releases.data && <ReleasesDrawer data={releases.data} onClose={() => setWhatsNew(false)} />}
       <main className="main">
         {/* Only the guide list and its viewer need the extra room — Favorites and
             Settings both read better narrow, like a column of cards or of rows. */}

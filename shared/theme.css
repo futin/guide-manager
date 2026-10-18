@@ -58,6 +58,10 @@
   /* The tutor pill: --magenta at 14 % over the card, and the text on it. --magenta alone reads 4.01:1 on that tint here, so the ink is --magenta mixed
      toward --ink just far enough to clear 4.5 (4.65). */
   --magenta-tint:rgba(207,111,158,.14);--magenta-ink:#d181ab;
+  /* The release badges (What's new drawer). Feature reads --green-ink on --green-tint, Fix the amber pair, Performance the magenta pair;
+     Breaking is red. --red alone falls short of 4.5:1 on its 14 % tint in the four dark palettes, so its ink is --red mixed toward --ink
+     just far enough (test/theme-tokens.test.ts). */
+  --green-ink:#46d48c;--red-tint:rgba(224,83,63,.14);--red-ink:#df786c; /* red ink 4.63:1 on its tint */
 }
 /* Graphite — the same board with the blue cast taken out. For anyone who finds
    the navy too warm-shifted on a wide-gamut display. */
@@ -74,6 +78,7 @@
   --amber-solid:#e6a445;--amber-text:#e6a445;--amber-tint:rgba(230,164,69,.11);--amber-ink:#e6a445;
   --mustard-tint:rgba(200,180,94,.13);--mustard-ink:#c8b45e;
   --magenta-tint:rgba(196,127,164,.14);--magenta-ink:#c789ab; /* --magenta is 4.32:1 on its tint; this is 4.74 */
+  --green-ink:#5ac98a;--red-tint:rgba(221,95,76,.14);--red-ink:#de7a6b; /* red ink 4.62:1 on its tint */
 }
 /* Amber CRT — black glass, one phosphor. The status colors survive as amber
    tints rather than hues, which is the point: a monochrome tube. */
@@ -90,6 +95,7 @@
   --amber-solid:#ffb03a;--amber-text:#ffb03a;--amber-tint:rgba(255,176,58,.11);--amber-ink:#ffb03a;
   --mustard-tint:rgba(224,166,60,.13);--mustard-ink:#e0a63c;
   --magenta-tint:rgba(224,151,90,.14);--magenta-ink:#e0975a;
+  --green-ink:#c8d24a;--red-tint:rgba(226,96,58,.14);--red-ink:#e4683e; /* red ink 4.64:1 on its tint */
 }
 /* Nightshift — a deep green scope. Easiest of the dark set on a dim room. */
 [data-theme="nightshift"]{
@@ -105,6 +111,7 @@
   --amber-solid:#ffbe52;--amber-text:#ffbe52;--amber-tint:rgba(255,190,82,.11);--amber-ink:#ffbe52;
   --mustard-tint:rgba(207,197,94,.13);--mustard-ink:#cfc55e;
   --magenta-tint:rgba(201,130,173,.14);--magenta-ink:#c982ad;
+  --green-ink:#4fe09a;--red-tint:rgba(226,102,75,.14);--red-ink:#e07960; /* red ink 4.60:1 on its tint */
 }
 /* Daylight — the light theme, retuned to the dashboard's shipped Daylight: a light grey ground, white cards, near-black ink. Every token drawn as text
    clears WCAG AA on the surface it sits on, so the state inks are darkened cousins of the dark themes' hues, and `--cyan` (the one interactive accent) is
@@ -128,6 +135,7 @@
   --mustard-tint:rgba(154,135,18,.13);--mustard-ink:#74660e;
   /* --magenta at 11 % here, not 14: on white the stronger tint muddies. --magenta itself clears 5.46:1 on it. */
   --magenta-tint:rgba(105,80,165,.11);--magenta-ink:#6950a5;
+  --green-ink:#38631a;--red-tint:rgba(170,57,39,.11);--red-ink:#aa3927; /* red ink 5.34:1 on its tint */
 }
 
 

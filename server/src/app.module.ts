@@ -6,6 +6,7 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { GuidesModule } from './guides/guides.module';
 import { HealthController } from './health/health.controller';
 import { ProgressModule } from './progress/progress.module';
+import { ReleasesModule } from './releases/releases.module';
 import { RenderModule } from './render/render.module';
 import { clientDistModules } from './static';
 
@@ -35,6 +36,7 @@ export const DEFAULT_MONGO_URL = 'mongodb://localhost:27017/guide-manager';
     FavoritesModule,
     GuidesModule,
     ProgressModule,
+    ReleasesModule,
     RenderModule,
     ...clientDistModules()
   ],

@@ -98,7 +98,24 @@ describe('palette aliases', () => {
   });
 
   it.each([
-    'green-fill', 'green-fill2', 'green-solid', 'green-tint', 'amber-solid', 'amber-text', 'amber-tint', 'amber-ink', 'mustard-tint', 'mustard-ink'
+    ['Feature', 'green-ink', 'green-tint'],
+    ['Fix', 'amber-ink', 'amber-tint'],
+    ['Performance', 'magenta-ink', 'magenta-tint'],
+    ['Breaking', 'red-ink', 'red-tint']
+  ])('clears 4.5:1 for the %s release badge (--%s on --%s, over the card surface) on every palette', (_label, ink, tint) => {
+    const strips = tokenByTheme('strip');
+    const tints = tokenByTheme(tint);
+    const inks = tokenByTheme(ink);
+    expect(Object.keys(tints)).toEqual(THEME_IDS);
+    expect(Object.keys(inks)).toEqual(THEME_IDS);
+    for (const theme of THEME_IDS) {
+      expect(contrast(inks[theme], composite(tints[theme], strips[theme]))).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it.each([
+    'green-fill', 'green-fill2', 'green-solid', 'green-tint', 'green-ink', 'amber-solid', 'amber-text', 'amber-tint', 'amber-ink', 'mustard-tint',
+    'mustard-ink', 'red-tint', 'red-ink'
   ])('defines the role token --%s as a literal in all five theme blocks', (token) => {
     expect(Object.keys(tokenByTheme(token))).toEqual(THEME_IDS);
   });
