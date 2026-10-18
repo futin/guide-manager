@@ -1,61 +1,41 @@
-import type { Release, ReleasesResponse } from '../../../shared/types';
-import { TYPE_LABEL, chipLabel, displayTitle, formatReleaseDate, renderNotes } from '../lib/releases';
-import { Drawer } from './ui/Drawer';
+import { ReleasesDrawer as KitReleasesDrawer, renderNotesHtml, useMediaQuery, type ReleasesResponse } from 'ui-kit';
+
+import { sanitizeSnapshot } from '../lib/sanitize';
 
 /**
- * The What's new drawer: every release this checkout carries, newest first, behind the rail's version chip (README §Releases,
- * docs/superpowers/specs/2026-10-17-release-versioning-design.md). The order is the route's — `GET /api/releases` already sorts — and nothing here
- * re-sorts it.
+ * The What's new drawer: ui-kit's `ReleasesDrawer` — its markup, scrim, ✕ and Escape — with the three things that stay guide-manager's (spec D14–D15 in
+ * futin/release-kit docs/superpowers/specs/2026-10-18-shared-releases-ui-design.md): the phone breakpoint, where focus lands on close, and a second wall
+ * behind the notes renderer.
  *
  * Rendered by `AppShell`, never inside the rail: the phone menu is a `position: fixed` `.rail`, and nesting the drawer's own fixed scrim in it would tie
  * the drawer to the menu's box and its `display: none`.
  */
 
-function Entry({ r }: { r: Release }) {
-  // The baseline is where numbering starts, not something that shipped: a divider with its words in the gap, no badge, no title — but its date, as every
-  // entry has, so the list says when versioning began.
-  if (r.type === 'baseline') {
-    return (
-      <div className="releases-entry" data-testid={`release-${r.version}`}>
-        <div className="releases-base">
-          <span>Versioning starts here · v{r.version}</span>
-          <span className="releases-date">{formatReleaseDate(r.date)}</span>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="releases-entry" data-testid={`release-${r.version}`}>
-      <div className="releases-row">
-        <span className="releases-ver">v{r.version}</span>
-        <span className={`releases-badge releases-badge-${r.type}`}>{TYPE_LABEL[r.type]}</span>
-        {r.breaking && <span className="releases-badge releases-badge-breaking">Breaking</span>}
-        <span className="releases-date">{formatReleaseDate(r.date)}</span>
-      </div>
-      <div className="releases-title">{displayTitle(r.title)}</div>
-      {/* renderNotes escapes first and sanitises after (lib/releases.ts), so notes written by whoever opened the PR are safe to set as HTML. */}
-      {r.notes !== '' && <div className="releases-notes" dangerouslySetInnerHTML={{ __html: renderNotes(r.notes) }} />}
-      {r.url && r.pr !== undefined && (
-        <a className="releases-pr" href={r.url} target="_blank" rel="noopener noreferrer">
-          PR #{r.pr}
-        </a>
-      )}
-    </div>
-  );
+/** The phone breakpoint every `@media (max-width: 639px)` in styles.css writes out. ui-kit's CSS has no media queries, so the host says when it applies. */
+const NARROW = '(max-width: 639px)';
+
+/**
+ * Where focus goes when the drawer closes: back where it was — normally the rail's version chip — if that element is still on screen. Under 640 px it is
+ * not: tapping the chip closed the phone menu, and the menu `.rail` is `display: none` unless `.open`, so the chip is gone; the ☰ that reopens the menu
+ * takes focus instead. ui-kit's default only checks `isConnected`, which a chip in a closed menu still is.
+ */
+function restoreTarget(prev: Element | null): HTMLElement | null {
+  const narrow = typeof window.matchMedia === 'function' && window.matchMedia(NARROW).matches;
+  const hidden = !prev || !prev.isConnected || (narrow && prev.closest('.rail:not(.open)') !== null);
+  if (!hidden && prev instanceof HTMLElement) return prev;
+  return document.querySelector<HTMLElement>('.mnav-burger');
+}
+
+/**
+ * ui-kit's escape-first renderer, then `sanitizeSnapshot` — the same boundary a favorite's snapshot crosses — over its output anyway, so notes written by
+ * whoever opened the PR meet this app's sanitiser too. That pass is also what rewrites every link to `target="_blank" rel="noopener"` (sanitize.ts
+ * `handleAnchor`). A plain `<div>`: ui-kit already wraps whatever this returns in `.uk-releases-notes`.
+ */
+function renderNotes(notes: string) {
+  return <div dangerouslySetInnerHTML={{ __html: sanitizeSnapshot(renderNotesHtml(notes)) }} />;
 }
 
 export function ReleasesDrawer({ data, onClose }: { data: ReleasesResponse; onClose: () => void }) {
-  return (
-    <Drawer label="What's new" onClose={onClose}>
-      <div className="releases-head">
-        <h2 className="releases-head-t">What's new</h2>
-        {data.current && <span className="releases-head-s">running {chipLabel(data.current)}</span>}
-      </div>
-      <div className="releases-list">
-        {data.releases.map((r) => (
-          <Entry key={r.version} r={r} />
-        ))}
-      </div>
-    </Drawer>
-  );
+  const narrow = useMediaQuery(NARROW);
+  return <KitReleasesDrawer data={data} onClose={onClose} narrow={narrow} restoreFocus={restoreTarget} renderNotes={renderNotes} />;
 }

@@ -6,13 +6,15 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { App } from '../client/src/App';
 import { ReleasesDrawer } from '../client/src/components/ReleasesDrawer';
 import { SideRail } from '../client/src/components/SideRail';
-import { LAST_SEEN_KEY } from '../client/src/lib/releases';
 import type { ReleasesResponse } from '../shared/types';
 
 /*
- * The version chip and the What's new drawer, end to end through AppShell with a URL-routed fetch (the App suites' shape): the dot decision against
- * `localStorage`, the drawer's three ways out, and the phone menu closing behind the chip. The pure decisions are pinned in releases-lib.test.ts.
+ * The version chip and the What's new drawer, end to end through AppShell with a URL-routed fetch (the App suites' shape) — only this app's wiring of
+ * ui-kit: the chip's place in the rail, the dot under this app's own storage key, the phone menu closing behind the chip, focus falling back to the ☰,
+ * the phone breakpoint, and the second sanitiser behind the notes. The pure decisions, the markup and the drawer's ways out are ui-kit's own suites.
  */
+
+const LAST_SEEN_KEY = 'guide-manager.releases-last-seen';
 
 const DATA: ReleasesResponse = {
   current: { version: '0.2.0', ahead: 1 },
@@ -35,7 +37,7 @@ function renderApp(releases: unknown = DATA) {
 }
 
 const chip = () => document.querySelector<HTMLElement>('.rail .rail-version');
-const dot = () => document.querySelector('.rail .rail-version-dot');
+const dot = () => document.querySelector('.rail .rail-version .uk-chip-dot');
 const drawer = () => screen.queryByRole('dialog', { name: "What's new" });
 
 beforeEach(() => localStorage.clear());
@@ -106,34 +108,8 @@ describe('version chip', () => {
 });
 
 describe('What\'s new drawer', () => {
-  function renderDrawer() {
-    const onClose = jest.fn();
-    render(<ReleasesDrawer data={DATA} onClose={onClose} />);
-    return onClose;
-  }
-
-  it('renders each release and the baseline as a divider', () => {
-    renderDrawer();
-    expect(screen.getByText('running v0.2.0+1')).toBeTruthy();
-    const feat = screen.getByTestId('release-0.2.0');
-    expect(feat.querySelector('.releases-badge-feat')?.textContent).toBe('Feature');
-    expect(feat.querySelector('.releases-badge-breaking')?.textContent).toBe('Breaking');
-    expect(feat.querySelector('.releases-title')?.textContent).toBe('version chip');
-    expect(feat.querySelector('.releases-notes li strong')?.textContent).toBe('the running version');
-    expect(feat.querySelector('.releases-pr')?.getAttribute('href')).toBe('https://github.com/futin/guide-manager/pull/36');
-    const base = screen.getByTestId('release-0.1.0');
-    expect(base.textContent).toContain('Versioning starts here · v0.1.0');
-    expect(base.querySelector('.releases-badge')).toBeNull();
-  });
-
-  it('Escape, the ✕ and the scrim close it; a click inside the panel does not', () => {
-    const onClose = renderDrawer();
-    fireEvent.click(screen.getByRole('dialog'));
-    expect(onClose).not.toHaveBeenCalled();
-    fireEvent.keyDown(document, { key: 'Escape' });
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    fireEvent.click(document.querySelector('.ui-drawer-scrim') as HTMLElement);
-    expect(onClose).toHaveBeenCalledTimes(3);
+  afterEach(() => {
+    delete (window as { matchMedia?: unknown }).matchMedia;
   });
 
   it('takes focus on open and hands it back to the chip on close', async () => {
@@ -143,7 +119,38 @@ describe('What\'s new drawer', () => {
     (chip() as HTMLElement).focus();
     fireEvent.click(chip() as HTMLElement);
     expect(document.activeElement).toBe(drawer());
+    expect(drawer()?.classList.contains('uk-drawer--narrow')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(document.activeElement).toBe(chip());
+  });
+
+  it('under 640 px it fills the screen, and focus falls back to the ☰ because the chip left with the menu', async () => {
+    (window as { matchMedia?: unknown }).matchMedia = (q: string) => ({
+      matches: q === '(max-width: 639px)',
+      addEventListener: () => {},
+      removeEventListener: () => {}
+    });
+    localStorage.setItem(LAST_SEEN_KEY, '0.2.0');
+    renderApp();
+    await waitFor(() => expect(chip()).not.toBeNull());
+    fireEvent.click(document.querySelector('header.mnav button') as HTMLElement);
+    (chip() as HTMLElement).focus();
+    fireEvent.click(chip() as HTMLElement);
+    expect(document.querySelector('.rail.open')).toBeNull();
+    expect(drawer()?.classList.contains('uk-drawer--narrow')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(document.activeElement).toBe(document.querySelector('.mnav-burger'));
+  });
+
+  it('a notes link keeps rel="noopener" from sanitizeSnapshot', () => {
+    const data: ReleasesResponse = {
+      current: { version: '0.2.0', ahead: 0 },
+      releases: [{ ...DATA.releases[0], notes: 'See [the spec](https://example.com/spec)' }]
+    };
+    render(<ReleasesDrawer data={data} onClose={() => {}} />);
+    const a = document.querySelector('.uk-releases-notes a');
+    expect(a?.getAttribute('href')).toBe('https://example.com/spec');
+    expect(a?.getAttribute('rel')).toBe('noopener');
+    expect(a?.getAttribute('target')).toBe('_blank');
   });
 });

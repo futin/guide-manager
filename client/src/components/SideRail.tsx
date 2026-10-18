@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { VersionChip } from 'ui-kit';
 
 import { IconClose, IconFavorites, IconGuides, IconMenu, IconSettings } from './icons';
 import type { RailRow } from '../lib/rail';
@@ -129,17 +130,15 @@ export function SideRail({ section, onChange, guideRows, favRows, guideScope, fa
         })}
         {/* The rail's last element, sunk to its foot on the desktop; in the phone menu its last row, and like every row there a tap closes the menu. */}
         {releases && (
-          <button
+          <VersionChip
             className="rail-version"
-            aria-label={releases.dot ? `What's new — ${releases.label}, new release` : `What's new — ${releases.label}`}
+            label={releases.label}
+            dot={releases.dot}
             onClick={() => {
               releases.onOpen();
               setOpen(false);
             }}
-          >
-            <span className="rail-version-label">{releases.label}</span>
-            {releases.dot && <span className="rail-version-dot" aria-hidden="true" />}
-          </button>
+          />
         )}
       </nav>
     </>
