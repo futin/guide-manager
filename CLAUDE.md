@@ -183,7 +183,11 @@ the tailnet port and the local port cannot drift apart.
   its bound and the memo all live there — and always answers 200: every failure is `{ current: null, releases: [] }`. The reader memoises only a
   complete answer, so a checkout with no tags is kept but a failed read is not. In the stack it needs the
   image's `git` and `safe.directory '*'` (Dockerfile) — without them the chip silently never appears. The unseen dot is `localStorage`
-  `guide-manager.releases-last-seen`, a raw version, never written below what is stored.
+  `guide-manager.releases-last-seen`, a raw version, never written below what is stored. The chip and drawer are ui-kit's (`VersionChip`,
+  `ReleasesDrawer`, `useWhatsNew`); the app owns only their placement, the phone breakpoint, focus on close and the notes' second sanitising wall. ui-kit
+  reads nothing but `--uk-*` tokens, mapped onto the palette in one `:root` block of `shared/theme.css` — unmapped, the drawer is a white panel on every
+  board. Its badge pairs are checked at 4.5:1 through that mapping (`test/theme-tokens.test.ts`); the one layout rule the host adds is `.uk-drawer`'s
+  height divided by `--font-scale`.
 - **pnpm only**, pinned by `packageManager` and enforced via corepack in the
   image. `pnpm-workspace.yaml`'s `allowBuilds` gates install scripts —
   `esbuild` and `mongodb-memory-server` need theirs, and a skipped one
