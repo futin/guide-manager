@@ -53,6 +53,7 @@ describe('phone layout (< 640 px)', () => {
 
   it('gives every row in the menu a 44 px touch target, tree rows included', () => {
     expect(rule('.rail-link, .rail-sublink')).toMatch(/min-height:\s*44px/);
-    expect(rule('.rail-version')).toMatch(/min-height:\s*44px/);
+    // The chip's 44 px is ui-kit's (`narrow`); the menu only owes it margins that keep the 8 px overhang off the scroller's clip edge.
+    expect(rule('.rail-release')).toMatch(/margin:\s*(?:[89]|\d{2,})px\s+0\s+(?:[89]|\d{2,})px/);
   });
 });

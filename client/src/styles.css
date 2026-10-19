@@ -200,8 +200,8 @@ code, kbd, samp, pre { font-family: inherit }
   height: calc(100dvh / var(--font-scale, 1)); overflow-y: auto; padding: 24px;
   background: var(--strip);
 }
-/* The wordmark: an 11 px kicker over a `› guides` prompt at 22/600 — a terminal prompt, the dashboard's, in the one face. The kicker is the only uppercase
-   text in the shell, and it is uppercase by `text-transform`, so the DOM (and a screen reader) keeps `Guide Manager`. */
+/* The wordmark: an 11 px `GUIDE` kicker over a `› manager` prompt at 22/600 — a terminal prompt, the dashboard's, in the one face, split the way
+   backlog-manager splits its name. The kicker is the only uppercase text in the shell, by `text-transform`; the <h1>'s aria-label carries the name. */
 .rail-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; line-height: 1; color: var(--ink); padding: 0 12px 24px }
 .rail-kicker { display: block; font-size: 11px; font-weight: 400; text-transform: uppercase; letter-spacing: .16em; color: var(--ink3) }
 .rail-prompt { display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 600; letter-spacing: -.03em }
@@ -249,21 +249,12 @@ code, kbd, samp, pre { font-family: inherit }
 /* The picked project: --ink and 500, no fill — the fill and bar mark the section row only, so two filled rows never ask which one you are on. */
 .rail-sublink.on { color: var(--ink); font-weight: 500 }
 
-/* The version chip: the rail's last element, `margin-top: auto` sinking it to the foot of the full-height desktop rail (the phone menu's rail has no fixed
-   height, so there it is simply the last row). Meta-sized --ink3 like the counts, because it is a fact about the app and not a destination — until a
-   release lands that this browser has not opened, when the --accent dot says so. The chip is ui-kit's `VersionChip`: its dot and the drawer it opens are
-   ui-kit's own rules, coloured through the --uk-* mapping in shared/theme.css; this rule only places it, and keeps its --ink3 over ui-kit's muted ink. */
-.rail-version {
-  margin-top: auto; display: flex; align-items: center; gap: 8px; align-self: flex-start; min-height: 32px;
-  font-family: var(--font); font-size: 12px; font-weight: 400; color: var(--ink3);
-  background: none; border: 0; border-radius: 12px; padding: 0 16px; cursor: pointer; transition: color .15s;
-}
-.rail-version:hover { color: var(--ink) }
-
-/* ui-kit's drawer (the What's new panel) is all ui-kit's — markup, scrim, layout and colours through the --uk-* mapping — except its height. It renders
-   inside the zoomed .shell, and ui-kit's undivided 100dvh would overhang the screen by the text scale (see the header); this is the one correction the
-   host owes it. Same specificity as ui-kit's rule, and this sheet loads after it (main.tsx). */
-.uk-drawer { height: calc(100dvh / var(--font-scale, 1)) }
+/* The version chip's placement: the wrapper around ui-kit's `VersionChip`, which draws the pill itself (28 px, `--uk-chip-bg` well, hairline, --accent dot
+   for an unopened release) — the same pill backlog-manager and the dashboard draw, so a host may only map its tokens (shared/theme.css), never restyle it;
+   test/ui-kit-guard.test.ts holds that. `margin-top: auto` sinks the wrapper to the foot of the full-height desktop rail (the phone menu's rail has no fixed
+   height, so there it is simply the last row); the 12 px left margin lines the pill up with the rows' labels. `display: flex` makes the chip a flex item,
+   so no line box adds height under it. */
+.rail-release { display: flex; align-self: flex-start; margin: auto 0 0 12px }
 
 /* ── Phone bar ────────────────────────────────────────────────────────────────
    Below 640 the rail does not lie down into a strip: as the dashboard does it, a 60 px top bar carries the wordmark left and a 44 × 44 ☰ right, and the
@@ -300,7 +291,9 @@ code, kbd, samp, pre { font-family: inherit }
   .rail .rail-brand { display: none }
   /* thumb targets, not pointer ones — every row in the menu, tree rows included */
   .rail-link, .rail-sublink { min-height: 44px }
-  .rail-version { min-height: 44px }
+  /* The chip keeps its 28 px pill and takes a 44 px hit area from ui-kit (`narrow`, SideRail), overhanging it by 8 px above and below — margins of at
+     least that keep the overhang inside the scrolling menu's padding box, where it would otherwise be clipped. */
+  .rail-release { margin: 12px 0 8px 12px }
 }
 
 /* Desktop: the tab becomes the scroller rather than the page, so the guide

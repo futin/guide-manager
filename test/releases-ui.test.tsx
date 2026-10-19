@@ -36,8 +36,8 @@ function renderApp(releases: unknown = DATA) {
   return { fetch, ...render(<App />) };
 }
 
-const chip = () => document.querySelector<HTMLElement>('.rail .rail-version');
-const dot = () => document.querySelector('.rail .rail-version .uk-chip-dot');
+const chip = () => document.querySelector<HTMLElement>('.rail .rail-release .uk-chip');
+const dot = () => document.querySelector('.rail .rail-release .uk-chip-dot');
 const drawer = () => screen.queryByRole('dialog', { name: "What's new" });
 
 beforeEach(() => localStorage.clear());
@@ -134,6 +134,8 @@ describe('What\'s new drawer', () => {
     renderApp();
     await waitFor(() => expect(chip()).not.toBeNull());
     fireEvent.click(document.querySelector('header.mnav button') as HTMLElement);
+    // The same pill, with ui-kit's 44 px thumb target round it — SideRail reads the breakpoint the drawer does.
+    expect(chip()?.classList.contains('uk-chip--narrow')).toBe(true);
     (chip() as HTMLElement).focus();
     fireEvent.click(chip() as HTMLElement);
     expect(document.querySelector('.rail.open')).toBeNull();
