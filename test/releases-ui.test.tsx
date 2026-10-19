@@ -120,6 +120,7 @@ describe('What\'s new drawer', () => {
     fireEvent.click(chip() as HTMLElement);
     expect(document.activeElement).toBe(drawer());
     expect(drawer()?.classList.contains('uk-drawer--narrow')).toBe(false);
+    expect(chip()?.classList.contains('uk-chip--narrow')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(document.activeElement).toBe(chip());
   });
@@ -154,5 +155,26 @@ describe('What\'s new drawer', () => {
     expect(a?.getAttribute('href')).toBe('https://example.com/spec');
     expect(a?.getAttribute('rel')).toBe('noopener');
     expect(a?.getAttribute('target')).toBe('_blank');
+  });
+
+  it('keeps every construct the notes renderer emits standing through sanitizeSnapshot', () => {
+    // The same constructs as ui-kit's own notes fixture (which does not ship in the package): a ### section, a list, `code`, **bold**, _emphasis_ and a link.
+    // A sanitiser that dropped or reshaped any of them would flatten the notes to plain text without a single failing suite elsewhere.
+    const notes = [
+      '### Added',
+      '- The `snake_case_name` setting shows **bold** and _emphasis_',
+      '- See [the spec](https://example.com/spec)',
+      '',
+      'A closing paragraph.'
+    ].join('\n');
+    const data: ReleasesResponse = {
+      current: { version: '0.2.0', ahead: 0 },
+      releases: [{ ...DATA.releases[0], notes }]
+    };
+    render(<ReleasesDrawer data={data} onClose={() => {}} />);
+    const body = document.querySelector('.uk-releases-notes') as HTMLElement;
+    for (const tag of ['h3', 'ul', 'code', 'strong', 'em', 'a']) expect({ tag, found: body.querySelector(tag) !== null }).toEqual({ tag, found: true });
+    expect(body.querySelector('h3')?.textContent).toBe('Added');
+    expect(body.querySelector('code')?.textContent).toBe('snake_case_name');
   });
 });
