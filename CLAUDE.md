@@ -30,7 +30,8 @@ Vite `5175`, Mongo `27017`; only the host side moves, via `GM_API_PORT` /
 `127.0.0.1` — nothing here has auth, the tailnet is the access control. The
 host-side client port differs per machine, because a developer runs several of
 these projects side by side; read the current one out of `.env`, never from a
-number written down elsewhere. `pnpm run tailnet` reads the same variable, so
+number written down elsewhere — and by exact key (`sed -n 's/^GM_WEB_PORT=//p' .env`), never a prefix or wildcard grep: a sibling repo's `.env`
+holds tokens, and a `BM_` pattern printed them once (`~/.claude/session-analytics-log.md`, 2026-10-19). `pnpm run tailnet` reads the same variable, so
 the tailnet port and the local port cannot drift apart.
 
 ## Layout
