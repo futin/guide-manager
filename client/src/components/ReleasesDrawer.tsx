@@ -1,4 +1,4 @@
-import { ReleasesDrawer as KitReleasesDrawer, renderNotesHtml, useMediaQuery, type ReleasesResponse } from 'ui-kit';
+import { ReleasesDrawer as KitReleasesDrawer, useMediaQuery, type ReleasesResponse } from 'ui-kit';
 
 import { sanitizeSnapshot } from '../lib/sanitize';
 
@@ -11,8 +11,11 @@ import { sanitizeSnapshot } from '../lib/sanitize';
  * the drawer to the menu's box and its `display: none`.
  */
 
-/** The phone breakpoint every `@media (max-width: 639px)` in styles.css writes out. ui-kit's CSS has no media queries, so the host says when it applies. */
-const NARROW = '(max-width: 639px)';
+/**
+ * The phone breakpoint every `@media (max-width: 639px)` in styles.css writes out. ui-kit's CSS has no media queries, so the host says when it applies —
+ * here for the drawer, and in SideRail for the version chip's thumb-sized hit area.
+ */
+export const NARROW = '(max-width: 639px)';
 
 /**
  * Where focus goes when the drawer closes: back where it was — normally the rail's version chip — if that element is still on screen. Under 640 px it is
@@ -27,15 +30,13 @@ function restoreTarget(prev: Element | null): HTMLElement | null {
 }
 
 /**
- * ui-kit's escape-first renderer, then `sanitizeSnapshot` — the same boundary a favorite's snapshot crosses — over its output anyway, so notes written by
+ * `sanitizeSnapshot` — the same boundary a favorite's snapshot crosses — over the output of ui-kit's escape-first notes renderer, so notes written by
  * whoever opened the PR meet this app's sanitiser too. That pass is also what rewrites every link to `target="_blank" rel="noopener"` (sanitize.ts
- * `handleAnchor`). A plain `<div>`: ui-kit already wraps whatever this returns in `.uk-releases-notes`.
+ * `handleAnchor`). Since ui-kit v0.3.0 the renderer itself is not swappable — every app's notes read the same — and this is the hook it leaves.
  */
-function renderNotes(notes: string) {
-  return <div dangerouslySetInnerHTML={{ __html: sanitizeSnapshot(renderNotesHtml(notes)) }} />;
-}
+const sanitize = (html: string): string => sanitizeSnapshot(html);
 
 export function ReleasesDrawer({ data, onClose }: { data: ReleasesResponse; onClose: () => void }) {
   const narrow = useMediaQuery(NARROW);
-  return <KitReleasesDrawer data={data} onClose={onClose} narrow={narrow} restoreFocus={restoreTarget} renderNotes={renderNotes} />;
+  return <KitReleasesDrawer data={data} onClose={onClose} narrow={narrow} restoreFocus={restoreTarget} sanitize={sanitize} />;
 }

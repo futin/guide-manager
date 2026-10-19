@@ -187,8 +187,9 @@ the tailnet port and the local port cannot drift apart.
   `guide-manager.releases-last-seen`, a raw version, never written below what is stored. The chip and drawer are ui-kit's (`VersionChip`,
   `ReleasesDrawer`, `useWhatsNew`); the app owns only their placement, the phone breakpoint, focus on close and the notes' second sanitising wall. ui-kit
   reads nothing but `--uk-*` tokens, mapped onto the palette in one `:root` block of `shared/theme.css` — unmapped, the drawer is a white panel on every
-  board. Its badge pairs are checked at 4.5:1 through that mapping (`test/theme-tokens.test.ts`); the one layout rule the host adds is `.uk-drawer`'s
-  height divided by `--font-scale`.
+  board. Its badge pairs are checked at 4.5:1 through that mapping (`test/theme-tokens.test.ts`). The host maps tokens and never restyles a `.uk-*` class
+  (`test/ui-kit-guard.test.ts`, ui-kit's own `checkHostCss`), so the pill and drawer match backlog-manager's; `--uk-zoom` is `--font-scale`, and
+  `.rail-release` is a placement wrapper only.
 - **pnpm only**, pinned by `packageManager` and enforced via corepack in the
   image. `pnpm-workspace.yaml`'s `allowBuilds` gates install scripts —
   `esbuild` and `mongodb-memory-server` need theirs, and a skipped one

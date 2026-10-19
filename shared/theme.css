@@ -162,12 +162,14 @@
    no mapping the drawer is a white panel on every board. They are mapped here once, onto the palette's own names, rather than per theme block: every
    theme stamps its attribute on <html>, the same element as :root, so each var() below resolves against whichever palette is live, and a sixth theme
    gets the drawer for free. The badge pairs are the ones test/theme-tokens.test.ts holds to 4.5:1, read through this block — a remap that points a badge
-   at an unchecked pair fails there. Sizes, the radius, the drawer width and the z-index keep ui-kit's defaults: they already are this shell's 12 px,
-   400 px and 40.
+   at an unchecked pair fails there. Sizes, the radius and the drawer width are ui-kit's and not tokens at all (v0.3.0): the chip and drawer look the same
+   in every app, and test/ui-kit-guard.test.ts fails on a rule here or in styles.css that restyles a `.uk-*` class.
 
    --uk-ink-muted is --ink2, not the --ink3 the old drawer used for its dates: ui-kit draws the notes — body text — in the same token, and --ink3 is a meta
-   tone that falls short of 4.5:1 on the card in the dark palettes. The chip keeps its --ink3, set by `.rail-version` in client/src/styles.css, which
-   loads after ui-kit's sheet. --uk-font-mono is the shell's one face, so inline code in the notes reads as it did; --mono stays the favorite
+   tone that falls short of 4.5:1 on the card in the dark palettes — and the chip draws its 12 px label in it too, on --uk-chip-bg. That well is --steel,
+   the rail's recessed fill, so the pill follows each palette rather than showing the kit's light default on a dark rail. --uk-zoom is --font-scale: the
+   drawer renders inside the zoomed .shell, where 100dvh still means the unzoomed screen, so ui-kit divides its height by it — undivided, the panel
+   overhangs the screen by the text scale. --uk-font-mono is the shell's one face, so inline code in the notes reads as it did; --mono stays the favorite
    snapshot's alone. */
 :root{
   --uk-panel-bg:var(--strip);
@@ -179,6 +181,8 @@
   --uk-accent:var(--accent);
   --uk-hover-bg:var(--strip-hi);
   --uk-code-bg:var(--steel);
+  --uk-chip-bg:var(--steel);
+  --uk-zoom:var(--font-scale, 1);
   --uk-font:var(--font);
   --uk-font-mono:var(--font);
   --uk-feat-ink:var(--green-ink);--uk-feat-tint:var(--green-tint);
