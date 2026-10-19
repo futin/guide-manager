@@ -249,21 +249,11 @@ code, kbd, samp, pre { font-family: inherit }
 /* The picked project: --ink and 500, no fill — the fill and bar mark the section row only, so two filled rows never ask which one you are on. */
 .rail-sublink.on { color: var(--ink); font-weight: 500 }
 
-/* The version chip: the rail's last element, `margin-top: auto` sinking it to the foot of the full-height desktop rail (the phone menu's rail has no fixed
-   height, so there it is simply the last row). Meta-sized --ink3 like the counts, because it is a fact about the app and not a destination — until a
-   release lands that this browser has not opened, when the --accent dot says so. The chip is ui-kit's `VersionChip`: its dot and the drawer it opens are
-   ui-kit's own rules, coloured through the --uk-* mapping in shared/theme.css; this rule only places it, and keeps its --ink3 over ui-kit's muted ink. */
-.rail-version {
-  margin-top: auto; display: flex; align-items: center; gap: 8px; align-self: flex-start; min-height: 32px;
-  font-family: var(--font); font-size: 12px; font-weight: 400; color: var(--ink3);
-  background: none; border: 0; border-radius: 12px; padding: 0 16px; cursor: pointer; transition: color .15s;
-}
-.rail-version:hover { color: var(--ink) }
-
-/* ui-kit's drawer (the What's new panel) is all ui-kit's — markup, scrim, layout and colours through the --uk-* mapping — except its height. It renders
-   inside the zoomed .shell, and ui-kit's undivided 100dvh would overhang the screen by the text scale (see the header); this is the one correction the
-   host owes it. Same specificity as ui-kit's rule, and this sheet loads after it (main.tsx). */
-.uk-drawer { height: calc(100dvh / var(--font-scale, 1)) }
+/* The version chip's place: the rail's last element, `margin-top: auto` sinking it to the foot of the full-height desktop rail (the phone menu's rail has no
+   fixed height, so there it is simply the last row). The slot is a wrapper because ui-kit's `VersionChip` takes no className — its pill, ink, dot and the
+   drawer it opens are ui-kit's one look, coloured through the --uk-* mapping in shared/theme.css — so this rule only places it, 16 px in to line the pill
+   up with the rows' own padding. The slot is a flex box so the pill is not stretched or lifted by a line box. */
+.rail-version-slot { margin-top: auto; display: flex; align-self: flex-start; padding: 0 16px }
 
 /* ── Phone bar ────────────────────────────────────────────────────────────────
    Below 640 the rail does not lie down into a strip: as the dashboard does it, a 60 px top bar carries the wordmark left and a 44 × 44 ☰ right, and the
@@ -300,7 +290,9 @@ code, kbd, samp, pre { font-family: inherit }
   .rail .rail-brand { display: none }
   /* thumb targets, not pointer ones — every row in the menu, tree rows included */
   .rail-link, .rail-sublink { min-height: 44px }
-  .rail-version { min-height: 44px }
+  /* the 28 px pill's 44 px hit area (ui-kit's `narrow`) overhangs it 8 px above and below; the slot's padding is that overhang, so the area sits inside the
+     slot's own row and never lies over the row above or under the rail's edge */
+  .rail-version-slot { padding: 8px 16px }
 }
 
 /* Desktop: the tab becomes the scroller rather than the page, so the guide

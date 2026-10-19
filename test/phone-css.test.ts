@@ -53,6 +53,5 @@ describe('phone layout (< 640 px)', () => {
 
   it('gives every row in the menu a 44 px touch target, tree rows included', () => {
     expect(rule('.rail-link, .rail-sublink')).toMatch(/min-height:\s*44px/);
-    expect(rule('.rail-version')).toMatch(/min-height:\s*44px/);
   });
 });

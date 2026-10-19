@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
-import { VersionChip } from 'ui-kit';
+import { useMediaQuery, VersionChip } from 'ui-kit';
 
 import { IconClose, IconFavorites, IconGuides, IconMenu, IconSettings } from './icons';
+import { PHONE } from '../lib/breakpoints';
 import type { RailRow } from '../lib/rail';
 
 export type Section = 'guides' | 'favorites' | 'settings';
@@ -51,6 +52,8 @@ interface Props {
 export function SideRail({ section, onChange, guideRows, favRows, guideScope, favScope, onScope, releases }: Props) {
   /* Phone only — `.mnav` is `display:none` from 640 px up, so on a desktop this stays false and the rail never sees the open modifier. */
   const [open, setOpen] = useState(false);
+  /* ui-kit's chip draws its phone shape (a 44 px hit area round the same pill) only when told, the same breakpoint the drawer is told. */
+  const narrow = useMediaQuery(PHONE);
 
   const trees: Record<Scoped, { rows: RailRow[] | null; scope: string }> = {
     guides: { rows: guideRows, scope: guideScope },
@@ -130,15 +133,17 @@ export function SideRail({ section, onChange, guideRows, favRows, guideScope, fa
         })}
         {/* The rail's last element, sunk to its foot on the desktop; in the phone menu its last row, and like every row there a tap closes the menu. */}
         {releases && (
-          <VersionChip
-            className="rail-version"
-            label={releases.label}
-            dot={releases.dot}
-            onClick={() => {
-              releases.onOpen();
-              setOpen(false);
-            }}
-          />
+          <div className="rail-version-slot">
+            <VersionChip
+              label={releases.label}
+              dot={releases.dot}
+              narrow={narrow}
+              onClick={() => {
+                releases.onOpen();
+                setOpen(false);
+              }}
+            />
+          </div>
         )}
       </nav>
     </>
