@@ -30,7 +30,8 @@ Vite `5175`, Mongo `27017`; only the host side moves, via `GM_API_PORT` /
 `127.0.0.1` — nothing here has auth, the tailnet is the access control. The
 host-side client port differs per machine, because a developer runs several of
 these projects side by side; read the current one out of `.env`, never from a
-number written down elsewhere. `pnpm run tailnet` reads the same variable, so
+number written down elsewhere — and by exact key (`sed -n 's/^GM_WEB_PORT=//p' .env`), never a prefix or wildcard grep: a sibling repo's `.env`
+holds tokens, and a `BM_` pattern printed them once (`~/.claude/session-analytics-log.md`, 2026-10-19). `pnpm run tailnet` reads the same variable, so
 the tailnet port and the local port cannot drift apart.
 
 ## Layout
@@ -186,9 +187,9 @@ the tailnet port and the local port cannot drift apart.
   `guide-manager.releases-last-seen`, a raw version, never written below what is stored. The chip and drawer are ui-kit's (`VersionChip`,
   `ReleasesDrawer`, `useWhatsNew`); the app owns only their placement, the phone breakpoint, focus on close and the notes' second sanitising wall. ui-kit
   reads nothing but `--uk-*` tokens, mapped onto the palette in one `:root` block of `shared/theme.css` — unmapped, the drawer is a white panel on every
-  board (`--uk-chip-bg` and `--uk-zoom` included: the first is the pill's well, the second is `--font-scale`, which keeps the drawer on the screen at any
-  text size). Every shape is ui-kit's: tokens only, no host rule restyles a `.uk-*` class, guarded by `test/ui-kit-guard.test.ts` over each sheet the app
-  ships (add a new sheet to its list). Its badge pairs are checked at 4.5:1 through that mapping (`test/theme-tokens.test.ts`).
+  board. Its badge pairs are checked at 4.5:1 through that mapping (`test/theme-tokens.test.ts`). The host maps tokens and never restyles a `.uk-*` class
+  (`test/ui-kit-guard.test.ts`, ui-kit's own `checkHostCss`), so the pill and drawer match backlog-manager's; `--uk-zoom` is `--font-scale`, and
+  `.rail-release` is a placement wrapper only.
 - **pnpm only**, pinned by `packageManager` and enforced via corepack in the
   image. `pnpm-workspace.yaml`'s `allowBuilds` gates install scripts —
   `esbuild` and `mongodb-memory-server` need theirs, and a skipped one

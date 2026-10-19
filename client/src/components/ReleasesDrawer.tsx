@@ -1,16 +1,21 @@
 import { ReleasesDrawer as KitReleasesDrawer, useMediaQuery, type ReleasesResponse } from 'ui-kit';
 
-import { PHONE } from '../lib/breakpoints';
 import { sanitizeSnapshot } from '../lib/sanitize';
 
 /**
- * The What's new drawer: ui-kit's `ReleasesDrawer` — its markup, scrim, ✕ and Escape — with the things that stay guide-manager's (spec D14–D15 in
+ * The What's new drawer: ui-kit's `ReleasesDrawer` — its markup, scrim, ✕ and Escape — with the three things that stay guide-manager's (spec D14–D15 in
  * futin/release-kit docs/superpowers/specs/2026-10-18-shared-releases-ui-design.md): the phone breakpoint, where focus lands on close, and a second wall
- * behind the notes renderer (`sanitize`).
+ * behind the notes renderer.
  *
  * Rendered by `AppShell`, never inside the rail: the phone menu is a `position: fixed` `.rail`, and nesting the drawer's own fixed scrim in it would tie
  * the drawer to the menu's box and its `display: none`.
  */
+
+/**
+ * The phone breakpoint every `@media (max-width: 639px)` in styles.css writes out. ui-kit's CSS has no media queries, so the host says when it applies —
+ * here for the drawer, and in SideRail for the version chip's thumb-sized hit area.
+ */
+export const NARROW = '(max-width: 639px)';
 
 /**
  * Where focus goes when the drawer closes: back where it was — normally the rail's version chip — if that element is still on screen. Under 640 px it is
@@ -18,16 +23,20 @@ import { sanitizeSnapshot } from '../lib/sanitize';
  * takes focus instead. ui-kit's default only checks `isConnected`, which a chip in a closed menu still is.
  */
 function restoreTarget(prev: Element | null): HTMLElement | null {
-  const narrow = typeof window.matchMedia === 'function' && window.matchMedia(PHONE).matches;
+  const narrow = typeof window.matchMedia === 'function' && window.matchMedia(NARROW).matches;
   const hidden = !prev || !prev.isConnected || (narrow && prev.closest('.rail:not(.open)') !== null);
   if (!hidden && prev instanceof HTMLElement) return prev;
   return document.querySelector<HTMLElement>('.mnav-burger');
 }
 
+/**
+ * `sanitizeSnapshot` — the same boundary a favorite's snapshot crosses — over the output of ui-kit's escape-first notes renderer, so notes written by
+ * whoever opened the PR meet this app's sanitiser too. That pass is also what rewrites every link to `target="_blank" rel="noopener"` (sanitize.ts
+ * `handleAnchor`). Since ui-kit v0.3.0 the renderer itself is not swappable — every app's notes read the same — and this is the hook it leaves.
+ */
+const sanitize = (html: string): string => sanitizeSnapshot(html);
+
 export function ReleasesDrawer({ data, onClose }: { data: ReleasesResponse; onClose: () => void }) {
-  const narrow = useMediaQuery(PHONE);
-  // `sanitize` runs `sanitizeSnapshot` — the same boundary a favorite's snapshot crosses — over ui-kit's escape-first renderer's output, so notes written by
-  // whoever opened the PR meet this app's sanitiser too. That pass is also what rewrites every link to `target="_blank" rel="noopener"` (sanitize.ts
-  // `handleAnchor`), and it must leave the headings, lists, code, emphasis and links the notes renderer emits standing (test/releases-ui.test.tsx).
-  return <KitReleasesDrawer data={data} onClose={onClose} narrow={narrow} restoreFocus={restoreTarget} sanitize={sanitizeSnapshot} />;
+  const narrow = useMediaQuery(NARROW);
+  return <KitReleasesDrawer data={data} onClose={onClose} narrow={narrow} restoreFocus={restoreTarget} sanitize={sanitize} />;
 }

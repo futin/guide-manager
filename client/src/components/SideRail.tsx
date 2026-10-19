@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
-import { useMediaQuery, VersionChip } from 'ui-kit';
+import { VersionChip, useMediaQuery } from 'ui-kit';
 
+import { NARROW } from './ReleasesDrawer';
 import { IconClose, IconFavorites, IconGuides, IconMenu, IconSettings } from './icons';
-import { PHONE } from '../lib/breakpoints';
 import type { RailRow } from '../lib/rail';
 
 export type Section = 'guides' | 'favorites' | 'settings';
@@ -52,13 +52,14 @@ interface Props {
 export function SideRail({ section, onChange, guideRows, favRows, guideScope, favScope, onScope, releases }: Props) {
   /* Phone only — `.mnav` is `display:none` from 640 px up, so on a desktop this stays false and the rail never sees the open modifier. */
   const [open, setOpen] = useState(false);
-  /* ui-kit's chip draws its phone shape (a 44 px hit area round the same pill) only when told, the same breakpoint the drawer is told. */
-  const narrow = useMediaQuery(PHONE);
 
   const trees: Record<Scoped, { rows: RailRow[] | null; scope: string }> = {
     guides: { rows: guideRows, scope: guideScope },
     favorites: { rows: favRows, scope: favScope }
   };
+
+  /* The chip's phone shape (a 44 px hit area round the same pill) follows the breakpoint every other phone rule in styles.css writes out. */
+  const narrow = useMediaQuery(NARROW);
 
   /* Picking anything is a destination, so the menu closes behind it. A no-op on the desktop rail, which is never open. */
   const go = (s: Section): void => {
@@ -90,8 +91,9 @@ export function SideRail({ section, onChange, guideRows, favRows, guideScope, fa
         </button>
       </header>
       <nav id="rail-nav" className={open ? 'rail open' : 'rail'} aria-label="Sections">
-        {/* the app's only wordmark. The kicker is uppercase by `text-transform`, so the DOM — and a screen reader — reads `Guide Manager`. */}
-        <h1 className="rail-brand">
+        {/* the app's only wordmark. Read verbatim its drawn parts would be "GUIDE › manager" and an empty box, so it carries the app's name as its
+            `aria-label` and the parts are hidden (Wordmark). */}
+        <h1 className="rail-brand" aria-label="Guide Manager">
           <Wordmark />
         </h1>
         {TABS.map((t) => {
@@ -131,9 +133,12 @@ export function SideRail({ section, onChange, guideRows, favRows, guideScope, fa
             </div>
           );
         })}
-        {/* The rail's last element, sunk to its foot on the desktop; in the phone menu its last row, and like every row there a tap closes the menu. */}
+        {/* The rail's last element, sunk to its foot on the desktop; in the phone menu its last row, and like every row there a tap closes the menu. The
+            chip is ui-kit's `VersionChip` and draws its own pill — it takes no `className` — so `.rail-release` is a wrapper that owns the placement and
+            nothing else. `narrow` gives it a 44 px hit area that overhangs the pill by 8 px above and below; the wrapper's margins keep that overhang inside
+            the rail's padding box, which scrolls and would otherwise clip it. */}
         {releases && (
-          <div className="rail-version-slot">
+          <div className="rail-release">
             <VersionChip
               label={releases.label}
               dot={releases.dot}
@@ -150,13 +155,19 @@ export function SideRail({ section, onChange, guideRows, favRows, guideScope, fa
   );
 }
 
-/** Kicker over a `› guides` prompt with a block cursor. Static: nothing in this app is "working", so unlike the dashboard's cursor it never blinks. */
+/**
+ * A `GUIDE` kicker over a `› manager` prompt with a block cursor — the app's name split the way backlog-manager splits its own (`BACKLOG` over
+ * `› manager`), so the neighbouring apps read as one family. Static: nothing in this app is "working", so unlike the dashboard's cursor it never blinks.
+ * Its parts are hidden from assistive tech; the `<h1>` around it carries the name.
+ */
 function Wordmark() {
   return (
     <>
-      <span className="rail-kicker">Guide Manager</span>
-      <span className="rail-prompt">
-        <span className="rail-caret">›</span> guides
+      <span className="rail-kicker" aria-hidden="true">
+        Guide
+      </span>
+      <span className="rail-prompt" aria-hidden="true">
+        <span className="rail-caret">›</span> manager
         <span className="rail-cursor" />
       </span>
     </>

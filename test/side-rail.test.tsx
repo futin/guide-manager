@@ -79,12 +79,12 @@ describe('SideRail', () => {
     expect(calls).toEqual(['change:settings']);
   });
 
-  /* The kicker reads `GUIDE MANAGER` on screen, but by `text-transform`, which jsdom does not apply — the DOM keeps sentence case. */
+  /* Drawn as `GUIDE` over `› manager`, backlog-manager's split; read as the app's name, because the drawn parts are hidden behind the h1's aria-label. */
   it('carries the wordmark', () => {
     renderRail();
-    const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1.textContent).toContain('Manager');
-    expect(h1.textContent).toContain('› guides');
+    const h1 = screen.getByRole('heading', { level: 1, name: 'Guide Manager' });
+    expect(h1.querySelector('.rail-kicker')?.textContent).toBe('Guide');
+    expect(h1.querySelector('.rail-prompt')?.textContent).toBe('› manager');
   });
 
   it('switches section on the row that is already showing, rather than disclosing anything', () => {

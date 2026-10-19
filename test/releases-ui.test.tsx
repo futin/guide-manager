@@ -36,8 +36,8 @@ function renderApp(releases: unknown = DATA) {
   return { fetch, ...render(<App />) };
 }
 
-const chip = () => document.querySelector<HTMLElement>('.rail .rail-version-slot .uk-chip');
-const dot = () => document.querySelector('.rail .rail-version-slot .uk-chip .uk-chip-dot');
+const chip = () => document.querySelector<HTMLElement>('.rail .rail-release .uk-chip');
+const dot = () => document.querySelector('.rail .rail-release .uk-chip-dot');
 const drawer = () => screen.queryByRole('dialog', { name: "What's new" });
 
 beforeEach(() => localStorage.clear());
@@ -135,7 +135,7 @@ describe('What\'s new drawer', () => {
     renderApp();
     await waitFor(() => expect(chip()).not.toBeNull());
     fireEvent.click(document.querySelector('header.mnav button') as HTMLElement);
-    // ui-kit's phone shape for the chip: the same 28 px pill with a 44 px hit area, asked for by the same breakpoint as the drawer's full-screen shape.
+    // The same pill, with ui-kit's 44 px thumb target round it — SideRail reads the breakpoint the drawer does.
     expect(chip()?.classList.contains('uk-chip--narrow')).toBe(true);
     (chip() as HTMLElement).focus();
     fireEvent.click(chip() as HTMLElement);
