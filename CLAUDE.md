@@ -110,7 +110,8 @@ the tailnet port and the local port cannot drift apart.
   flushes during teardown); `useGuides` refetches coalesced at 300ms, and
   `GuidesView` refetches once more on the way back from the viewer. The
   message carries no numbers: any frame can post to top, so a stated percent
-  could lie.
+  could lie. The message reaches only the reading tab, so `useGuides` also refetches, through the same 300ms timer, on `visibilitychange` to
+  `visible` — the one trigger a board in another tab or on another device ever gets. Not window `focus`: that fires on every tap into the iframe.
 - **Starting a guide over has exactly one control**: the viewer header's
   `Start over` (`ViewerHeader`; its armed state is held by `GuidesView`, which
   disarms it on every change of guide). It DELETEs the row, refetches, then bumps the
