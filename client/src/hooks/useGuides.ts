@@ -5,13 +5,20 @@ import type { GuidesIndex } from '../../../shared/types';
 /**
  * Guides data hook. No polling and no refresh key: a guide appears when a skill
  * publishes one — on the order of days, not seconds — so one fetch per mount is
- * enough, and reloading the page (a fresh mount — the hook lives in AppShell, so switching section is not one) is how you pick up a new one.
+ * enough, and reloading the page (a fresh mount — the hook lives in AppShell, so switching section is not one) or bringing the tab back into view is
+ * how you pick up a new one.
  *
  * `refetch` is the one exception, and it is not polling: it exists because this
  * app now *writes* to the data it renders. Resetting a guide's progress makes
  * the card's meta line a claim about state the server has just discarded, so the
  * caller that issued the reset asks for the board again. One code path serves
  * both — the mount effect calls the same function — so the two cannot drift.
+ *
+ * Two events call it on their own, and neither is polling: a framed guide's
+ * progress announcement, which reaches only the tab doing the reading, and the
+ * tab coming back into view, which covers every other tab and device — a board
+ * left open elsewhere, or a phone restoring the app after the guide was read on
+ * the desktop. Both are in the effect at the bottom of this hook.
  */
 export interface GuidesState {
   index: GuidesIndex | null;
@@ -70,18 +77,35 @@ export function useGuides(): GuidesState {
     "something changed" tap on the shoulder, and the answer comes from the API.
     Any script in any frame can post to the top window, so a message that named a
     percent would be a message that could lie about one.
+
+    The message only ever reaches the reading tab's own top window. A board open
+    in another tab, or on another device over the tailnet, never hears it and
+    kept its mount-time percent until a reload (backlog #35) — so the tab coming
+    back into view refetches too, through the same timer, so a return that lands
+    beside a reporter message still costs one fetch. `visibilitychange`, not
+    window `focus`: it fires when a phone restores the tab or a desktop tab is
+    switched to, and not each time focus moves between the app and its own
+    iframe, which focus/blur would do on every tap into the guide.
   */
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const onMessage = (event: MessageEvent) => {
-      const data = event.data as { source?: string; kind?: string } | null;
-      if (!data || data.source !== 'guide-manager' || data.kind !== 'progress') return;
+    const schedule = () => {
       if (timer !== null) clearTimeout(timer);
       timer = setTimeout(refetch, 300);
     };
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data as { source?: string; kind?: string } | null;
+      if (!data || data.source !== 'guide-manager' || data.kind !== 'progress') return;
+      schedule();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') schedule();
+    };
     window.addEventListener('message', onMessage);
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       window.removeEventListener('message', onMessage);
+      document.removeEventListener('visibilitychange', onVisibility);
       if (timer !== null) clearTimeout(timer);
     };
   }, [refetch]);

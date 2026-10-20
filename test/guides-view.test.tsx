@@ -697,9 +697,10 @@ describe('GuidesView', () => {
     reader came back from a guide to a card still claiming the percent it had when
     the tab first loaded.
 
-    Two refetch triggers, because they cover different gaps: leaving the viewer
-    covers the whole session at once, and the reporter's own announcement covers
-    the write that lands after the reader has already tapped back.
+    Three refetch triggers, because they cover different gaps: leaving the viewer
+    covers the whole session at once, the reporter's own announcement covers
+    the write that lands after the reader has already tapped back, and the tab
+    coming back into view covers a guide read in some other tab or device.
   */
   describe('keeping the board current', () => {
     const openViewer = openTile;
@@ -770,6 +771,110 @@ describe('GuidesView', () => {
       } finally {
         jest.useRealTimers();
       }
+    });
+
+    /*
+      The reporter's message reaches only the tab doing the reading. A board open in another tab, or on a phone while the guide is read on the desktop,
+      hears about the write when it comes back into view — or never, which is the stuck bar backlog #35 was filed for.
+    */
+    describe('when the tab comes back into view', () => {
+      let visibility: DocumentVisibilityState = 'visible';
+      beforeAll(() => {
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
+      });
+      afterAll(() => {
+        // Drops the own property, so jsdom's prototype getter answers again for every suite after this one.
+        delete (document as { visibilityState?: unknown }).visibilityState;
+      });
+      const becomes = (state: DocumentVisibilityState) => {
+        visibility = state;
+        document.dispatchEvent(new Event('visibilitychange'));
+      };
+      const guideFetches = (fetchMock: jest.Mock) => fetchMock.mock.calls.filter((c) => c[0] === '/api/guides').length;
+      /** INDEX with Gamma read further — what another tab or device wrote while this one was out of view. */
+      const readFurther: GuidesIndex = {
+        projects: INDEX.projects.map((p) => ({
+          ...p,
+          guides: p.guides.map((g) => g.path === '/q/g/c.md' && g.progress ? { ...g, progress: { ...g.progress, furthestPercent: 87 } } : g)
+        }))
+      };
+
+      it('refetches, and the tile shows what was read elsewhere', async () => {
+        jest.useFakeTimers();
+        try {
+          const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
+          expect(tile('Gamma').querySelector('.guide-tile-pct')?.textContent).toBe('62%');
+          fetchMock.mockClear();
+          fetchMock.mockResolvedValue({ ok: true, json: () => Promise.resolve(readFurther) });
+
+          act(() => {
+            becomes('hidden');
+            becomes('visible');
+            jest.advanceTimersByTime(300);
+          });
+
+          expect(guideFetches(fetchMock)).toBe(1);
+          await waitFor(() => expect(tile('Gamma').querySelector('.guide-tile-pct')?.textContent).toBe('87%'));
+        } finally {
+          jest.useRealTimers();
+        }
+      });
+
+      it('does not refetch on becoming hidden', async () => {
+        jest.useFakeTimers();
+        try {
+          const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
+          fetchMock.mockClear();
+
+          act(() => {
+            becomes('hidden');
+            jest.advanceTimersByTime(300);
+          });
+
+          // Nobody is looking at a hidden board; the fetch it would cost buys a number no one reads before the next visible event replaces it.
+          expect(guideFetches(fetchMock)).toBe(0);
+        } finally {
+          visibility = 'visible';
+          jest.useRealTimers();
+        }
+      });
+
+      it('shares one refetch with a progress announcement in the same window', async () => {
+        jest.useFakeTimers();
+        try {
+          const fetchMock = (await renderGuides(), globalThis.fetch as jest.Mock);
+          fetchMock.mockClear();
+
+          act(() => {
+            window.dispatchEvent(new MessageEvent('message', { data: { source: 'guide-manager', kind: 'progress' } }));
+            becomes('visible');
+            jest.advanceTimersByTime(400);
+          });
+
+          expect(guideFetches(fetchMock)).toBe(1);
+        } finally {
+          jest.useRealTimers();
+        }
+      });
+
+      it('stops listening once unmounted', async () => {
+        jest.useFakeTimers();
+        try {
+          const result = await renderGuides();
+          const fetchMock = globalThis.fetch as jest.Mock;
+          result.unmount();
+          fetchMock.mockClear();
+
+          act(() => {
+            becomes('visible');
+            jest.advanceTimersByTime(400);
+          });
+
+          expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+          jest.useRealTimers();
+        }
+      });
     });
   });
 });
