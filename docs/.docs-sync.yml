@@ -1,0 +1,24 @@
+# docs/.docs-sync.yml — layout contract. Written by /docs-sync bootstrap after
+# user sign-off; every later run reads and obeys it. Edit only via bootstrap.
+docs-sync-plan: 1
+layout: standard-1
+docs:
+  - path: README.md
+    kind: readme
+  - path: CLAUDE.md
+    kind: index
+  - path: docs/overview.md
+    kind: overview
+  - path: docs/subsystems/render.md
+    kind: subsystem
+    note: GET /guide and /asset, and the scripts spliced into every framed guide
+  - path: docs/subsystems/favorites-progress.md
+    kind: subsystem
+    note: reading progress and saved favorites, from the framed guide to Mongo and back to the board
+out-of-scope:
+  - path: docs/superpowers/
+    reason: design specs and implementation plans — records of a moment
+  - path: skills/
+    reason: the plugin's skill payload (prompts, references, the tutor's own design notes and test scenarios), not reference docs about this codebase
+  - path: .github/pull_request_template.md
+    reason: a template PR bodies are filled from, not documentation

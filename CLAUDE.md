@@ -40,7 +40,7 @@ the tailnet port and the local port cannot drift apart.
   (`GET`/`POST`/`DELETE /api/progress`), `favorites/`
   (`GET`/`POST`/`PATCH`/`PUT order`/`DELETE /api/favorites`), `render/`
   (`GET /guide`, `GET /asset`, served styles/scripts), `registry/`
-  (read-only), `releases/` (`GET /api/releases`, the app's own release tags), `static.ts`.
+  (read-only), `releases/` (`GET /api/releases`, the app's own release tags), `health/` (`GET /api/health`), `static.ts`.
 - `client/src/` — React SPA: side rail (per-project trees under Guides and Favorites; a 60 px top bar and menu under 640 px), Guides view (iframe per
   guide), a Favorites view (saved blocks as sheets, one section per project), Settings. `App` owns `useGuides`/`useFavorites` so the rail counts both
   indexes. Neither toolbar carries a project select — the scope is the rail's. The
@@ -53,7 +53,7 @@ the tailnet port and the local port cannot drift apart.
 - `skills/study/`, `skills/tutor/` — the published skills.
 - `bin/register.js` — the registry's only writer. `bin/tailnet.js`,
   `bin/plugin-sync.js`.
-- `backlog/` — one Markdown file per item (`backlog/README.md`).
+- `backlog/` — only `source.json`: the backlog lives in this repo's GitHub issues.
   `docs/superpowers/` — design specs and implementation plans.
 
 ## Invariants
@@ -203,9 +203,28 @@ the tailnet port and the local port cannot drift apart.
   match it rather than stripping it.
 - Tests are flat in `test/`, `*.test.ts` / `*.test.tsx`; component suites opt
   into jsdom with a `@jest-environment jsdom` docblock.
-- Backlog items move `open/` → `done/`; `out-of-scope/` is flat.
 - **The PR title must pass `ci / pr-title`** — it becomes the squash commit once squash-only merges are applied: `feat|fix|perf` (`!` allowed) or
   `docs|chore|test|refactor|ci|build`, optional lowercase `(scope)`, `: `, a description. Bodies follow `.github/pull_request_template.md`.
 - **`ci.yml`'s job id stays `ci` and no job sets `name:`** — the `main-pr-only` ruleset requires `ci / checks`, `ci / pr-title`, `ci / skills` by
   exactly those names, and a required context that never reports locks `main` (no bypass). The ruleset is applied (README §CI), so `main` takes no
   direct push: backlog merges, docs commits and plugin-sync changes all land through a PR.
+
+<!-- docs-sync:
+  sources:
+    - package.json
+    - docker-compose.yml
+    - Dockerfile
+    - .env.example
+    - bin/
+    - .github/workflows/
+    - server/src/
+    - client/src/
+    - vite.config.ts
+    - .claude-plugin/
+    - assets/
+    - shared/
+    - skills/
+    - pnpm-workspace.yaml
+  kind: index
+  verified: 373d528f117e55b2d8264b50fe3f4d8f61a8c498
+-->

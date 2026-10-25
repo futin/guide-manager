@@ -17,8 +17,8 @@ around it, and tracks which ones you have opened.
 
 ## Requirements
 
-- Node 22.13+ (pnpm 11 requires it)
-- pnpm 11+ (`corepack enable`, then `corepack prepare --activate` in this repo)
+- Node 22.13+ (`engines` in `package.json`)
+- pnpm at the version `packageManager` pins (`corepack enable`, then `corepack prepare --activate` in this repo)
 - Docker (or a local MongoDB if you prefer running the Node processes bare)
 
 ## Quick start
@@ -179,14 +179,14 @@ skills (study, tutor)  ->  bin/register.js  ->  ~/.guide-manager/registry.json
   a just-registered guide shows up immediately.
 - `server/src/render/` — `GET /guide?p=<abs path>` puts a breadcrumb bar around
   the guide and frames it, so the build's own inline CSS/JS reach the browser
-  untouched; `GET /asset` serves the framed document — with the reading aid and
-  the favorites capture script spliced in — and everything sitting next to it
+  untouched; `GET /asset` serves the framed document — with the reading aid, the
+  progress reporter and the favorites capture script spliced in — and everything sitting next to it
   verbatim. Both resolve through an allowlist built from the registry, so only
   registered trees are reachable. `?at=<GuidePosition JSON>` carries a
   favorite's saved anchor through to the frame, so "open in guide" rides the
   same restore the reading-progress reporter already runs.
 - `server/src/guides/` — `GET /api/guides`: the board, with progress joined in.
-- `server/src/progress/` — `GET`/`POST /api/progress`, stored in Mongo.
+- `server/src/progress/` — `GET`/`POST`/`DELETE /api/progress`, stored in Mongo.
 - `server/src/favorites/` — `GET`/`POST`/`PATCH`/`PUT /order`/
   `DELETE /api/favorites`: a saved block of a guide (its rendered HTML, an
   address, a note), stored in Mongo, grouped and manually ordered per project.
@@ -299,6 +299,22 @@ target has a later version tag fails with `a newer release exists: <tag>`; a dis
 | `client/` | React SPA |
 | `shared/` | Types and theme tokens shared by both |
 | `assets/` | Reading-aid, progress-reporter and favorites-capture scripts served into every framed guide |
-| `bin/` | `register.js`, the registry's only writer; `tailnet.js`, the tailscale serve wrapper |
-| `backlog/` | File-based backlog, one Markdown file per item |
+| `bin/` | `register.js`, the registry's only writer; `tailnet.js`, the tailscale serve wrapper; `plugin-sync.js`, behind `pnpm run plugin:sync` |
+| `backlog/` | `source.json` only — the backlog itself lives in this repo's GitHub issues |
 | `docs/superpowers/` | Design specs and implementation plans |
+
+<!-- docs-sync:
+  sources:
+    - package.json
+    - docker-compose.yml
+    - Dockerfile
+    - .env.example
+    - bin/
+    - .github/workflows/
+    - server/src/
+    - client/src/
+    - vite.config.ts
+    - .claude-plugin/
+  kind: readme
+  verified: 373d528f117e55b2d8264b50fe3f4d8f61a8c498
+-->
