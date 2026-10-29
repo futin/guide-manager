@@ -222,7 +222,7 @@ the same gate `claude-agents-dashboard` runs.
 | Context | What it does | Green without running anything |
 |---|---|---|
 | `ci / checks` | `pnpm install --frozen-lockfile`, then `pnpm run typecheck`, `pnpm run build`, `pnpm test`, each reported on its own | never |
-| `ci / pr-title` | the PR title must match release-kit's Conventional Commits rule (`scripts/pr-title.mjs`) | on `push` (no title) |
+| `ci / pr-title` | the PR title must match release-kit's Conventional Commits rule (`scripts/pr-title.mjs`); a `feat`/`fix`/`perf` PR also needs its What's new notes (§Releases) | on `push` (no title) |
 | `ci / skills` | nothing here — this repo passes no `skills-command` | always |
 
 Allowed title types: `feat`, `fix`, `perf` (these may carry `!`), and `docs`, `chore`, `test`, `refactor`, `ci`, `build` (these may not). The scope, if
@@ -242,11 +242,16 @@ refused and go through a PR instead, and `pnpm run plugin:sync` runs after the m
 
 ### Releases
 
-`.github/workflows/release.yml` is a thin caller of release-kit's reusable `release.yml` (`@v1`, with `kit-ref: v1` kept equal to that ref), run on every
-push to `main` and on `workflow_dispatch` — the same caller backlog-manager and the dashboard have. It is not one of the ruleset's required contexts.
+`.github/workflows/release.yml` is a thin caller of release-kit's reusable `release.yml` (`@v1`, with `kit-ref: v1` kept equal to that ref) in
+`mode: rollup`, run each night at 04:00 UTC (`schedule`, `0 4 * * *`) and on `workflow_dispatch` — the same caller backlog-manager and the dashboard have.
+A merge into `main` releases nothing by itself. It is not one of the ruleset's required contexts.
+
+**One version per run.** A run gathers every releasing PR merged since the newest version tag into a single release: the bump is the largest among their
+types (below), and the notes hold one `### <Scope>` section per title scope, oldest PR first, with unscoped PRs under `### Other`. A night with only `docs`,
+`chore` and the like, or no merges at all, cuts nothing and ends green. Tags cut before the switch keep their one-PR shape; the reader handles both.
 Design: `docs/superpowers/specs/2026-10-17-release-versioning-design.md`.
 
-**The tag is the record.** The version exists only as an annotated `vX.Y.Z` tag whose message carries the PR title, the notes and `Release-*` trailers.
+**The tag is the record.** The version exists only as an annotated `vX.Y.Z` tag whose message carries the grouped notes and `Release-*` trailers.
 `package.json` `version` is not read and is not bumped, and `.claude-plugin/plugin.json` keeps its own hand-bumped version. The same tags feed the GitHub
 Release and the app's version chip and **What's new** drawer at the foot of the side rail.
 
@@ -258,7 +263,8 @@ badge contrast tests stay in `test/theme-tokens.test.ts` over this app's values.
 (both are `github:futin/…#vX.Y.Z` dependencies), then `pnpm run docker:sync`: the stack's `node_modules` lives in a named volume that only that rebuild
 drops.
 
-**What cuts one.** The PR title decides — it is the squash commit — and the version is bumped from the newest `vX.Y.Z` tag reachable from the commit:
+**What cuts one.** Each PR's title decides its type — it is the squash commit — the run takes the largest, and the version is bumped from the newest
+`vX.Y.Z` tag reachable from the run's target:
 
 | Title | While major = 0 | From 1.0.0 |
 |---|---|---|
@@ -271,7 +277,10 @@ is skipped with the warning `no PR for <sha>` — with the ruleset applied there
 
 **Where the notes come from.** The `## What's new` section of the PR body (`.github/pull_request_template.md` carries it right under the lead), up to the
 next `## ` heading, with HTML comments stripped first. Write it in reader terms: it is what the What's new drawer shows. A missing or empty section — which
-is what the untouched template yields — means the title alone is the entry. Delete it from PRs with nothing user-visible.
+is what the untouched template yields — means the title alone is the entry. `require-notes: true` in `ci.yml` makes `ci / pr-title` fail a
+`feat`/`fix`/`perf` PR while that section is missing, empty or only the template comment; `ci.yml` triggers on `edited`, so filling in the body re-runs it.
+A releasing PR with nothing worth saying writes `None` (any case, optionally `None — <reason>`) as the section's only content: the check passes and the
+PR's entry falls back to its title, with the `None` never shown. `docs`, `chore` and the other silent types are never asked for notes.
 
 **Baseline.** Until a `vX.Y.Z` tag exists the workflow releases nothing and ends green with the warning `no baseline tag — see Baseline`. `v0.1.0` is tagged
 once, by hand, on the `main` commit that contains the workflow:
@@ -287,7 +296,7 @@ The dispatch gives the baseline its GitHub Release. Every later version is cut f
 
 **Re-running.** `gh workflow run release.yml -f sha=<sha>` releases that commit and every unreleased commit before it; with no `sha` it uses the branch
 head. It is idempotent: a commit with its tag and its Release is left alone, and a tag whose Release is missing only gets the Release. A dispatch whose
-target has a later version tag fails with `a newer release exists: <tag>`; a dispatch `sha` that is not on `main` fails with
+target has a later version tag fails with `a newer release exists: <tag>` (a scheduled run in that state ends green); a dispatch `sha` that is not on `main` fails with
 `target <sha> is not on origin/main`, and nothing is tagged.
 
 ## Repo layout
