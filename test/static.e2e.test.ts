@@ -13,6 +13,7 @@ import { ProgressService } from '../server/src/progress/progress.service';
 import { ReadingProgress, ReadingProgressSchema } from '../server/src/progress/progress.schema';
 import { RegistryService, REGISTRY_FILE } from '../server/src/registry/registry.service';
 import { RenderController } from '../server/src/render/render.controller';
+import { listenLoopback } from './listen-loopback';
 
 describe('static client bundle', () => {
   let mongo: MongoMemoryServer;
@@ -43,7 +44,7 @@ describe('static client bundle', () => {
       providers: [{ provide: REGISTRY_FILE, useValue: file }, RegistryService, ProgressService]
     }).compile();
     app = moduleRef.createNestApplication();
-    await app.init();
+    await listenLoopback(app);
   });
 
   afterAll(async () => {

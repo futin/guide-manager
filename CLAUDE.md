@@ -13,7 +13,7 @@ live in `README.md` — this file holds only what a working session needs.
 | Rebuild the stack from scratch | `pnpm run docker:sync` |
 | API only, on the host | `pnpm run dev` |
 | Client only, on the host | `pnpm run dev:web` |
-| Tests | `pnpm test` (jest, `--runInBand`) |
+| Tests | `pnpm test` (jest worker pool; supertest suites bind through `test/listen-loopback.ts`) |
 | Types | `pnpm run typecheck` |
 | Production build | `pnpm run build` |
 | Publish the web port to the tailnet | `pnpm run tailnet` (`up` \| `status` \| `down`) |

@@ -9,6 +9,7 @@ import { RenderController } from '../server/src/render/render.controller';
 import { RegistryService, REGISTRY_FILE } from '../server/src/registry/registry.service';
 import { ProgressService } from '../server/src/progress/progress.service';
 import type { GuideProgress } from '../shared/types';
+import { listenLoopback } from './listen-loopback';
 
 /**
  * The compatibility suite, ported from the old test/server.test.js. These
@@ -77,7 +78,7 @@ async function makeApp(
     ]
   }).compile();
   const app = moduleRef.createNestApplication();
-  await app.init();
+  await listenLoopback(app);
   return app;
 }
 

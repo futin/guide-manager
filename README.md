@@ -204,7 +204,7 @@ skills (study, tutor)  ->  bin/register.js  ->  ~/.guide-manager/registry.json
 ## Development
 
 ```bash
-pnpm test         # jest, --runInBand (mongodb-memory-server for the e2e suites)
+pnpm test         # jest on its worker pool (mongodb-memory-server per worker for the e2e suites)
 pnpm run test:provoke # loop the progress + full suites until one fails (backlog #5's 401 hunt, ~2 h)
 pnpm run typecheck # tsc --noEmit
 pnpm run build    # nest build + vite build

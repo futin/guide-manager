@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createFlakeDiagnostics } from './flake-diagnostics';
 
 /**
- * The 401 flake (backlog #5) was sighted twice and captured zero times: the instrument wrote only to stderr, and a full `jest --runInBand` run buries or truncates
+ * The 401 flake (backlog #5) was sighted twice and captured zero times: the instrument wrote only to stderr, and a full jest run buries or truncates
  * it. This suite pins the part of the instrument that makes the next sighting survive the log — the file under the OS temp directory, the environment snapshot
  * that hypothesis 1 needs (a proxy or harness layer answering instead of the app), and above all the silence on a passing run, because an instrument that
  * writes on every green run is one somebody deletes.

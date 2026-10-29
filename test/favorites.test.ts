@@ -9,6 +9,7 @@ import { FavoritesController } from '../server/src/favorites/favorites.controlle
 import { FavoritesService } from '../server/src/favorites/favorites.service';
 import { StoredFavorite, StoredFavoriteSchema } from '../server/src/favorites/favorites.schema';
 import type { Favorite } from '../shared/types';
+import { listenLoopback } from './listen-loopback';
 
 describe('favorites', () => {
   let mongo: MongoMemoryServer;
@@ -26,7 +27,7 @@ describe('favorites', () => {
     }).compile();
     app = moduleRef.createNestApplication<NestExpressApplication>(APP_OPTIONS);
     configureApp(app);
-    await app.init();
+    await listenLoopback(app);
   });
 
   afterAll(async () => {

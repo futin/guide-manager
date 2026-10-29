@@ -11,6 +11,7 @@ import { ProgressService } from '../server/src/progress/progress.service';
 import { ReadingProgress, ReadingProgressSchema } from '../server/src/progress/progress.schema';
 import type { GuideProgress } from '../shared/types';
 import { createFlakeDiagnostics } from './flake-diagnostics';
+import { listenLoopback } from './listen-loopback';
 
 /**
  * Diagnostics for a flake seen twice: this suite's first POST came back 401
@@ -91,7 +92,7 @@ describe('progress', () => {
     }).compile();
     app = moduleRef.createNestApplication();
     app.useGlobalFilters(new DiagnosticFilter(app.getHttpAdapter()));
-    await app.init();
+    await listenLoopback(app);
   });
 
   afterAll(async () => {
