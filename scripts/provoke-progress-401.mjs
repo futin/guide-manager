@@ -48,8 +48,8 @@ const elapsed = () => `${Math.round((Date.now() - started) / 1000)}s`;
 
 for (const phase of budget) {
   for (let run = 1; run <= phase.runs; run++) {
-    // The same command `pnpm test` runs, so the suites share one process exactly as they did when the 401 was seen.
-    const result = spawnSync('pnpm', ['exec', 'jest', '--runInBand', ...phase.args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+    // The same command `pnpm test` runs — jest's worker pool, no longer `--runInBand` — so the suites share the machine the way a real run does.
+    const result = spawnSync('pnpm', ['exec', 'jest', ...phase.args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
     if (result.status === 0) {
       if (run % 10 === 0 || run === phase.runs) console.log(`${phase.name}: ${run}/${phase.runs} green (${elapsed()})`);
       continue;

@@ -13,7 +13,7 @@
     "start": "node dist/server/src/main.js",
     "dev": "nest start --watch --no-shell",
     "dev:web": "vite",
-    "test": "jest --runInBand",
+    "test": "jest",
     "test:provoke": "node scripts/provoke-progress-401.mjs",
     "typecheck": "tsc --noEmit",
     "docker:up": "docker compose up --build -d",

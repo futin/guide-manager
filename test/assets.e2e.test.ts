@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { AssetsController, REPO_ROOT } from '../server/src/render/assets.controller';
+import { listenLoopback } from './listen-loopback';
 
 describe('static assets', () => {
   let app: INestApplication;
@@ -14,7 +15,7 @@ describe('static assets', () => {
       controllers: [AssetsController]
     }).compile();
     app = moduleRef.createNestApplication();
-    await app.init();
+    await listenLoopback(app);
   });
 
   afterAll(async () => {

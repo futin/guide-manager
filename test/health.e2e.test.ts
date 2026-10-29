@@ -3,6 +3,7 @@ import request from 'supertest';
 import type { INestApplication } from '@nestjs/common';
 
 import { HealthController } from '../server/src/health/health.controller';
+import { listenLoopback } from './listen-loopback';
 
 describe('health', () => {
   let app: INestApplication;
@@ -12,7 +13,7 @@ describe('health', () => {
       controllers: [HealthController]
     }).compile();
     app = moduleRef.createNestApplication();
-    await app.init();
+    await listenLoopback(app);
   });
 
   afterAll(async () => {

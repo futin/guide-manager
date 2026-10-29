@@ -12,6 +12,7 @@ import { ProgressService } from '../server/src/progress/progress.service';
 import { ReadingProgress, ReadingProgressSchema } from '../server/src/progress/progress.schema';
 import { RegistryService, REGISTRY_FILE } from '../server/src/registry/registry.service';
 import type { GuidesIndex } from '../shared/types';
+import { listenLoopback } from './listen-loopback';
 
 describe('GET /api/guides', () => {
   let mongo: MongoMemoryServer;
@@ -46,7 +47,7 @@ describe('GET /api/guides', () => {
       providers: [{ provide: REGISTRY_FILE, useValue: file }, RegistryService, ProgressService]
     }).compile();
     app = moduleRef.createNestApplication();
-    await app.init();
+    await listenLoopback(app);
   });
 
   afterAll(async () => {

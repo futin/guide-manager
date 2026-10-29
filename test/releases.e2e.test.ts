@@ -9,6 +9,7 @@ import { formatTagMessage, readReleases } from 'release-kit';
 
 import { ReleasesModule } from '../server/src/releases/releases.module';
 import { findRepoRoot } from '../server/src/releases/releases.service';
+import { listenLoopback } from './listen-loopback';
 
 /*
  * GET /api/releases over real tmpdir repositories. Only `ReleasesModule` is mounted — `AppModule` would boot Mongo for a route that never touches it. Each
@@ -71,7 +72,7 @@ let app: INestApplication;
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({ imports: [ReleasesModule] }).compile();
   app = moduleRef.createNestApplication();
-  await app.init();
+  await listenLoopback(app);
 });
 
 afterAll(async () => {

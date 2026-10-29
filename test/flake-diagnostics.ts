@@ -6,7 +6,7 @@ import { join } from 'node:path';
 /**
  * The file half of the progress suite's 401 instrument (backlog #5, github futin/guide-manager#5).
  *
- * The flake has been sighted twice and captured zero times. Its instrument printed to stderr only, and a full `jest --runInBand` run buries or truncates
+ * The flake has been sighted twice and captured zero times. Its instrument printed to stderr only, and a full jest run buries or truncates
  * stderr, so the second sighting's evidence was lost to the log. Everything recorded here is also appended to a JSON-lines file under the OS temp directory,
  * which outlives the run, and the file's path is printed once, on the first record, so the failing run itself says where to look.
  *
