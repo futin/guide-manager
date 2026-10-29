@@ -339,11 +339,11 @@ code, kbd, samp, pre { font-family: inherit }
 .board-project-h { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--hairline) }
 .board-project-name { font-size: 19px; font-weight: 500; color: var(--ink) } /* title */
 
-/* Every tappable sheet on the board. No border and no shadow (§1): hover lifts the sheet onto --strip-hi instead, the same fill the rail uses for a
-   row under the pointer's attention. Gated on `:not(.scrolling)`: GuidesView sets that class while the board moves, or a resting pointer hovers each
+/* Every tappable sheet on the board. No border and no shadow (§1): hover moves the sheet onto --tile-hover instead — --strip-hi, the fill the rail
+   uses for a row under the pointer's attention, on the dark boards, but its own darker grey on daylight, where --strip-hi sits on the board's tone. Gated on `:not(.scrolling)`: GuidesView sets that class while the board moves, or a resting pointer hovers each
    row that slides under it and the fill walks down the list. */
 .guide-tile, .continue-tile, .series-row { cursor: pointer; transition: background .15s }
-.board:not(.scrolling) :is(.guide-tile, .continue-tile, .series-row):hover { background: var(--strip-hi) }
+.board:not(.scrolling) :is(.guide-tile, .continue-tile, .series-row):hover { background: var(--tile-hover) }
 
 /* Continue reading: up to four equal columns — a row of four is the cap the row itself enforces, so the grid never leaves a fifth column empty. Below
    the wide board it wraps to two; four 15/500 titles in a 640 px column would each get a word. */

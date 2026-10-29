@@ -81,6 +81,17 @@ describe('palette aliases', () => {
 
   const THEME_IDS = ['midnight', 'graphite', 'amber', 'nightshift', 'daylight'];
 
+  it('keeps a hovered board card at least as distinct from the page as a resting one, on every palette', () => {
+    // Daylight's --strip-hi sat at 1.02:1 on its board, so the hovered tile dissolved into the page; --tile-hover is the fix, held relative to the card.
+    const boards = tokenByTheme('board');
+    const strips = tokenByTheme('strip');
+    const hovers = tokenByTheme('tile-hover');
+    expect(Object.keys(hovers)).toEqual(THEME_IDS);
+    for (const theme of THEME_IDS) {
+      expect(contrast(boards[theme], hovers[theme])).toBeGreaterThanOrEqual(contrast(boards[theme], strips[theme]));
+    }
+  });
+
   it('clears 4.5:1 for the tutor pill text on its own tint, over the card surface, on every palette', () => {
     // --magenta alone fails on its tint in Midnight (4.01) and Graphite (4.32); --magenta-ink is the fix. Expected magnitudes are the spec's, so a
     // retuned palette that still squeaks past 4.5 but moves a long way is noticed rather than silently accepted.
