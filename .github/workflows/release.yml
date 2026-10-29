@@ -1,4 +1,4 @@
-# Tags every unreleased feat|fix|perf PR merged to main and publishes its GitHub Release (README §Releases). The tag is the record: the version lives in
+# Each night, cuts one rollup tag for every feat|fix|perf PR merged to main since the last tag and publishes its GitHub Release (README §Releases). The tag is the record: the version lives in
 # the annotated `vX.Y.Z` tag message and nowhere else (docs/superpowers/specs/2026-10-17-release-versioning-design.md D1, adopting backlog-manager's and
 # the dashboard's pipeline unchanged), so there is no file to bump and nothing to commit back to main — which matters here, because the ruleset refuses
 # every direct push to main. Not a required check: the ruleset's contexts stay exactly `ci / checks`, `ci / pr-title`, `ci / skills`.
@@ -7,8 +7,9 @@
 name: release
 
 on:
-  push:
-    branches: [main]
+  # 04:00 UTC, so the night's version is waiting in the morning. A dispatch releases on demand; the concurrency group below keeps the two from overlapping.
+  schedule:
+    - cron: '0 4 * * *'
   workflow_dispatch:
     inputs:
       sha:
@@ -31,3 +32,4 @@ jobs:
     with:
       sha: ${{ inputs.sha }}
       kit-ref: v1
+      mode: rollup

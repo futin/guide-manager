@@ -22,8 +22,9 @@ Spec: `docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` · Plan: `docs/superp
 
 <!-- Lifted verbatim into the release notes of a feat/fix/perf PR (README §Releases) — this is what the app's What's new drawer shows.
      Reader terms, a line or a few bullets: what someone reading a guide can now do. Plain Markdown: paragraphs, `- ` bullets,
-     `code`, **bold**, [links](https://…). HTML comments are stripped. Empty or deleted means the title alone is the entry —
-     delete it from PRs with nothing user-visible. -->
+     `code`, **bold**, [links](https://…). HTML comments are stripped. Required on feat / fix / perf: `ci / pr-title` fails while it
+     is empty. Nothing user-visible on a feat / fix / perf? Write `None` (or `None — <reason>`) on its own line; it is never shown. Other types may
+     delete this section. -->
 
 ## Why this shape
 

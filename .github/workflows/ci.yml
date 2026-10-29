@@ -21,6 +21,8 @@ jobs:
   ci:
     uses: futin/release-kit/.github/workflows/ci-node.yml@v1
     with:
+      # A feat|fix|perf PR fails `ci / pr-title` while its What's new section is empty; `None` on its own line opts out.
+      require-notes: true
       # build is a check of its own (nest build + vite build), not a test prerequisite: no suite reads dist/ today.
       check-commands: |
         pnpm run typecheck
