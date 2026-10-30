@@ -19,7 +19,7 @@ live in `README.md` — this file holds only what a working session needs.
 | Publish the web port to the tailnet | `pnpm run tailnet` (`up` \| `status` \| `down`) |
 | Reinstall the plugin from the pushed HEAD | `pnpm run plugin:sync` |
 | CI (every PR into `main`) | `.github/workflows/ci.yml`: typecheck, build, test, PR title (README §CI) |
-| Release (nightly 04:00 UTC: every `feat`/`fix`/`perf` merged since the last tag) | `.github/workflows/release.yml` cuts one `vX.Y.Z` tag + GitHub Release; notes = the PR body's `## What's new` (README §Releases) |
+| Release (nightly 04:17 UTC: every `feat`/`fix`/`perf` merged since the last tag) | `.github/workflows/release.yml` cuts one `vX.Y.Z` tag + GitHub Release; notes = the PR body's `## What's new` (README §Releases) |
 
 **CI is the full-suite gate — never re-run the whole `pnpm test` locally just before a push.** Push and let CI run it; locally run only the suites the change
 (or a merge of `main`) touched. Why: `~/.claude/session-analytics-log.md`, 2026-10-15.
