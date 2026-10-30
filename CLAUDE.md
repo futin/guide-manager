@@ -226,5 +226,5 @@ the tailnet port and the local port cannot drift apart.
     - skills/
     - pnpm-workspace.yaml
   kind: index
-  verified: 373d528f117e55b2d8264b50fe3f4d8f61a8c498
+  verified: 639b11139b1999cd6d7f473580d6370099a8f7db
 -->

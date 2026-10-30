@@ -13,7 +13,29 @@ around it, and tracks which ones you have opened.
   load-bearing: every published port binds `127.0.0.1`, and `pnpm run tailnet`
   is the one thing that puts the web port on the tailnet. Nothing is exposed
   publicly, and nothing is exposed to whatever wifi this laptop is on.
-- **No search, no editing, no git integration.** It is a reader.
+- **No editing, no git integration.** It is a reader. Its search boxes filter
+  what is already on screen; nothing is indexed.
+
+## Features
+
+- **One board for every project.** The side rail lists each project under Guides and Favorites, with counts; picking one scopes the view to it, and
+  `All projects` shows them all. Under 640 px the rail folds into a 60 px top bar with a menu.
+- **Guides toolbar.** A title search, a `All` / `Study` / `Tutor` switch and a sort (newest, name, type). The switch and the sort are remembered per
+  device; the search is not.
+- **Continue reading.** A row of the guides you are in the middle of, last opened first, up to four.
+- **Lesson series.** Tutor decks named `<series>-N-<desc>.html` inside a directory named `<series>` group into one series card, in lesson order. The
+  grouping is read from the path, so nothing extra is registered.
+- **Reading progress.** A framed guide reports how far you got. The board shows the furthest point reached, never a lower one. Reopening a guide resumes
+  where you left off and says so in the breadcrumb line; a tutor deck resumes by walking its own `Next`. The viewer header's `Start over` clears it.
+  The board refreshes when a guide reports progress and when its tab comes back into view, so a phone and a laptop stay in step.
+- **Favorites.** The ☆ in a guide's header lets you tap a block, widen the pick a step at a time, name it, add a note and save it. A favorite is a
+  snapshot of what you saw, plus its address in the guide. The Favorites view shows them as sheets, one section per project. You can search them by
+  title, note or text, reorder them, edit them and remove them. A favorite's link reopens the guide in the app at that spot.
+- **Settings, per device.** Five themes (Midnight Radar, Graphite, Amber CRT, Nightshift, Daylight), density, content width, font scale, the section
+  that opens on load, and the bionic reading aid (on/off, strength, frequency). They live in `localStorage` and never reach the server, so the phone and
+  the laptop can differ. A change to the reading aid repaints a guide that is already open.
+- **What's new.** A version chip at the foot of the rail opens the release notes, with a dot while there is a release you have not seen
+  ([Releases](#releases)).
 
 ## Requirements
 
@@ -192,6 +214,7 @@ skills (study, tutor)  ->  bin/register.js  ->  ~/.guide-manager/registry.json
   address, a note), stored in Mongo, grouped and manually ordered per project.
 - `server/src/releases/` — `GET /api/releases`: this checkout's own release tags via release-kit's reader (README §Releases), behind ui-kit's version
   chip at the foot of the rail and its **What's new** drawer.
+- `server/src/health/` — `GET /api/health`: answers `{ ok: true }`.
 - `assets/` — three scripts spliced into every guide the app frames: the
   bionic reading aid (bold word-openings; the Settings page and a guide's own
   panel, where it has one, write the same key, and the guide repaints live),
@@ -326,5 +349,5 @@ target has a later version tag fails with `a newer release exists: <tag>` (a sch
     - vite.config.ts
     - .claude-plugin/
   kind: readme
-  verified: 373d528f117e55b2d8264b50fe3f4d8f61a8c498
+  verified: 639b11139b1999cd6d7f473580d6370099a8f7db
 -->
