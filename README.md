@@ -243,7 +243,8 @@ refused and go through a PR instead, and `pnpm run plugin:sync` runs after the m
 ### Releases
 
 `.github/workflows/release.yml` is a thin caller of release-kit's reusable `release.yml` (`@v1`, with `kit-ref: v1` kept equal to that ref) in
-`mode: rollup`, run each night at 04:00 UTC (`schedule`, `0 4 * * *`) and on `workflow_dispatch` — the same caller backlog-manager and the dashboard have.
+`mode: rollup`, run each night at 04:17 UTC (`schedule`, `17 4 * * *`; off the hour, since GitHub delays and drops scheduled runs under top-of-hour
+load) and on `workflow_dispatch` — the same caller backlog-manager and the dashboard have.
 A merge into `main` releases nothing by itself. It is not one of the ruleset's required contexts.
 
 **One version per run.** A run gathers every releasing PR merged since the newest version tag into a single release: the bump is the largest among their
